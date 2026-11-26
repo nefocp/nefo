@@ -95,6 +95,15 @@ map $http_upgrade $panel_connection_upgrade {
     default upgrade;
     ''      close;
 }
+{{- if .Gzip}}
+
+# Compression for CSS, JavaScript, JSON, SVG and fonts too: Debian and
+# Ubuntu compress HTML only. What nginx.conf sets itself is left out here,
+# since a directive set twice in the http block is an error.
+{{- range .Gzip}}
+{{.}}
+{{- end}}
+{{- end}}
 
 {{- if .WAF}}
 
@@ -110,6 +119,41 @@ type hookData struct {
 	SitesDir   string
 	SnippetDir string
 	WAF        bool
+	Gzip       []string // compression directives, see gzipDirectives
+}
+
+// gzipSettings are the compression directives the panel wants in the http
+// block. text/html is always compressed once gzip is on, and nginx warns
+// when gzip_types lists it again.
+var gzipSettings = []struct{ name, line string }{
+	{"gzip", "gzip on;"},
+	{"gzip_vary", "gzip_vary on;"},
+	{"gzip_proxied", "gzip_proxied any;"},
+	{"gzip_comp_level", "gzip_comp_level 5;"},
+	{"gzip_min_length", "gzip_min_length 256;"},
+	{"gzip_types", "gzip_types text/css text/plain text/xml text/javascript application/javascript application/json " +
+		"application/ld+json application/manifest+json application/xml application/rss+xml application/atom+xml " +
+		"application/wasm image/svg+xml image/x-icon font/ttf font/otf application/vnd.ms-fontobject;"},
+}
+
+// gzipDirectives returns the compression directives that the other files
+// of the http block (nginx.conf and the rest of conf.d, given as their
+// text) don't set already. Commented-out lines don't count.
+func gzipDirectives(httpConf string) []string {
+	set := map[string]bool{}
+	for _, line := range strings.Split(httpConf, "\n") {
+		line, _, _ = strings.Cut(line, "#")
+		if f := strings.Fields(strings.TrimSpace(line)); len(f) > 0 {
+			set[f[0]] = true
+		}
+	}
+	var out []string
+	for _, g := range gzipSettings {
+		if !set[g.name] {
+			out = append(out, g.line)
+		}
+	}
+	return out
 }
 
 // ---- site virtual host ----

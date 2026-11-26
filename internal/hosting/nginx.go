@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/nefocp/nefo/internal/run"
@@ -102,7 +103,8 @@ func (n nginxServer) baseFiles(ctx context.Context) (map[string][]byte, error) {
 		return nil, err
 	}
 	waf := m.wafEnabled()
-	hook, err := render(hookTmpl, hookData{nginxFeatures: n.features(ctx), SitesDir: n.sitesDir(), SnippetDir: n.snippetDir(), WAF: waf})
+	hook, err := render(hookTmpl, hookData{nginxFeatures: n.features(ctx), SitesDir: n.sitesDir(), SnippetDir: n.snippetDir(), WAF: waf,
+		Gzip: gzipDirectives(n.httpConf())})
 	if err != nil {
 		return nil, err
 	}
@@ -121,6 +123,24 @@ func (n nginxServer) baseFiles(ctx context.Context) (map[string][]byte, error) {
 		}
 	}
 	return files, nil
+}
+
+// httpConf returns the text of the files that share the http block with the
+// hook file: nginx.conf and the other files in conf.d.
+func (n nginxServer) httpConf() string {
+	var b strings.Builder
+	paths, _ := filepath.Glob(filepath.Join(n.m.paths.Nginx, "conf.d", "*.conf"))
+	paths = append([]string{filepath.Join(n.m.paths.Nginx, "nginx.conf")}, paths...)
+	for _, p := range paths {
+		if p == n.hookFile() {
+			continue
+		}
+		if data, err := os.ReadFile(p); err == nil {
+			b.Write(data)
+			b.WriteString("\n")
+		}
+	}
+	return b.String()
 }
 
 func (n nginxServer) vhost(ctx context.Context, d vhostData, rewrite string) ([]byte, error) {

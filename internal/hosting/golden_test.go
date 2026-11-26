@@ -217,6 +217,11 @@ func TestNginxGoldenShared(t *testing.T) {
 			return render(hookTmpl, hookData{nginxFeatures: featuresFor(c.version, c.ipv6), SitesDir: "/etc/nginx/panel/sites", SnippetDir: "/etc/nginx/panel", WAF: c.waf})
 		})
 	}
+	// Ubuntu's nginx.conf turns gzip on (for HTML only): the rest is added.
+	render1("hook-1.24-gzip.conf", func() ([]byte, error) {
+		return render(hookTmpl, hookData{nginxFeatures: featuresFor("1.24.0", true), SitesDir: "/etc/nginx/panel/sites",
+			SnippetDir: "/etc/nginx/panel", Gzip: gzipDirectives(ubuntuNginxConf)})
+	})
 	render1("acme.conf", func() ([]byte, error) {
 		return render(acmeSnippetTmpl, struct{ Webroot string }{"/var/lib/panel-acme"})
 	})
