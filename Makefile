@@ -28,9 +28,10 @@ release-binaries:
 	GOOS=linux GOARCH=arm64 $(GOBUILD) -o dist/nefo-linux-arm64 ./cmd/nefo
 	cp scripts/install.sh dist/install.sh
 	echo "$(VERSION)" > dist/VERSION
-	# Put the public signing key into the installer before checksumming it.
+	# Put the public signing key into the installer before checksumming it
+	# ($$ is a literal $ for awk: make expands a single one).
 	if [ -s internal/update/release.pub ]; then \
-	  awk 'FNR==NR { key = key $0 "\n"; next } /^NEFO_SIGNING_KEY$/ && !done { printf "%s", key; done = 1 } { print }' \
+	  awk 'FNR==NR { key = key $$0 "\n"; next } /^NEFO_SIGNING_KEY$$/ && !done { printf "%s", key; done = 1 } { print }' \
 	    internal/update/release.pub dist/install.sh > dist/install.sh.tmp && mv dist/install.sh.tmp dist/install.sh; \
 	fi
 	cd dist && sha256sum nefo-linux-* install.sh > checksums.txt
