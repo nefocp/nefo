@@ -27,12 +27,14 @@ command -v sha256sum >/dev/null 2>&1 || die "sha256sum is required"
 
 # ---- operating system ----
 [ -r /etc/os-release ] || die "cannot read /etc/os-release"
-. /etc/os-release
-case "${ID:-}:${VERSION_ID:-}" in
+# Read it in a subshell: os-release sets VERSION, NAME and more, which would
+# overwrite this script's own variables.
+OS="$(. /etc/os-release && printf '%s:%s' "${ID:-}" "${VERSION_ID:-}")"
+case "$OS" in
   ubuntu:22.04 | ubuntu:24.04 | ubuntu:26.04 | debian:12 | debian:13) ;;
   *)
     if [ "${NEFO_FORCE:-0}" != 1 ]; then
-      die "${PRETTY_NAME:-this system} is not supported yet. Supported: Ubuntu 22.04/24.04/26.04, Debian 12/13. Set NEFO_FORCE=1 to try anyway."
+      die "$(. /etc/os-release && printf '%s' "${PRETTY_NAME:-this system}") is not supported yet. Supported: Ubuntu 22.04/24.04/26.04, Debian 12/13. Set NEFO_FORCE=1 to try anyway."
     fi
     ;;
 esac
