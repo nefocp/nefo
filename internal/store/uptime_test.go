@@ -165,7 +165,8 @@ func TestUptimeMigration(t *testing.T) {
 	if err := st.CreateSite(ctx, site); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := st.db.Exec(`DROP TABLE uptime_checks; DROP TABLE site_monitors; PRAGMA user_version = 21`); err != nil {
+	if _, err := st.db.Exec(`DROP TABLE api_keys; DROP TABLE uptime_checks; DROP TABLE site_monitors;
+		ALTER TABLE databases DROP COLUMN engine; PRAGMA user_version = 21`); err != nil {
 		t.Fatal(err)
 	}
 	st.Close()

@@ -344,12 +344,21 @@ func (t *Toolkit) Update(ctx context.Context, site *store.Site, lg Logger) error
 		}
 	}()
 
-	lg.Logf("Updating WordPress")
-	if err := t.stream(ctx, site, lg, "027", "core", "update"); err != nil {
-		return err
-	}
-	if err := t.stream(ctx, site, lg, "027", "core", "update-db"); err != nil {
-		return err
+	var problems []string
+	if min := coreMinPHP(); compareVersions(site.PHPVersion, min) < 0 {
+		// An old PHP version (a website moved from elsewhere): the newest
+		// WordPress would not run on it. Plugins and themes are fine, wp-cli
+		// skips their updates that need a newer PHP.
+		lg.Logf("Not updating WordPress itself: it needs PHP %s or newer, and this website runs PHP %s. Choose a newer PHP version in the website's settings first.", min, site.PHPVersion)
+		problems = append(problems, fmt.Sprintf("WordPress itself was not updated: it needs PHP %s or newer, and this website runs PHP %s", min, site.PHPVersion))
+	} else {
+		lg.Logf("Updating WordPress")
+		if err := t.stream(ctx, site, lg, "027", "core", "update"); err != nil {
+			return err
+		}
+		if err := t.stream(ctx, site, lg, "027", "core", "update-db"); err != nil {
+			return err
+		}
 	}
 	var failed []string
 	for _, kind := range []string{"plugin", "theme"} {
@@ -360,8 +369,10 @@ func (t *Toolkit) Update(ctx context.Context, site *store.Site, lg Logger) error
 		}
 	}
 	if len(failed) > 0 {
-		return fmt.Errorf("some %s could not be updated; the log above says why. The database backup is %s",
-			strings.Join(failed, " and "), file)
+		problems = append(problems, fmt.Sprintf("some %s could not be updated; the log above says why", strings.Join(failed, " and ")))
+	}
+	if len(problems) > 0 {
+		return fmt.Errorf("%s. The database backup is %s", strings.Join(problems, "; "), file)
 	}
 	lg.Logf("WordPress, plugins and themes are up to date")
 	return nil

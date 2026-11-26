@@ -379,10 +379,14 @@ func (m *Manager) installMoodle(ctx context.Context, site *store.Site, app *apps
 		short = short[:20]
 	}
 	lg.Logf("Running the Moodle installer (several minutes)")
+	dbtype := "mariadb"
+	if req.mysqlEngine() {
+		dbtype = "mysqli"
+	}
 	in, err := json.Marshal(map[string]any{"dir": root, "script": filepath.Join(root, "admin", "cli", "install.php"), "argv": []string{
 		"install.php", "--non-interactive", "--agree-license", "--lang=en", "--chmod=2770",
 		"--wwwroot=" + scheme + "://" + site.Domain, "--dataroot=" + data,
-		"--dbtype=mariadb", "--dbhost=localhost", "--dbname=" + req.DB.Name, "--dbuser=" + req.DB.Username,
+		"--dbtype=" + dbtype, "--dbhost=localhost", "--dbname=" + req.DB.Name, "--dbuser=" + req.DB.Username,
 		"--dbpass=" + req.DB.Password, "--prefix=mdl_",
 		"--fullname=" + strings.TrimSpace(req.Title), "--shortname=" + short,
 		"--adminuser=" + user, "--adminpass=" + req.AdminPassword, "--adminemail=" + req.AdminEmail,

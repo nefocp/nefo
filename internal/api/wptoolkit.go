@@ -83,7 +83,7 @@ func (s *Server) handleWPList(w http.ResponseWriter, r *http.Request, a *authed)
 	writeJSON(w, http.StatusOK, map[string]any{
 		"sites":     out,
 		"supported": s.hosting.Supported(),
-		"wp_cli":    map[string]any{"version": wptoolkit.WPCLIVersion, "installed": s.wpkit().Installed()},
+		"wp_cli":    map[string]any{"version": s.wpkit().CLIVersion(), "installed": s.wpkit().Installed()},
 	})
 }
 

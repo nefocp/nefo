@@ -5,6 +5,7 @@ import (
 
 	"github.com/nefocp/nefo/internal/database"
 	"github.com/nefocp/nefo/internal/hosting"
+	"github.com/nefocp/nefo/internal/postgres"
 	"github.com/nefocp/nefo/internal/software"
 )
 
@@ -15,11 +16,18 @@ type features struct {
 	Docker         bool `json:"docker"`
 	Redis          bool `json:"redis"`
 	MariaDB        bool `json:"mariadb"`
+	Postgres       bool `json:"postgres"`
+	Memcached      bool `json:"memcached"`
 	Node           bool `json:"node"`
 	Python         bool `json:"python"`
 	WordPressSites bool `json:"wordpress_sites"`
 	// WebServer is "nginx", "apache", "openlitespeed" or "" for none.
 	WebServer string `json:"web_server"`
+	// MariaDB above means a MySQL-compatible server is installed: MariaDB
+	// or MySQL. DBEngine says which: "mariadb", "mysql" or "" for none.
+	DBEngine string `json:"db_engine"`
+	// Setup: open the setup wizard after signing in (see setup.Offered).
+	Setup bool `json:"setup"`
 }
 
 // handleFeatures answers GET /api/features. The UI asks on every page
@@ -35,6 +43,9 @@ func (s *Server) handleFeatures(w http.ResponseWriter, r *http.Request, a *authe
 		Docker:    software.DockerInstalled(),
 		Redis:     software.RedisInstalled(),
 		MariaDB:   database.Installed(),
+		DBEngine:  string(database.InstalledEngine()),
+		Postgres:  postgres.Installed(),
+		Memcached: software.MemcachedInstalled(),
 		Node:      software.NodeInstalled(),
 		Python:    software.PythonReady(),
 		WebServer: s.installedWebServer(),
@@ -45,6 +56,7 @@ func (s *Server) handleFeatures(w http.ResponseWriter, r *http.Request, a *authe
 			break
 		}
 	}
+	f.Setup = s.setupOffered(r.Context(), len(sites))
 	writeJSON(w, http.StatusOK, f)
 }
 

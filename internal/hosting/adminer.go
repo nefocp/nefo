@@ -25,9 +25,12 @@ import (
 // sign-in. So Adminer is never reachable from the internet, nor by other
 // programs on the server.
 const (
-	AdminerVersion  = "6.3.1"
-	adminerURL      = "https://github.com/vrana/adminer/releases/download/v6.3.1/adminer-6.3.1-mysql.php"
-	adminerSHA256   = "97fdb49c3e941636fe4b0559b2b042de3ac105dff0daafec3c255cd6bd81d4b6"
+	AdminerVersion = "6.3.1"
+	// The build with every driver: MySQL and MariaDB, and PostgreSQL when
+	// PHP has the pgsql extension (the panel adds it with PostgreSQL). Its
+	// SQLite driver refuses every login, as Adminer has no password for it.
+	adminerURL      = "https://github.com/vrana/adminer/releases/download/v6.3.1/adminer-6.3.1.php"
+	adminerSHA256   = "a9aed04e4e68c4e46283804a69ee70cad4fbf23203b46470b760868b2fd9bd76"
 	adminerDir      = "/usr/share/panel-adminer"
 	adminerPortKey  = "adminer_port"
 	adminerTokenKey = "adminer_token"
@@ -249,4 +252,19 @@ func fetch(ctx context.Context, url string, max int64) ([]byte, error) {
 		err = fmt.Errorf("download %s: larger than expected", url)
 	}
 	return b, err
+}
+
+// AdminerPHP returns the PHP version that runs Adminer, "" without PHP.
+func (m *Manager) AdminerPHP(ctx context.Context) string { return m.adminerPHP(ctx) }
+
+// AdminerCurrent reports whether the installed Adminer is the pinned
+// release, so an older one (such as the MySQL-only build of earlier
+// panels) can be replaced by installing Adminer again.
+func (m *Manager) AdminerCurrent() bool {
+	b, err := os.ReadFile(filepath.Join(adminerDir, "index.php"))
+	if err != nil {
+		return false
+	}
+	sum := sha256.Sum256(b)
+	return hex.EncodeToString(sum[:]) == adminerSHA256
 }

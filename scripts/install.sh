@@ -7,6 +7,15 @@
 #   NEFO_REPO     GitHub repository to download from (default: nefocp/nefo)
 #   NEFO_VERSION  release tag such as v0.1.0 (default: latest)
 #   NEFO_FORCE=1  try to install on an operating system that is not supported
+#   NEFO_SETUP    options for "nefo setup", run once the panel has started
+#
+# To set the server up in the same run, give "nefo setup" options after --
+# or in NEFO_SETUP (see "nefo setup -h"):
+#
+#   curl -fsSL .../install.sh | sudo bash -s -- --web nginx --php 8.4 --db mariadb
+#   curl -fsSL .../install.sh | sudo NEFO_SETUP="--web nginx --php 8.4" bash
+#
+# Without them, nothing but the panel is installed.
 set -euo pipefail
 
 REPO="${NEFO_REPO:-nefocp/nefo}"
@@ -24,6 +33,23 @@ step() { echo "==> $*"; }
 command -v systemctl >/dev/null 2>&1 || die "systemd is required"
 command -v curl >/dev/null 2>&1 || die "curl is required"
 command -v sha256sum >/dev/null 2>&1 || die "sha256sum is required"
+
+# ---- setup options ----
+# The options for "nefo setup": NEFO_SETUP, then the arguments after "--".
+# NEFO_SETUP is split on spaces on purpose, with globbing off; an option
+# may only hold letters, digits and . , = _ -
+if [ "${1:-}" = "--" ]; then
+  shift
+fi
+set -f
+# shellcheck disable=SC2086
+set -- ${NEFO_SETUP:-} "$@"
+set +f
+for SETUP_ARG in "$@"; do
+  case "$SETUP_ARG" in
+    *[!A-Za-z0-9.,=_-]*) die "invalid setup option \"$SETUP_ARG\" (see nefo setup -h)" ;;
+  esac
+done
 
 # ---- operating system ----
 [ -r /etc/os-release ] || die "cannot read /etc/os-release"
@@ -87,6 +113,9 @@ step "Verifying checksum"
 
 install -m 0755 "$TMP/nefo-linux-$ARCH" "$BIN"
 install -d -m 0700 "$CONF_DIR" "$DATA_DIR"
+if [ "$#" -gt 0 ]; then
+  "$BIN" setup --check "$@" || die "the setup options are not valid (see above): nothing was configured"
+fi
 
 # ---- configure ----
 step "Creating the configuration and the admin account"
@@ -126,6 +155,19 @@ elif command -v firewall-cmd >/dev/null 2>&1 && firewall-cmd --state >/dev/null 
   firewall-cmd --reload >/dev/null
 fi
 
+# ---- server setup (only with setup options) ----
+# The running panel does the installs as one of its tasks, so they go on
+# even if this session ends; the panel's Software page shows them too.
+SETUP_STATUS=0
+if [ "$#" -gt 0 ]; then
+  step "Setting up the server: nefo setup $*"
+  "$BIN" setup --config "$CONF" --yes --wait 60s "$@" || SETUP_STATUS=$?
+fi
+
 echo "$INIT_OUTPUT"
 echo "If your provider has a cloud firewall (security group), allow TCP port $PORT there too."
 echo "Manage the service with: systemctl status|restart nefo   Logs: journalctl -u nefo"
+if [ "$SETUP_STATUS" -ne 0 ]; then
+  echo "The panel is installed, but the server setup stopped (see above). Fix the problem, then run: nefo setup $*" >&2
+  exit "$SETUP_STATUS"
+fi

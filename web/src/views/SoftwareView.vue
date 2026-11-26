@@ -12,6 +12,7 @@ import RowActions from '../components/RowActions.vue'
 import PHPManage from '../components/PHPManage.vue'
 import NodeVersions from '../components/NodeVersions.vue'
 import SoftwareCard from '../components/SoftwareCard.vue'
+import DbEngineCard from '../components/DbEngineCard.vue'
 import SoftwareRemoveModal from '../components/SoftwareRemoveModal.vue'
 import WebServerCard from '../components/WebServerCard.vue'
 import AppLogo from '../components/AppLogo.vue'
@@ -52,17 +53,25 @@ async function load() {
 
 onMounted(async () => {
   await load()
-  resume(['install_software', 'remove_software', 'install_web', 'remove_web'])
+  resume(['install_software', 'remove_software', 'update_software', 'install_web', 'remove_web'])
 })
 
 const byId = computed(() => Object.fromEntries(items.value.map((i) => [i.id, i])))
 const pick = (...ids) => ids.map((id) => byId.value[id]).filter(Boolean)
 const php = computed(() => items.value.filter((i) => i.kind === 'php'))
+// PHP 5.6 to 7.3 ("legacy"): for old websites only, folded away under the
+// others. "eol" (no security updates on this server) can mark newer ones too.
+const phpCurrent = computed(() => php.value.filter((p) => !p.legacy))
+const phpOld = computed(() => php.value.filter((p) => p.legacy))
+const phpOldInstalled = computed(() => phpOld.value.filter((p) => p.installed).length)
+// Composer and WP-CLI, in the Tools group.
+const tools = computed(() => pick('composer', 'wpcli'))
 const node = computed(() => byId.value.nodejs)
 
-const ICONS = { mariadb: 'database', redis: 'memory', adminer: 'sliders', nodejs: 'code', python: 'code', docker: 'box', waf: 'shield', clamav: 'lock' }
+const ICONS = { mariadb: 'database', mysql: 'database', phpmyadmin: 'sliders', postgresql: 'database', redis: 'memory', memcached: 'memory', adminer: 'sliders', nodejs: 'code', python: 'code', docker: 'box', waf: 'shield', clamav: 'lock' }
 const groups = computed(() => [
-  { id: 'data', items: pick('mariadb', 'redis', 'adminer') },
+  // MariaDB or MySQL: one card (DbEngineCard) before these.
+  { id: 'data', items: pick('postgresql', 'redis', 'memcached', 'adminer', 'phpmyadmin') },
   { id: 'runtimes', items: pick('nodejs', 'python') },
   { id: 'containers', items: pick('docker') },
   { id: 'security', items: pick('waf', 'clamav') },
@@ -89,16 +98,44 @@ function closeJob() {
 
 async function install(item, confirmed = false) {
   error.value = ''
-  if (item.kind === 'php' && item.third_party && !confirmed) {
+  // An old PHP version is installed only after the risk was shown (the
+  // server refuses it without accept_eol).
+  if (item.kind === 'php' && (item.third_party || item.legacy) && !confirmed) {
     thirdParty.value = item
     return
   }
   thirdParty.value = null
   try {
-    started(await api('POST', `api/software/${item.id}/install`, {}), item.id, item.group)
+    started(await api('POST', `api/software/${item.id}/install`, item.legacy ? { accept_eol: true } : {}), item.id, item.group)
   } catch (e) {
     error.value = errorMessage(e)
   }
+}
+
+// Update installs a tool's latest official release.
+async function update(item) {
+  error.value = ''
+  try {
+    started(await api('POST', `api/software/${item.id}/update`, {}), item.id, item.group)
+  } catch (e) {
+    error.value = errorMessage(e)
+  }
+}
+
+// What a tool's card says about where it comes from and what uses it.
+function toolNotes(it) {
+  if (!it.installed) return it.kind === 'wpcli' ? [t('software.wpcli_auto')] : []
+  const notes = []
+  if (it.kind === 'composer') {
+    notes.push(t(`software.composer_source_${it.source === 'official' ? 'official' : 'apt'}`))
+    const apps = it.usage?.apps || 0
+    const deploys = it.usage?.deploys || 0
+    if (apps) notes.push(t('software.composer_apps', { n: apps }, apps))
+    if (deploys) notes.push(t('software.composer_deploys', { n: deploys }, deploys))
+  } else {
+    notes.push(it.version ? t('software.wpcli_source') : t('software.wpcli_unknown'))
+  }
+  return notes
 }
 
 async function remove(opts) {
@@ -122,18 +159,20 @@ const working = (id) => running.value && jobItem.value === id
 // What an uninstall does, in the confirmation dialog.
 const removeBody = (item) => t(`software.remove_${item.kind}`, { name: nameOf(item), dir: item.data_dir || '' })
 const dataLabel = (item) =>
-  ['docker', 'mariadb'].includes(item.kind) && item.has_data ? t(`software.delete_data_${item.kind}`, { dir: item.data_dir }) : ''
+  ['docker', 'mariadb', 'mysql', 'postgresql'].includes(item.kind) && item.has_data ? t(`software.delete_data_${item.kind}`, { dir: item.data_dir }) : ''
 
 function phpNote(p) {
+  if (!p.installed && p.not_offered) return t(`errors.${p.not_offered}`, { detail: p.not_offered_detail || '' })
   if (!p.installed) return p.third_party ? t('software.from_ppa') : t('software.from_distro')
   if (p.used_by) return t('software.used_by', { n: p.used_by }, p.used_by)
   if (p.blocked === 'php_last') return t('software.php_only')
+  if (p.blocked === 'php_last_supported') return t('software.php_last_supported')
   return ''
 }
 
 function phpActions(p) {
   if (!p.installed) {
-    return [{ label: t('software.install'), icon: 'download', inline: true, disabled: running.value || !supported.value, onClick: () => install(p) }]
+    return [{ label: t('software.install'), icon: 'download', inline: true, disabled: running.value || !supported.value || !!p.not_offered, onClick: () => install(p) }]
   }
   return [
     { label: t('php.manage'), icon: 'settings', inline: true, onClick: () => (managePHP.value = p.version) },
@@ -145,6 +184,9 @@ function phpActions(p) {
 <template>
   <div class="pg">
     <div class="page-head sr-only"><h1 class="page-title">{{ t('software.title') }}</h1></div>
+    <Teleport defer to="#topbar-actions">
+      <RouterLink v-if="supported" class="btn" :to="{ name: 'setup' }"><Icon name="rocket" :size="15" />{{ t('software.setup_again') }}</RouterLink>
+    </Teleport>
     <p v-if="error" class="alert alert-crit pre-wrap" role="alert">{{ error }}</p>
     <p v-if="!supported" class="alert alert-warn">{{ t('websites.unsupported') }}</p>
     <JobLog v-if="job && !jobGroup" id="sw-job" :job="job" @close="closeJob" />
@@ -175,7 +217,7 @@ function phpActions(p) {
         </div>
         <JobLog v-if="job && jobGroup === 'php'" id="sw-job" :job="job" @close="closeJob" />
         <div class="php-grid">
-          <div v-for="p in php" :key="p.id" class="php-tile" :class="{ on: p.installed }">
+          <div v-for="p in phpCurrent" :key="p.id" class="php-tile" :class="{ on: p.installed }">
             <div class="php-top">
               <AppLogo name="php" size="sm" :dim="!p.installed" />
               <div class="php-name">
@@ -185,9 +227,37 @@ function phpActions(p) {
               <span v-if="working(p.id)" class="status-pill warn"><span class="spinner" aria-hidden="true"></span>{{ t('software.working') }}</span>
               <span v-else-if="p.installed" class="status-pill ok">{{ t('software.installed') }}</span>
             </div>
+            <template v-if="p.eol">
+              <span class="tag tag-crit eol-tag">{{ t('software.eol_badge') }}</span>
+              <p class="small muted eol-line">{{ t('software.eol_since', { date: p.security_until }) }}</p>
+            </template>
             <div class="php-actions"><RowActions :actions="phpActions(p)" /></div>
           </div>
         </div>
+        <!-- PHP 5.6 to 7.3: folded, for old websites only -->
+        <details v-if="phpOld.length" class="php-old">
+          <summary>
+            {{ t('software.php_old_title') }}
+            <span class="tag tag-crit">{{ t('software.eol_badge') }}</span>
+            <span v-if="phpOldInstalled" class="muted small">{{ t('software.php_old_installed', { n: phpOldInstalled }) }}</span>
+          </summary>
+          <p class="muted small php-old-hint">{{ t('software.php_old_hint') }}</p>
+          <div class="php-grid">
+            <div v-for="p in phpOld" :key="p.id" class="php-tile eol" :class="{ on: p.installed }">
+              <div class="php-top">
+                <AppLogo name="php" size="sm" :dim="!p.installed" />
+                <div class="php-name">
+                  <div class="php-v">PHP {{ p.version }}</div>
+                  <div class="small muted">{{ phpNote(p) || (p.installed ? t('software.ram_about', { mb: p.ram_mb }) : '') }}</div>
+                </div>
+                <span v-if="working(p.id)" class="status-pill warn"><span class="spinner" aria-hidden="true"></span>{{ t('software.working') }}</span>
+                <span v-else-if="p.installed" class="status-pill ok">{{ t('software.installed') }}</span>
+              </div>
+              <span class="tag tag-crit eol-tag">{{ t('software.eol_badge') }}</span>
+              <div class="php-actions"><RowActions :actions="phpActions(p)" /></div>
+            </div>
+          </div>
+        </details>
       </section>
 
       <!-- the other groups -->
@@ -198,6 +268,16 @@ function phpActions(p) {
         </div>
         <JobLog v-if="job && jobGroup === g.id" id="sw-job" :job="job" @close="closeJob" />
         <div class="sw-grid">
+          <DbEngineCard
+            v-if="g.id === 'data' && byId.mariadb"
+            :mariadb="byId.mariadb"
+            :mysql="byId.mysql || null"
+            :busy="running"
+            :working="working('mariadb') || working('mysql')"
+            :supported="supported"
+            @install="install"
+            @remove="(i) => (removing = i)"
+          />
           <SoftwareCard
             v-for="it in g.items"
             :key="it.id"
@@ -211,15 +291,51 @@ function phpActions(p) {
           >
             <template v-if="it.installed">
               <RouterLink v-if="it.kind === 'mariadb'" class="btn btn-sm" :to="{ name: 'databases' }">{{ t('software.open_databases') }}</RouterLink>
+              <RouterLink v-else-if="it.kind === 'postgresql'" class="btn btn-sm" :to="{ name: 'databases', query: { tab: 'postgres' } }">{{ t('software.open_postgresql') }}</RouterLink>
               <RouterLink v-else-if="it.kind === 'redis'" class="btn btn-sm" :to="{ name: 'databases', query: { tab: 'redis' } }">{{ t('software.open_redis') }}</RouterLink>
+              <RouterLink v-else-if="it.kind === 'memcached'" class="btn btn-sm" :to="{ name: 'databases', query: { tab: 'memcached' } }">{{ t('software.open_memcached') }}</RouterLink>
               <a v-else-if="it.kind === 'adminer'" class="btn btn-sm" href="adminer/" target="_blank" rel="noopener">
                 <Icon name="external" :size="15" />{{ t('software.open_adminer') }}
+              </a>
+              <a v-else-if="it.kind === 'phpmyadmin'" class="btn btn-sm" href="phpmyadmin/" target="_blank" rel="noopener">
+                <Icon name="external" :size="15" />{{ t('software.open_phpmyadmin') }}
               </a>
               <RouterLink v-else-if="it.kind === 'docker'" class="btn btn-sm" :to="{ name: 'docker' }">{{ t('software.open_docker') }}</RouterLink>
             </template>
           </SoftwareCard>
         </div>
         <NodeVersions v-if="g.id === 'runtimes' && node && (node.installed || node.lines)" class="sw-after-grid" :stamp="stamp" @changed="load" />
+      </section>
+
+      <!-- tools: Composer and WP-CLI -->
+      <section v-if="tools.length" class="sw-group" aria-labelledby="sw-g-tools">
+        <div class="sw-group-head">
+          <h2 id="sw-g-tools"><Icon name="terminal" :size="17" class="g-ico" />{{ t('software.group_tools') }}</h2>
+          <p class="muted small">{{ t('software.group_tools_hint') }}</p>
+        </div>
+        <JobLog v-if="job && jobGroup === 'tools'" id="sw-job" :job="job" @close="closeJob" />
+        <div class="sw-grid">
+          <SoftwareCard
+            v-for="it in tools"
+            :key="it.id"
+            :item="it"
+            :icon="it.kind === 'wpcli' ? 'wordpress' : 'package'"
+            :busy="running"
+            :working="working(it.id)"
+            :supported="supported"
+            @install="install"
+            @remove="(i) => (removing = i)"
+          >
+            <button v-if="it.installed && it.updatable" class="btn btn-sm" :disabled="running || !supported" @click="update(it)">
+              <Icon name="refresh" :size="15" />{{ t('software.update') }}
+            </button>
+            <template #extra>
+              <ul v-if="toolNotes(it).length" class="tool-notes muted small">
+                <li v-for="n in toolNotes(it)" :key="n">{{ n }}</li>
+              </ul>
+            </template>
+          </SoftwareCard>
+        </div>
       </section>
     </template>
 
@@ -236,10 +352,15 @@ function phpActions(p) {
 
     <Modal v-if="thirdParty" :title="t('software.install_title', { name: nameOf(thirdParty) })" @close="thirdParty = null">
       <div class="stack">
+        <p v-if="thirdParty.legacy" class="alert alert-warn sw-body" role="alert">
+          <strong>{{ t('software.eol_badge') }}.</strong> {{ t('software.eol_confirm', { v: thirdParty.version }) }}
+        </p>
         <p class="sw-body">{{ t('software.third_party_confirm', { name: nameOf(thirdParty) }) }}</p>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" @click="thirdParty = null">{{ t('common.cancel') }}</button>
-          <button class="btn btn-primary" :disabled="running" @click="install(thirdParty, true)"><Icon name="download" :size="15" />{{ t('software.install') }}</button>
+          <button class="btn" :class="thirdParty.legacy ? 'btn-danger' : 'btn-primary'" :disabled="running" @click="install(thirdParty, true)">
+            <Icon name="download" :size="15" />{{ thirdParty.legacy ? t('software.install_anyway') : t('software.install') }}
+          </button>
         </div>
       </div>
     </Modal>
@@ -268,6 +389,14 @@ function phpActions(p) {
 .php-actions { display: flex; justify-content: flex-end; }
 .sw-after-grid { margin: 0; }
 .sw-body { margin: 0; line-height: 1.55; }
+.php-old { display: flex; flex-direction: column; gap: 10px; }
+.php-old > summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.php-old[open] > summary { margin-bottom: 10px; }
+.php-old-hint { margin: 0 0 10px; }
+.php-tile.eol.on { border-color: var(--crit-soft); }
+.eol-tag { align-self: flex-start; }
+.eol-line { margin: -4px 0 0; }
+.tool-notes { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; }
 @media (max-width: 640px) {
   .sw-group-head { flex-direction: column; align-items: stretch; }
   .sw-grid { grid-template-columns: minmax(0, 1fr); }

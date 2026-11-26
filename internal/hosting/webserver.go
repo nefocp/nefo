@@ -59,6 +59,8 @@ type webServer interface {
 	// vhost renders a site from the server-neutral fields of d.
 	vhost(ctx context.Context, d vhostData, rewrite string) ([]byte, error)
 	adminerConf(port, token, php string) []byte
+	// phpMyAdminConf is phpMyAdmin's internal server (see phpmyadmin.go).
+	phpMyAdminConf(port, token, php string) []byte
 	// customBytes is the file with the administrator's own directives.
 	customBytes(site *store.Site) []byte
 
@@ -369,7 +371,8 @@ func (m *Manager) CheckRemove(ctx context.Context, confirm string) (string, erro
 
 // RemoveServer uninstalls a web server: it stops it, purges its packages
 // (and its firewall module), deletes the panel's files for it, Adminer's
-// internal server included, and closes the ports ufw opened for websites.
+// and phpMyAdmin's internal servers included, and closes the ports ufw
+// opened for websites.
 // Site folders in /var/www, certificates and the ACME account stay. PHP
 // stays too: the Software page manages it.
 func (m *Manager) RemoveServer(ctx context.Context, confirm string, lg Logger) error {
@@ -411,6 +414,12 @@ func (m *Manager) RemoveServer(ctx context.Context, confirm string, lg Logger) e
 		lg.Logf("Removing Adminer, which needs the web server")
 	}
 	if err := m.removeAdminer(ctx); err != nil {
+		return err
+	}
+	if fileExists(filepath.Join(phpMyAdminDir, "index.php")) {
+		lg.Logf("Removing phpMyAdmin, which needs the web server")
+	}
+	if err := m.removePhpMyAdmin(ctx); err != nil {
 		return err
 	}
 	for _, f := range ws.wafExtraFiles() {

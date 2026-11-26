@@ -43,21 +43,23 @@ Useful commands on the server:
 ## Features and roadmap
 
 - [x] Single binary with embedded UI, systemd service, one-line installer, self-update (`nefo update`); releases are checksummed and signed with Ed25519 (see [RELEASING.md](RELEASING.md))
+- [x] **First-login setup:** pick the web server, PHP versions, database server and extras on one page, with their RAM and disk cost, installed as one task; also `nefo setup --web nginx --php 8.3 --db mariadb` and the same options for the installer
 - [x] Hidden entrance path, HTTPS from the first start, a free Let's Encrypt certificate for the panel itself, secure cookies, strict CSP
-- [x] Sign-in with TOTP two-factor authentication, rate limiting and an audit log
+- [x] Sign-in with TOTP two-factor authentication, rate limiting and an audit log; **API keys** for scripts (read-only or full, address allow-list, expiry; never the terminal, the database tools or the account)
 - [x] Dashboard with live load and 7 days of history
 - [x] **Websites:** Nginx, Apache (for `.htaccess`) or OpenLiteSpeed with PHP-FPM (LSPHP on OpenLiteSpeed) in one click, one web server per server, chosen at install; suspend, redirect or password-protect a site; PHP, static and app sites (Node.js with a version per site, Python with its own virtualenv, dependencies installed as the site's user); one Linux user per site, with optional **SFTP** locked in the site's folder (password or SSH keys); per-site PHP version, limits, pool size and allowed functions; free Let's Encrypt certificates with automatic renewal, wildcard certificates through Cloudflare DNS, or your own certificate; rewrite presets (WordPress, Laravel, Drupal, Joomla, single-page apps, static sites with clean URLs…) and your own directives, checked by the web server before they apply; custom 404 page, hotlink protection, an expiry date; traffic statistics from the access log; logs
+- [x] **Import websites** from a cPanel full backup (websites, databases with their users and passwords, certificates, cron jobs) or from a site archive and SQL dumps (aaPanel, HestiaCP, CyberPanel or any server); MySQL 8 dumps adapted for MariaDB; hostile archives refused
 - [x] **Deploy from Git:** GitHub, GitLab, Gitea or any Git server over HTTPS or SSH (a deploy key per site), on demand or on every push through a signed webhook, with a deploy script run as the site's user
 - [x] **WordPress toolkit:** versions and pending updates of every WordPress site, one-click updates with a database backup first, maintenance mode, debug log, auto-updates, admin password reset, and a staging copy with its own database
 - [x] **App store:** WordPress, Joomla, Nextcloud, Drupal and Laravel in one click, with their own database; Ghost, Uptime Kuma, n8n and Gitea in Docker, each behind its own website
-- [x] **Databases:** MariaDB tuned for small servers, databases and users, SQL import and export, remote access per database (allow-listed addresses, firewall rules managed), a slow query log viewer, and Adminer reachable only through the panel's sign-in; a **Redis** key browser
+- [x] **Databases:** MariaDB or **MySQL 8.4 LTS**, tuned for small servers, databases and users, SQL import and export, remote access per database (allow-listed addresses, firewall rules managed), a slow query log viewer; **PostgreSQL** with databases, owners, import and export and backups; Adminer and **phpMyAdmin** reachable only through the panel's sign-in; a **Redis** key browser and **Memcached**
 - [x] **Web terminal:** a root shell in the browser
 - [x] **Files:** file manager with editor, upload, download, download from a URL, search by name or content, compress and extract, and a trash with 30-day restore; inside a website's folder it works as the site's user and can't leave the folder, elsewhere it works as root
 - [x] **Backups** of sites, databases and any folder, scheduled with retention, to this server, S3-compatible storage (S3, R2, B2, Wasabi, MinIO) and SFTP servers (host key pinned), with one-click restore
 - [x] Cron jobs, services, **background programs** (kept running by systemd as a site's user, restarted after a crash), processes and listening ports, SSH sign-in history, firewall (ufw), fail2ban (SSH and panel), SSH settings with lock-out guards (the panel refuses settings with which nobody could sign in, and never deletes your last firewall rule for SSH or the panel)
 - [x] **System:** operating system updates (security updates marked, checked every few hours, "restart required" shown) with optional automatic security updates, a swap file, time zone, clock synchronization and host name, TCP BBR, and disk cleanup (apt cache, journal, old logs, unused packages, Docker images)
 - [x] **Website security:** a web application firewall (ModSecurity with the OWASP Core Rule Set, per site: off, detect or block, with its events), per-IP rate limits and blocked addresses, and a malware scanner (web shells, backdoors, hidden PHP) with quarantine, plus optional ClamAV
-- [x] Software: **install and uninstall** every component (web server, PHP, MariaDB, Adminer, Redis, Node.js, Python, Docker, WAF, ClamAV), refused while websites, databases or containers still use it, data kept unless you confirm; the menu hides what is not installed; several PHP versions with their extensions and php.ini settings, Redis, several Node.js versions, Python, Docker: containers, **Compose projects** (checked: localhost-only ports, no privileged containers or system mounts), images, and a terminal in each container
+- [x] Software: **install and uninstall** every component (web server, PHP 5.6 to 8.5, MariaDB or MySQL, PostgreSQL, Adminer, phpMyAdmin, Redis, Memcached, Node.js, Python, Composer, WP-CLI, Docker, WAF, ClamAV; end-of-life PHP versions marked), refused while websites, databases or containers still use it, data kept unless you confirm; the menu hides what is not installed; several PHP versions with their extensions and php.ini settings, Redis, several Node.js versions, Python, Docker: containers, **Compose projects** (checked: localhost-only ports, no privileged containers or system mounts), images, and a terminal in each container
 - [x] Outgoing mail through an SMTP relay (Gmail, SendGrid, Mailgun, Amazon SES…), so websites can send e-mail
 - [x] **Website monitoring:** each site checked every 1 to 10 minutes (status code, an optional keyword, the certificate's expiry), down after two failed checks, uptime over 24 hours and 7 days, response times and recent failures
 - [x] Alerts by Telegram, e-mail (with their own SMTP settings), Discord, Slack and a signed webhook (load, disk, stopped services, failed backups and renewals, websites down and up again)
@@ -104,7 +106,7 @@ internal/backup/      site, database and folder backups; S3 and SFTP storage
 internal/config/      the panel's config file
 internal/cron/        cron jobs
 internal/daemons/     background programs as systemd units
-internal/database/    MariaDB: databases, users, remote access, slow query log
+internal/database/    MariaDB or MySQL: databases, users, remote access, slow query log
 internal/docker/      containers, Compose projects, images
 internal/files/       file manager, download from a URL, search, trash
 internal/gitdeploy/   deploy from Git, push webhooks
@@ -114,6 +116,8 @@ internal/logstats/    traffic statistics from access logs
 internal/mailrelay/   outgoing mail through Postfix and an SMTP relay
 internal/malware/     malware scanner and quarantine
 internal/monitor/     metrics history and alerts
+internal/pgpkey/      OpenPGP key checks for package repositories
+internal/postgres/    PostgreSQL: databases, owners, import and export
 internal/procs/       processes, listening ports, SSH sign-ins
 internal/redisui/     minimal Redis client for the key browser
 internal/run/         runs system programs, never through a shell
@@ -121,6 +125,8 @@ internal/security/    ufw, fail2ban, SSH settings
 internal/services/    systemd services
 internal/software/    PHP versions and extensions, Node.js, Python, Redis, Docker
 internal/store/       SQLite database (pure Go, no CGO) with migrations
+internal/setup/       the first-login setup (plan, RAM and disk cost)
+internal/siteimport/  importing websites from cPanel backups and site archives
 internal/system/      CPU, memory, disk and load from /proc
 internal/systools/    OS updates, swap, time zone and host name, TCP BBR, disk cleanup
 internal/terminal/    PTY for the web terminal

@@ -9,7 +9,7 @@ Công cụ WordPress cho biết phiên bản và các bản cập nhật đang c
 
 Công cụ áp dụng cho các website WordPress do Nefo cài: từ [Kho ứng dụng](./apps), bằng nút **Cài WordPress** trên một website PHP trống, hoặc là một bản staging. WordPress bạn tự tải lên sẽ không xuất hiện ở đây. Mục **WordPress** ở menu bên trái chỉ hiện khi máy chủ đã có website WordPress.
 
-Công cụ dùng wp-cli 2.12.0, được Nefo tải về ở lần dùng đầu và kiểm tra với checksum đã công bố. wp-cli chạy bằng user Linux riêng của từng website với phiên bản PHP của website đó, và không nạp plugin hay giao diện, nên một plugin lỗi không gây cản trở.
+Công cụ dùng wp-cli, được Nefo tải bản phát hành mới nhất về ở lần dùng đầu và kiểm tra với checksum SHA-512 mà bản phát hành công bố. **Phần mềm** → **Công cụ** hiện phiên bản của nó và cho phép cập nhật (xem [Phần mềm](./software#tools)). wp-cli chạy bằng user Linux riêng của từng website với phiên bản PHP của website đó, và không nạp plugin hay giao diện, nên một plugin lỗi không gây cản trở.
 
 ## Cài WordPress
 

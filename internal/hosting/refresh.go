@@ -129,6 +129,15 @@ func (m *Manager) Refresh(ctx context.Context) (changed int, err error) {
 			}
 		}
 	}
+	// phpMyAdmin's, the same way.
+	if m.PhpMyAdminInstalled() {
+		if conf, err := m.phpMyAdminConfBytes(ctx); err == nil && conf != nil {
+			if err := writeMode(m.phpMyAdminConf(), conf, 0o600); err != nil {
+				restore()
+				return 0, err
+			}
+		}
+	}
 	if len(backup) == 0 {
 		return 0, nil
 	}

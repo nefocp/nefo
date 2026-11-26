@@ -14,6 +14,7 @@ import JobLog from '../components/JobLog.vue'
 import { useJob } from '../composables/useJob.js'
 import AlertsCard from '../components/AlertsCard.vue'
 import CloudflareCard from '../components/CloudflareCard.vue'
+import ApiKeysCard from '../components/ApiKeysCard.vue'
 import MailRelayCard from '../components/MailRelayCard.vue'
 
 const { t, locale } = useI18n()
@@ -88,6 +89,7 @@ const tabs = computed(() => [
   { id: 'mail', icon: 'upload', label: t('pg.set_tab_mail') },
   { id: 'alerts', icon: 'bell', label: t('pg.set_tab_alerts') },
   { id: 'cloudflare', icon: 'cloud', label: t('pg.set_tab_cloudflare') },
+  { id: 'apikeys', icon: 'key', label: t('pg.set_tab_apikeys') },
 ])
 const tab = computed(() => (tabs.value.some((x) => x.id === route.query.tab) ? route.query.tab : 'panel'))
 const setTab = (id) => router.replace({ query: { ...route.query, tab: id === 'panel' ? undefined : id } })
@@ -196,6 +198,7 @@ onMounted(async () => {
       <MailRelayCard v-else-if="tab === 'mail'" />
       <AlertsCard v-else-if="tab === 'alerts'" />
       <CloudflareCard v-else-if="tab === 'cloudflare'" />
+      <ApiKeysCard v-else-if="tab === 'apikeys'" />
     </template>
 
     <PowerDialog v-if="power" :mode="power" @close="power = ''" />

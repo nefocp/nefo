@@ -14,6 +14,7 @@ Chương trình `nefo` ở `/usr/local/bin/nefo` vừa chạy panel, vừa có v
 | `nefo info` | Hiện URL của panel |
 | `nefo reset-password` | Đặt mật khẩu ngẫu nhiên mới và đăng xuất mọi phiên |
 | `nefo update` | Cài bản phát hành mới nhất và khởi động lại panel |
+| `nefo setup` | Cài web server, các phiên bản PHP, máy chủ cơ sở dữ liệu và các thành phần thêm |
 | `nefo version` | Hiện phiên bản |
 | `nefo init` | Tạo tệp cấu hình và tài khoản quản trị đầu tiên |
 | `nefo serve` | Chạy panel (systemd làm việc này cho bạn) |
@@ -106,6 +107,49 @@ Latest:    v0.2.0
 | `--config` | Tệp cấu hình cần đọc |
 
 Xem [Cập nhật](./update) để biết bản cập nhật được kiểm tra thế nào và nên làm gì khi cập nhật lỗi.
+
+## nefo setup
+
+Thiết lập máy chủ giống trang thiết lập của panel (xem [Những việc đầu tiên](./first-steps#set-up-the-server)): lệnh lần lượt cài một web server, các phiên bản PHP, một máy chủ cơ sở dữ liệu và các thành phần thêm. Những phần đã cài sẽ được bỏ qua, nên bạn có thể chạy lại sau khi bị lỗi. Khi lệnh chạy xong, panel không mở trang thiết lập sau khi đăng nhập nữa.
+
+```sh
+nefo setup --web nginx --php 8.3,8.4 --db mariadb --redis
+```
+
+```
+This server: 1 CPU, 960 MB of RAM (250 MB in use), 19.5 GB of free disk.
+
+What the setup installs, one after the other:
+  1. Nginx and PHP 8.3  about 40 MB of RAM, 55 MB of disk
+  2. PHP 8.4            about 25 MB of RAM, 50 MB of disk, from packages.sury.org
+  3. MariaDB            about 228 MB of RAM, 300 MB of disk
+  4. Redis              up to 64 MB of RAM, 10 MB of disk
+In all: about 357 MB more RAM and 415 MB of disk.
+
+Install? [y/N]
+```
+
+Sau khi bạn trả lời `y`, lệnh hiện nhật ký của từng phần đang cài. Nếu một phần bị lỗi, lệnh dừng ở đó, cho biết những gì đã cài xong và kết thúc với mã lỗi. Nếu không có `--web`, `--php`, `--db` hay thành phần thêm nào, lệnh đề xuất bộ lựa chọn hợp với RAM của máy chủ, giống trang thiết lập.
+
+Khi panel đang chạy, `nefo setup` nhờ panel thực hiện việc cài đặt như một tác vụ của nó: việc cài chờ các tác vụ khác xong, hiện trong panel, và vẫn tiếp tục kể cả khi bạn đóng phiên SSH. Lệnh nói chuyện với panel qua một socket trong thư mục dữ liệu, chỉ root mở được. Khi panel không chạy, `nefo setup` tự cài.
+
+| Tùy chọn | Tác dụng |
+|---|---|
+| `--web` | `nginx`, `apache`, `openlitespeed` hoặc `none`. Web server đi kèm phiên bản PHP của hệ điều hành |
+| `--php` | Các phiên bản PHP, cách nhau bằng dấu phẩy, ví dụ `8.3,8.4`, hoặc `none` |
+| `--db` | `mariadb`, `mysql` hoặc `none`. `--mariadb` giống `--db mariadb` |
+| `--redis`, `--node`, `--python`, `--docker` | Cài thêm Redis, Node.js (bản LTS mới nhất), Python cho website ứng dụng, hoặc Docker |
+| `--adminer`, `--waf` | Cài thêm Adminer hoặc tường lửa web. Cả hai đều cần web server |
+| `--clamav` | Cài thêm ClamAV, trên máy chủ có từ 2 GB RAM |
+| `--postgresql`, `--memcached` | Cài thêm PostgreSQL hoặc Memcached, khi trang Phần mềm có chúng |
+| `--yes`, `-y` | Cài mà không hỏi. Bắt buộc khi không có terminal, ví dụ trong một script |
+| `--dry-run` | Chỉ hiện những gì sẽ được cài |
+| `--skip` | Không cài gì: panel không mở trang thiết lập sau khi đăng nhập nữa |
+| `--wait` | Thời gian chờ panel khởi động, ví dụ `60s`. Trình cài đặt dùng tùy chọn này |
+| `--check` | Chỉ kiểm tra các tùy chọn. Trình cài đặt dùng nó trước khi cấu hình bất cứ thứ gì |
+| `--config` | Tệp cấu hình cần đọc |
+
+Trình cài đặt nhận đúng các tùy chọn này để thiết lập máy chủ ngay trong lần cài (xem [Cài đặt](./install#set-the-server-up-in-the-same-run)).
 
 ## nefo version
 

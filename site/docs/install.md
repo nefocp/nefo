@@ -73,7 +73,7 @@ The address uses the first IP address of the server. If your provider gives the 
 7. **Installs the systemd service** `nefo`, starts it, and enables it at boot.
 8. **Opens the panel's port** in ufw if ufw is active, or in firewalld if that is running. If neither is active, it changes no firewall.
 
-The installer installs nothing else: no web server, PHP or database. You add those later from the panel.
+Unless you give it [setup options](#set-the-server-up-in-the-same-run), the installer installs nothing else: no web server, PHP or database. The panel offers to set those up when you first sign in (see [First steps](./first-steps#set-up-the-server)).
 
 ## Open the panel for the first time
 
@@ -104,6 +104,7 @@ You can change what the installer does with these variables:
 | `NEFO_VERSION` | `latest` | Install a specific release, such as `v0.1.0`, instead of the latest one. |
 | `NEFO_REPO` | `nefocp/nefo` | Download from another GitHub repository (`owner/name`), such as a fork. |
 | `NEFO_FORCE` | not set | Set to `1` to try an operating system that isn't supported. The CPU check still applies. |
+| `NEFO_SETUP` | not set | Options for `nefo setup`, to set the server up in the same run. See [below](#set-the-server-up-in-the-same-run). |
 
 Put the variable before `bash`:
 
@@ -114,6 +115,29 @@ curl -fsSL https://github.com/nefocp/nefo/releases/latest/download/install.sh | 
 With `sudo`, write it as `| sudo NEFO_VERSION=v0.1.0 bash`.
 
 `NEFO_REPO` only changes where the installer downloads from. Later updates come from the repository built into the program, or from `update_url` in the configuration file (see [Update](./update#where-updates-come-from)).
+
+## Set the server up in the same run
+
+The installer can also set the server up, like the setup page of the panel: a web server, PHP versions, a database server and extras. Give it the options of [`nefo setup`](./cli#nefo-setup) after `bash -s --`:
+
+```sh
+curl -fsSL https://github.com/nefocp/nefo/releases/latest/download/install.sh | sudo bash -s -- --web nginx --php 8.4 --db mariadb --redis
+```
+
+Or put them in the `NEFO_SETUP` variable:
+
+```sh
+curl -fsSL https://github.com/nefocp/nefo/releases/latest/download/install.sh | sudo NEFO_SETUP="--web nginx --php 8.4 --db mariadb" bash
+```
+
+What changes with setup options:
+
+- The installer checks the options right after the download, before it configures anything. A wrong option, such as `--web caddy`, stops it, and you can run it again. Options may only contain letters, digits and `. , = _ -`.
+- Once the panel has started, the installer runs `nefo setup` with your options and `--yes`, and shows its log. This takes a few minutes. The panel does the installs as one of its tasks, so they go on even if your SSH session ends: follow them in the panel then.
+- The address, username and password are printed at the end, after the setup.
+- The panel no longer opens its setup page after you sign in.
+
+If the setup stops, for example because a download fails, the panel stays installed. The installer still prints the address and password, then says that the setup stopped, and exits with an error. Fix the problem, then run `nefo setup` with the same options: the parts that are installed are skipped.
 
 ## Install again
 

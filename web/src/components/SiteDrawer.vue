@@ -37,6 +37,7 @@ const props = defineProps({
   site: { type: Object, required: true },
   server: { type: String, default: 'nginx' },
   phpVersions: { type: Array, default: () => [] },
+  phpEol: { type: Array, default: () => [] }, // versions without security updates
   job: { type: Object, default: null },
   busy: { type: Boolean, default: false },
   database: { type: Object, default: null },
@@ -290,6 +291,7 @@ const appLabel = computed(() => (s.value.app ? appName(s.value.app) : ''))
             :site="s"
             :section="current"
             :php-versions="phpVersions"
+            :php-eol="phpEol"
             @saved="saved"
             @reissue="startJob('POST', `api/sites/${s.id}/ssl`, {})"
             @close="reset"

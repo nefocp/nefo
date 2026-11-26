@@ -9,7 +9,7 @@ The WordPress toolkit shows the version and pending updates of each WordPress si
 
 It works for the WordPress sites that Nefo installed: from the [App store](./apps), with the **Install WordPress** button of an empty PHP website, or as a staging copy. A WordPress that you uploaded yourself doesn't appear. The **WordPress** item of the left menu shows up once the server has a WordPress site.
 
-The toolkit uses wp-cli 2.12.0, which Nefo downloads on first use and checks against its published checksum. wp-cli runs as each site's own Linux user with the site's PHP version, and it doesn't load plugins or themes, so a broken plugin doesn't get in the way.
+The toolkit uses wp-cli, which Nefo downloads on first use from its latest release and checks against the release's published SHA-512 checksum. **Software** → **Tools** shows its version and updates it (see [Software](./software#tools)). wp-cli runs as each site's own Linux user with the site's PHP version, and it doesn't load plugins or themes, so a broken plugin doesn't get in the way.
 
 ## Install WordPress
 

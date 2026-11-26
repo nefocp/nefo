@@ -144,10 +144,10 @@ func (s *Store) CreateSite(ctx context.Context, site *Site) error {
 		site.PHPMemory, site.PHPUpload, site.PHPTime = 256, 64, 300
 	}
 	res, err := s.db.ExecContext(ctx,
-		`INSERT INTO sites (domain, aliases, sys_user, php_version, php_memory, php_upload, php_time, proxy_port, app_command, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO sites (domain, aliases, sys_user, php_version, php_memory, php_upload, php_time, proxy_port, app_command, disabled, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		site.Domain, strings.Join(site.Aliases, " "), site.SysUser, site.PHPVersion,
-		site.PHPMemory, site.PHPUpload, site.PHPTime, site.ProxyPort, site.AppCommand, site.CreatedAt.Unix())
+		site.PHPMemory, site.PHPUpload, site.PHPTime, site.ProxyPort, site.AppCommand, site.Disabled, site.CreatedAt.Unix())
 	if isUniqueViolation(err) {
 		return ErrConflict
 	}

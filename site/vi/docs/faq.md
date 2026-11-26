@@ -49,7 +49,7 @@ Chưa. Hãy cài Nefo trên từng máy chủ và quản lý riêng từng cái.
 
 ## Có chuyển website từ panel khác sang được không?
 
-Chưa có công cụ tự động nhập từ panel khác. Hãy chuyển từng website bằng tay: tạo website trong Nefo, tải tệp lên (bằng trình quản lý tệp, tải từ URL hoặc qua SFTP), tạo database rồi nhập tệp SQL. Xem [Website](./websites), [Tệp tin](./files) và [Cơ sở dữ liệu](./databases).
+Có. Nefo nhập được bản sao lưu đầy đủ của cPanel (website, database cùng người dùng và mật khẩu, chứng chỉ, cron job), và file nén website kèm bản dump SQL từ aaPanel, HestiaCP, CyberPanel hay máy chủ khác. Mail, vùng DNS và tài khoản FTP không được nhập. Xem [Nhập website](./import).
 
 ## Có tạo tài khoản đăng nhập riêng cho khách hàng được không?
 

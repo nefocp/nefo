@@ -14,6 +14,7 @@ The `nefo` program at `/usr/local/bin/nefo` runs the panel, and it also has a fe
 | `nefo info` | Show the panel's URL |
 | `nefo reset-password` | Set a new random password and sign out all sessions |
 | `nefo update` | Install the latest release and restart the panel |
+| `nefo setup` | Install a web server, PHP versions, a database server and extras |
 | `nefo version` | Show the version |
 | `nefo init` | Create the configuration file and the first admin account |
 | `nefo serve` | Run the panel (systemd does this for you) |
@@ -106,6 +107,49 @@ Latest:    v0.2.0
 | `--config` | The configuration file to read |
 
 See [Update](./update) for what the update checks and what to do if it fails.
+
+## nefo setup
+
+Sets the server up like the panel's setup page (see [First steps](./first-steps#set-up-the-server)): it installs a web server, PHP versions, a database server and extras, one after the other. Parts that are installed already are skipped, so you can run it again after a failure. Once it has finished, the panel no longer opens its setup page after sign-in.
+
+```sh
+nefo setup --web nginx --php 8.3,8.4 --db mariadb --redis
+```
+
+```
+This server: 1 CPU, 960 MB of RAM (250 MB in use), 19.5 GB of free disk.
+
+What the setup installs, one after the other:
+  1. Nginx and PHP 8.3  about 40 MB of RAM, 55 MB of disk
+  2. PHP 8.4            about 25 MB of RAM, 50 MB of disk, from packages.sury.org
+  3. MariaDB            about 228 MB of RAM, 300 MB of disk
+  4. Redis              up to 64 MB of RAM, 10 MB of disk
+In all: about 357 MB more RAM and 415 MB of disk.
+
+Install? [y/N]
+```
+
+After you answer `y`, it shows the log of each install. If one fails, it stops there, says what is installed already, and exits with an error. Without `--web`, `--php`, `--db` or an extra, it offers the recommended choice for the server's RAM, as the setup page does.
+
+While the panel runs, `nefo setup` asks the panel to do the installs, as one of its tasks: they wait for any other task, show in the panel, and go on even if you close the SSH session. It talks to the panel through a socket in the data folder that only root can open. When the panel isn't running, `nefo setup` does the installs itself.
+
+| Option | What it does |
+|---|---|
+| `--web` | `nginx`, `apache`, `openlitespeed` or `none`. The web server comes with your distribution's PHP version |
+| `--php` | PHP versions separated by commas, such as `8.3,8.4`, or `none` |
+| `--db` | `mariadb`, `mysql` or `none`. `--mariadb` is the same as `--db mariadb` |
+| `--redis`, `--node`, `--python`, `--docker` | Also install Redis, Node.js (the newest LTS release), Python for app websites, or Docker |
+| `--adminer`, `--waf` | Also install Adminer or the web firewall. Both need a web server |
+| `--clamav` | Also install ClamAV, on servers with 2 GB of RAM or more |
+| `--postgresql`, `--memcached` | Also install PostgreSQL or Memcached, where the Software page offers them |
+| `--yes`, `-y` | Install without asking. Needed when no terminal is attached, as in a script |
+| `--dry-run` | Only show what would be installed |
+| `--skip` | Install nothing: the panel no longer opens its setup page after sign-in |
+| `--wait` | How long to wait for the panel to start, such as `60s`. The installer uses it |
+| `--check` | Only check the options. The installer uses it before it configures anything |
+| `--config` | The configuration file to read |
+
+The installer accepts the same options, to set the server up in the same run (see [Install](./install#set-the-server-up-in-the-same-run)).
 
 ## nefo version
 

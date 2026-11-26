@@ -576,6 +576,78 @@ type poolData struct {
 	Disabled string
 	// MaxInputVars, when set, raises max_input_vars (Moodle needs 5000).
 	MaxInputVars int
+	// PHP is the pool's PHP version: every directive must be one its
+	// PHP-FPM knows (see poolDirectiveSince). "" checks the names only.
+	PHP string
+}
+
+// poolDirectiveSince lists the PHP-FPM pool directives, with the first PHP
+// version that knows each ("" for all the panel offers, 5.6 and later),
+// from ini_fpm_pool_options in php-src's sapi/fpm/fpm/fpm_conf.c of each
+// branch (https://github.com/php/php-src/blob/PHP-5.6/sapi/fpm/fpm/fpm_conf.c).
+// PHP-FPM refuses to start on a directive it does not know ("unknown
+// entry"), which would stop every website on that version, so renderPool
+// refuses to write one. A directive added to poolTmpl must be listed here.
+var poolDirectiveSince = map[string]string{
+	"user": "", "group": "", "listen": "", "listen.owner": "", "listen.group": "", "listen.mode": "",
+	"listen.backlog": "", "listen.allowed_clients": "", "listen.acl_users": "", "listen.acl_groups": "",
+	"pm": "", "pm.max_children": "", "pm.start_servers": "", "pm.min_spare_servers": "", "pm.max_spare_servers": "",
+	"pm.process_idle_timeout": "", "pm.max_requests": "", "pm.status_path": "", "ping.path": "", "ping.response": "",
+	"access.log": "", "access.format": "", "slowlog": "", "request_slowlog_timeout": "", "request_terminate_timeout": "",
+	"rlimit_files": "", "rlimit_core": "", "chroot": "", "chdir": "", "catch_workers_output": "", "clear_env": "",
+	"security.limit_extensions": "", "process.priority": "", "process.dumpable": "",
+	"request_slowlog_trace_depth":              "7.2",
+	"decorate_workers_output":                  "7.3",
+	"request_terminate_timeout_track_finished": "7.3",
+	"pm.status_listen":                         "8.0",
+	"pm.max_spawn_rate":                        "8.1",
+	"listen.setfib":                            "8.2",
+}
+
+// poolIniSince lists the php.ini settings a pool sets with php_value,
+// php_flag, php_admin_value or php_admin_flag, with the first PHP version
+// that has them (https://www.php.net/manual/en/ini.list.php). PHP-FPM does
+// not start a pool's workers with a setting PHP does not know.
+var poolIniSince = map[string]string{
+	"open_basedir": "", "sys_temp_dir": "", // sys_temp_dir: PHP 5.5
+	"upload_tmp_dir": "", "session.save_path": "", "error_log": "", "log_errors": "", "disable_functions": "",
+	"upload_max_filesize": "", "post_max_size": "", "memory_limit": "", "max_execution_time": "",
+	"max_input_vars": "", // PHP 5.3.9
+}
+
+// checkPool refuses a rendered pool with a directive or a setting that
+// PHP-FPM of version php does not know (any version when php is "").
+func checkPool(out []byte, php string) error {
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || line[0] == ';' || line[0] == '[' {
+			continue
+		}
+		key, _, ok := strings.Cut(line, "=")
+		if !ok {
+			return fmt.Errorf("refusing to write the pool line %q", line)
+		}
+		key = strings.TrimSpace(key)
+		table, name := poolDirectiveSince, key
+		if base, sub, ok := strings.Cut(key, "["); ok {
+			switch base {
+			case "env":
+				continue
+			case "php_value", "php_flag", "php_admin_value", "php_admin_flag":
+				table, name = poolIniSince, strings.TrimSuffix(sub, "]")
+			default:
+				return fmt.Errorf("refusing to write the pool directive %q", key)
+			}
+		}
+		since, known := table[name]
+		if !known {
+			return fmt.Errorf("refusing to write the pool directive %q: not known to be supported", key)
+		}
+		if php != "" && since != "" && !versionAtLeast(php, since) {
+			return fmt.Errorf("refusing to write the pool directive %q: PHP-FPM %s does not know it (PHP %s and later)", key, php, since)
+		}
+	}
+	return nil
 }
 
 // HardenedFunctions are disabled for every site unless allowed back: they
@@ -625,7 +697,17 @@ func renderPool(d poolData) ([]byte, error) {
 		return nil, fmt.Errorf("refusing to render pool settings %q %d %q", d.PM, d.Workers, d.Disabled)
 	}
 	d.Start, d.Spare = min(2, d.Workers), max(1, d.Workers/2)
-	return render(poolTmpl, d)
+	if d.PHP != "" && validate.PHPVersion(d.PHP) != nil {
+		return nil, fmt.Errorf("refusing to render a pool for PHP %q", d.PHP)
+	}
+	out, err := render(poolTmpl, d)
+	if err != nil {
+		return nil, err
+	}
+	if err := checkPool(out, d.PHP); err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 // ---- placeholder page ----

@@ -27,6 +27,7 @@ import (
 	"github.com/nefocp/nefo/internal/jobs"
 	"github.com/nefocp/nefo/internal/mailrelay"
 	"github.com/nefocp/nefo/internal/monitor"
+	"github.com/nefocp/nefo/internal/postgres"
 	"github.com/nefocp/nefo/internal/run"
 	"github.com/nefocp/nefo/internal/security"
 	"github.com/nefocp/nefo/internal/services"
@@ -46,6 +47,7 @@ type Server struct {
 	limiter  *auth.Limiter
 	hosting  *hosting.Manager
 	db       *database.Manager
+	pg       *postgres.Manager
 	files    *files.Manager
 	backup   *backup.Manager
 	cron     *cron.Manager
@@ -62,8 +64,12 @@ type Server struct {
 	now      func() time.Time // replaceable in tests
 	started  time.Time        // when the panel started
 
+	setupTest *setupHooks // replaces the setup's facts and installs in tests (setup.go)
+
 	totpMu   sync.Mutex
 	totpUsed map[int64]uint64 // last accepted TOTP time step per user, to stop replays
+
+	imports importState // websites being imported from other panels (siteimport.go)
 }
 
 // New returns a Server.
@@ -77,6 +83,7 @@ func New(cfg *config.Config, st *store.Store, log *slog.Logger) *Server {
 		hosting: hosting.New(hosting.DefaultPaths(cfg.DataDir), run.System{}, st, log,
 			cfg.ACMEDirectoryURL()),
 		db:       database.New(run.System{}, st, log),
+		pg:       postgres.New(run.System{}, st, log),
 		jobs:     jobs.NewManager(log),
 		log:      log,
 		now:      time.Now,
@@ -85,6 +92,7 @@ func New(cfg *config.Config, st *store.Store, log *slog.Logger) *Server {
 	}
 	s.files = files.New(s.fileScope)
 	s.backup = backup.New(st, s.db, s.hosting, backup.DefaultDir, log)
+	s.backup.SetPostgres(s.pg)
 	s.backup.ProtectFolders(cfg.DataDir) // folder backups never touch the panel's own data
 	s.cron = cron.New(st, run.System{}, log, s.cronUsers)
 	s.services = services.New(run.System{})
@@ -106,12 +114,18 @@ func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("POST /api/auth/login", s.handleLogin)
-	mux.Handle("POST /api/auth/logout", s.requireAuth(s.handleLogout))
-	mux.Handle("GET /api/auth/me", s.requireAuth(s.handleMe))
-	mux.Handle("POST /api/auth/password", s.requireAuth(s.handleChangePassword))
-	mux.Handle("POST /api/auth/2fa/setup", s.requireAuth(s.handleTOTPSetup))
-	mux.Handle("POST /api/auth/2fa/enable", s.requireAuth(s.handleTOTPEnable))
-	mux.Handle("POST /api/auth/2fa/disable", s.requireAuth(s.handleTOTPDisable))
+	// sessionOnly: routes an API key must never reach, even a full one
+	// (apikeys_test.go walks the routes to keep it so).
+	mux.Handle("POST /api/auth/logout", s.sessionOnly(s.handleLogout))
+	mux.Handle("GET /api/auth/me", s.sessionOnly(s.handleMe))
+	mux.Handle("POST /api/auth/password", s.sessionOnly(s.handleChangePassword))
+	mux.Handle("POST /api/auth/2fa/setup", s.sessionOnly(s.handleTOTPSetup))
+	mux.Handle("POST /api/auth/2fa/enable", s.sessionOnly(s.handleTOTPEnable))
+	mux.Handle("POST /api/auth/2fa/disable", s.sessionOnly(s.handleTOTPDisable))
+	// API keys for scripts (apikeys.go).
+	mux.Handle("GET /api/settings/api-keys", s.sessionOnly(s.handleListAPIKeys))
+	mux.Handle("POST /api/settings/api-keys", s.sessionOnly(s.handleCreateAPIKey))
+	mux.Handle("DELETE /api/settings/api-keys/{id}", s.sessionOnly(s.handleDeleteAPIKey))
 
 	mux.Handle("GET /api/system/info", s.requireAuth(s.handleSystemInfo))
 	mux.Handle("GET /api/system/stats", s.requireAuth(s.handleSystemStats))
@@ -196,6 +210,13 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/sites/{id}/monitor", s.requireAuth(s.handleGetSiteMonitor))
 	mux.Handle("PUT /api/sites/{id}/monitor", s.requireAuth(s.handleSaveSiteMonitor))
 	mux.Handle("GET /api/uptime", s.requireAuth(s.handleUptimeSummary))
+	// Importing websites from cPanel and other panels (siteimport.go).
+	mux.Handle("POST /api/import", s.requireAuth(s.handleImportStart))
+	mux.Handle("GET /api/import", s.requireAuth(s.handleImportList))
+	mux.Handle("GET /api/import/{id}", s.requireAuth(s.handleImportGet))
+	mux.Handle("POST /api/import/{id}/run", s.requireAuth(s.handleImportRun))
+	mux.Handle("POST /api/import/{id}/stop", s.requireAuth(s.handleImportStop))
+	mux.Handle("DELETE /api/import/{id}", s.requireAuth(s.handleImportDelete))
 
 	mux.Handle("GET /api/wordpress", s.requireAuth(s.handleWPList))
 	mux.Handle("GET /api/wordpress/{id}", s.requireAuth(s.handleWPStatus))
@@ -222,6 +243,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/db/slowlog", s.requireAuth(s.handleDBSlowLog))
 	mux.Handle("PUT /api/db/slowlog", s.requireAuth(s.handleSetDBSlowLog))
 	mux.Handle("DELETE /api/db/slowlog", s.requireAuth(s.handleClearDBSlowLog))
+
+	s.postgresRoutes(mux) // PostgreSQL and Memcached (postgres.go)
 
 	mux.Handle("GET /api/redis", s.requireAuth(s.handleRedisInfo))
 	mux.Handle("GET /api/redis/keys", s.requireAuth(s.handleRedisScan))
@@ -305,6 +328,11 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/software", s.requireAuth(s.handleSoftware))
 	mux.Handle("POST /api/software/{id}/install", s.requireAuth(s.handleSoftwareInstall))
 	mux.Handle("POST /api/software/{id}/remove", s.requireAuth(s.handleSoftwareRemove))
+	mux.Handle("POST /api/software/{id}/update", s.requireAuth(s.handleSoftwareUpdate))
+	// The setup wizard (setup.go); "nefo setup" reaches it through ServeLocal (local.go).
+	mux.Handle("GET /api/setup", s.requireAuth(s.handleGetSetup))
+	mux.Handle("POST /api/setup", s.requireAuth(s.handleStartSetup))
+	mux.Handle("POST /api/setup/skip", s.requireAuth(s.handleSkipSetup))
 
 	mux.Handle("GET /api/system/history", s.requireAuth(s.handleHistory))
 	mux.Handle("GET /api/alerts", s.requireAuth(s.handleGetAlerts))
@@ -317,7 +345,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/docker/run", s.requireAuth(s.handleDockerRun))
 	mux.Handle("POST /api/docker/containers/{id}/{action}", s.requireAuth(s.handleDockerAction))
 	mux.Handle("GET /api/docker/containers/{id}/logs", s.requireAuth(s.handleDockerLogs))
-	mux.Handle("GET /api/docker/containers/{id}/terminal", s.requireAuth(s.handleContainerTerminal))
+	mux.Handle("GET /api/docker/containers/{id}/terminal", s.sessionOnly(s.handleContainerTerminal))
 	mux.Handle("GET /api/docker/images", s.requireAuth(s.handleListImages))
 	mux.Handle("POST /api/docker/images/remove", s.requireAuth(s.handleRemoveImage))
 	mux.Handle("POST /api/docker/images/prune", s.requireAuth(s.handlePruneImages))
@@ -329,7 +357,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/docker/compose/{name}/{action}", s.requireAuth(s.handleComposeAction))
 	mux.Handle("GET /api/docker/compose/{name}/logs", s.requireAuth(s.handleComposeLogs))
 
-	mux.Handle("GET /api/terminal", s.requireAuth(s.handleTerminal))
+	mux.Handle("GET /api/terminal", s.sessionOnly(s.handleTerminal))
 
 	mux.Handle("GET /api/jobs", s.requireAuth(s.handleListJobs))
 	mux.Handle("GET /api/jobs/{id}", s.requireAuth(s.handleGetJob))
@@ -361,7 +389,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found")
 	})
-	mux.Handle("/adminer/", s.requireAuth(s.handleAdminer))
+	mux.Handle("/adminer/", s.sessionOnly(s.handleAdminer))
+	mux.Handle("/phpmyadmin/", s.sessionOnly(s.handlePhpMyAdmin))
 	mux.Handle("/", s.staticHandler())
 
 	var h http.Handler = mux
@@ -389,6 +418,13 @@ func (s *Server) RefreshConfig(ctx context.Context) {
 		s.log.Error("refresh fail2ban configuration", "err", err)
 	} else if changed {
 		s.log.Info("updated the fail2ban jails")
+	}
+	// Ubuntu servers still on the frozen ppa:ondrej/php move to
+	// packages.sury.org/php (once; no apt-get update here).
+	if msg, err := s.software.MigratePHPRepository(ctx, s.cfg.DataDir+"/apt-backup"); err != nil {
+		s.log.Warn("PHP repository", "err", err)
+	} else if msg != "" {
+		s.log.Info("PHP repository: " + msg)
 	}
 }
 
@@ -424,6 +460,9 @@ func (s *Server) RunMaintenance(ctx context.Context) {
 		s.renewPanelCertificate(ctx)
 		s.refreshCatalog(ctx, false)
 		s.checkOSUpdates(ctx) // apt-get update at most every few hours (ostools.go)
+		if err := s.db.RefreshMySQLKey(ctx); err != nil && ctx.Err() == nil {
+			s.log.Warn("renew the MySQL repository key", "err", err)
+		}
 		select {
 		case <-ctx.Done():
 			return
@@ -457,8 +496,8 @@ func securityHeaders(next http.Handler) http.Handler {
 		// no-referrer also keeps the secret entrance out of other sites' logs.
 		h.Set("Referrer-Policy", "no-referrer")
 		h.Set("Permissions-Policy", "camera=(), microphone=(), geolocation=()")
-		// Adminer sends its own, nonce-based policy.
-		if !isAdminer(r) {
+		// Adminer and phpMyAdmin send their own policies.
+		if !isDBTool(r) {
 			h.Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; "+
 				"style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; "+
 				"object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
@@ -477,9 +516,14 @@ func requireCustomHeader(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodGet, r.Method == http.MethodHead, r.Method == http.MethodOptions:
-		case isAdminer(r):
-			// Adminer's plain HTML forms cannot send the header; it has its own
-			// CSRF token, and http.CrossOriginProtection still applies.
+		case isDBTool(r):
+			// Adminer's and phpMyAdmin's plain HTML forms cannot send the
+			// header; each has its own CSRF token, and
+			// http.CrossOriginProtection still applies.
+		case hasBearer(r):
+			// An API key (apikeys.go): a browser cannot send this header to
+			// another origin without a preflight either, and a request with
+			// it is never treated as a cookie session.
 		default:
 			if r.Header.Get("X-Requested-With") != "panel" {
 				writeError(w, http.StatusForbidden, "csrf")

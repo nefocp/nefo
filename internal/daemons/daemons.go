@@ -345,7 +345,7 @@ func (m *Manager) unit(d *store.Daemon, site *store.Site) string {
 	return fmt.Sprintf(`# Managed by the panel. Do not edit: the panel rewrites this file.
 [Unit]
 Description=Background program %[1]d of %[2]s
-After=network.target mariadb.service redis-server.service
+After=network.target mariadb.service mysql.service redis-server.service
 
 [Service]
 Type=simple

@@ -15,6 +15,25 @@ After you [install Nefo](./install), work through these steps in order. Each one
 
 If you lost the URL or the password, run `nefo info` or `nefo reset-password` on the server (see [Command line](./cli)).
 
+## Set up the server
+
+On a new server, the panel opens **Set up this server** right after you sign in. On one page, you choose what the server needs, and the panel installs it all in one go, one part after the other.
+
+1. Choose a **Web server**: **Nginx** (recommended), **Apache** for websites that need `.htaccess` files, **OpenLiteSpeed**, or **None** for a server without websites, such as one that only runs Docker apps.
+2. Tick one or more **PHP versions**. The web server always comes with your distribution's PHP version as well. Other versions come from the `packages.sury.org/php` repository, on Ubuntu and Debian, which the panel adds to the server. Old versions past their end of life are not offered here: install them from the **Software** page if an old website needs one.
+3. Choose the **Database server**: **MariaDB** (recommended), **MySQL** where the Software page offers it, or **None**.
+4. Tick the **Extras** you want: Redis, Node.js, Python, Docker, Adminer and the web firewall. ClamAV is offered on servers with 2 GB of RAM or more, and PostgreSQL and Memcached where the Software page offers them.
+5. Check the summary at the bottom. It shows the server's CPUs, RAM and free disk, and roughly how much RAM and disk your choice adds. If the choice may not fit, a warning says so, but you can still install.
+6. Click **Install**.
+
+The page starts with a choice that suits the server's RAM: Nginx, the newest PHP version and MariaDB, plus Redis from about 1.5 GB of RAM. Docker and the other extras are never ticked for you.
+
+The log shows each part as it installs, and the whole setup is one task. If a part fails, the setup stops there and tells you what is installed already. Fix the problem, then click **Install** again: the parts that are installed are skipped.
+
+To set the server up yourself instead, click **Skip for now**. You can run the setup again at any time from **Software** → **Run the setup again**, or with [`nefo setup`](./cli#nefo-setup) on the server. You can also [set the server up while installing Nefo](./install#set-the-server-up-in-the-same-run).
+
+The panel stops opening the setup after sign-in once it has finished or was skipped, and on a server that already has a web server or a website.
+
 ## Change the password
 
 Replace the password from the installer with one you keep in a password manager.
@@ -42,7 +61,7 @@ If you lose your phone, you can only turn two-factor authentication off from the
 
 ## Install a web server and PHP
 
-Websites need a web server. Nefo runs one per server.
+Websites need a web server. Nefo runs one per server. If the [setup](#set-up-the-server) installed one, skip this step.
 
 1. Open **Websites**. On a new server it shows **Install the web server**.
 2. Choose a web server:

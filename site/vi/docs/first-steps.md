@@ -15,6 +15,25 @@ Sau khi [cài Nefo](./install), hãy làm lần lượt các bước dưới đ�
 
 Nếu bạn làm mất URL hoặc mật khẩu, hãy chạy `nefo info` hoặc `nefo reset-password` trên máy chủ (xem [Dòng lệnh](./cli)).
 
+## Thiết lập máy chủ {#set-up-the-server}
+
+Trên máy chủ mới, ngay sau khi bạn đăng nhập, panel mở trang **Thiết lập máy chủ**. Trên một trang duy nhất, bạn chọn những gì máy chủ cần, và panel cài tất cả trong một lượt, lần lượt từng phần.
+
+1. Chọn **Web server**: **Nginx** (khuyên dùng), **Apache** cho website cần tệp `.htaccess`, **OpenLiteSpeed**, hoặc **Không cài** cho máy chủ không chạy website, ví dụ chỉ chạy ứng dụng Docker.
+2. Đánh dấu một hoặc nhiều **phiên bản PHP**. Web server luôn đi kèm phiên bản PHP của hệ điều hành. Các phiên bản khác được lấy từ kho `packages.sury.org/php`, trên cả Ubuntu và Debian, và panel sẽ thêm kho đó vào máy chủ. Các phiên bản cũ đã hết hỗ trợ không có ở đây: nếu một website cũ cần, hãy cài chúng từ trang **Phần mềm**.
+3. Chọn **Máy chủ cơ sở dữ liệu**: **MariaDB** (khuyên dùng), **MySQL** nếu trang Phần mềm có, hoặc **Không cài**.
+4. Đánh dấu các **Thành phần thêm** bạn cần: Redis, Node.js, Python, Docker, Adminer và tường lửa web. ClamAV chỉ hiện trên máy chủ có từ 2 GB RAM, còn PostgreSQL và Memcached hiện khi trang Phần mềm có chúng.
+5. Xem phần tóm tắt ở cuối trang. Phần này cho biết số CPU, RAM và dung lượng ổ đĩa còn trống của máy chủ, cùng lượng RAM và ổ đĩa ước tính mà lựa chọn của bạn tốn thêm. Nếu có thể không đủ, trang sẽ cảnh báo, nhưng bạn vẫn cài được.
+6. Bấm **Cài đặt**.
+
+Trang chọn sẵn một bộ hợp với RAM của máy chủ: Nginx, phiên bản PHP mới nhất và MariaDB, thêm Redis nếu máy có từ khoảng 1,5 GB RAM. Docker và các thành phần thêm khác không bao giờ được chọn sẵn.
+
+Nhật ký hiện từng phần khi đang cài, và toàn bộ việc thiết lập là một tác vụ. Nếu một phần bị lỗi, quá trình dừng ở đó và cho biết những gì đã cài xong. Hãy khắc phục lỗi, rồi bấm **Cài đặt** lần nữa: các phần đã cài sẽ được bỏ qua.
+
+Nếu muốn tự thiết lập máy chủ, bấm **Để sau**. Bạn có thể chạy lại bước thiết lập bất cứ lúc nào từ **Phần mềm** → **Chạy lại thiết lập máy chủ**, hoặc bằng lệnh [`nefo setup`](./cli#nefo-setup) trên máy chủ. Bạn cũng có thể [thiết lập máy chủ ngay khi cài Nefo](./install#set-the-server-up-in-the-same-run).
+
+Panel thôi mở trang thiết lập sau khi đăng nhập khi việc thiết lập đã xong hoặc đã được bỏ qua, và trên máy chủ đã có web server hoặc website.
+
 ## Đổi mật khẩu
 
 Hãy thay mật khẩu do trình cài đặt tạo bằng một mật khẩu bạn lưu trong trình quản lý mật khẩu.
@@ -42,7 +61,7 @@ Nếu mất điện thoại, bạn chỉ tắt được xác thực hai lớp t�
 
 ## Cài web server và PHP
 
-Website cần có web server. Nefo chạy một web server cho mỗi máy chủ.
+Website cần có web server. Nefo chạy một web server cho mỗi máy chủ. Nếu bước [thiết lập máy chủ](#set-up-the-server) đã cài web server, hãy bỏ qua phần này.
 
 1. Mở **Website**. Trên máy chủ mới, trang này hiện **Cài web server**.
 2. Chọn một web server:

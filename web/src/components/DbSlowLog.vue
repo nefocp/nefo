@@ -5,10 +5,12 @@ import Icon from './Icon.vue'
 import { api } from '../api.js'
 import { errorMessage } from '../errors.js'
 import { formatBytes, formatDateTime } from '../format.js'
+import { dbEngineName } from '../features.js'
 
 // DbSlowLog turns MariaDB's slow query log on or off and shows its newest
 // entries.
 const { t, locale } = useI18n()
+const engine = dbEngineName() // "MariaDB" or "MySQL", for the messages
 
 const settings = ref(null)
 const entries = ref([])
@@ -80,11 +82,11 @@ onMounted(load)
     <span v-if="!settings && !error" class="skel" style="height: 160px; border-radius: 14px"></span>
 
     <template v-if="settings">
-      <p v-if="!settings.running" class="alert alert-warn">{{ t('databases.slow_not_running') }}</p>
+      <p v-if="!settings.running" class="alert alert-warn">{{ t('databases.slow_not_running', { engine }) }}</p>
       <form class="opt slow-opt" @submit.prevent="save">
         <div class="opt-text">
           <div class="opt-title">{{ t('databases.slow_title') }}</div>
-          <div class="opt-hint">{{ t('databases.slow_intro') }}</div>
+          <div class="opt-hint">{{ t('databases.slow_intro', { engine }) }}</div>
         </div>
         <label class="slow-threshold">
           <span>{{ t('databases.slow_threshold') }}</span>

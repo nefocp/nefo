@@ -93,6 +93,9 @@ func (s *Server) handleListBackups(w http.ResponseWriter, r *http.Request, a *au
 	}
 	sites, _ := s.store.ListSites(ctx)
 	dbs, _ := s.store.ListDatabases(ctx)
+	if pgdbs, err := s.store.ListPGDatabases(ctx); err == nil {
+		dbs = append(dbs, pgdbs...)
+	}
 	apps, _ := s.store.ListApps(ctx)
 	// Folders have no list of their own: those backed up before are suggested.
 	targets := map[string][]string{"site": {}, "database": {}, "folder": {}, "app": {}}
@@ -106,6 +109,7 @@ func (s *Server) handleListBackups(w http.ResponseWriter, r *http.Request, a *au
 	for _, d := range dbs {
 		targets["database"] = append(targets["database"], d.Name)
 	}
+	sort.Strings(targets["database"]) // MariaDB and PostgreSQL together
 	// App store instances (Docker and service apps), by instance name.
 	for _, in := range apps {
 		targets["app"] = append(targets["app"], in.Name)

@@ -478,16 +478,19 @@ var olsAdminerAddrRe = regexp.MustCompile(`(?m)^\s*address\s+(127\.0\.0\.1:[0-9]
 
 // listenersStale reports whether the main process listens on other TCP
 // addresses than the configuration has: ports 80 and 443 on every address
-// (IPv6 too when the server has it) and Adminer's, if installed.
+// (IPv6 too when the server has it) and Adminer's and phpMyAdmin's, if
+// installed.
 func (o olsServer) listenersStale(main int) bool {
 	any := "0.0.0.0"
 	if ipv6Enabled() {
 		any = "::"
 	}
 	want := map[string]bool{any + ":80": true, any + ":443": true}
-	if b, err := os.ReadFile(filepath.Join(o.sitesDir(), "_adminer.conf")); err == nil {
-		if mm := olsAdminerAddrRe.FindSubmatch(b); mm != nil {
-			want[string(mm[1])] = true
+	for _, f := range []string{"_adminer.conf", "_phpmyadmin.conf"} {
+		if b, err := os.ReadFile(filepath.Join(o.sitesDir(), f)); err == nil {
+			if mm := olsAdminerAddrRe.FindSubmatch(b); mm != nil {
+				want[string(mm[1])] = true
+			}
 		}
 	}
 	have := listenAddrs(main)

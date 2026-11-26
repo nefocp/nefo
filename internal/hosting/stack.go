@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/nefocp/nefo/internal/run"
+	"github.com/nefocp/nefo/internal/software"
 	"github.com/nefocp/nefo/internal/validate"
 )
 
@@ -17,6 +18,8 @@ import (
 type PHPInfo struct {
 	Version string `json:"version"`
 	Running bool   `json:"running"`
+	// EOL: it gets no security updates on this server (software.PHPEndOfLife).
+	EOL bool `json:"eol,omitempty"`
 }
 
 // Status is the state of the web server.
@@ -60,10 +63,11 @@ func (m *Manager) Status(ctx context.Context) Status {
 	case ServerOLS:
 		st.Ready = st.OLS.Installed && fileExists(m.web().hookFile())
 	}
-	for _, v := range m.phpVersions() {
-		st.PHP = append(st.PHP, PHPInfo{Version: v, Running: m.unitActive(ctx, "php"+v+"-fpm")})
-	}
 	st.DefaultPHP = m.distroPHP(ctx)
+	for _, v := range m.phpVersions() {
+		st.PHP = append(st.PHP, PHPInfo{Version: v, Running: m.unitActive(ctx, "php"+v+"-fpm"),
+			EOL: software.PHPEndOfLife(v, st.DefaultPHP, m.now())})
+	}
 	return st
 }
 
@@ -108,13 +112,23 @@ func (m *Manager) distroPHP(ctx context.Context) string {
 		return m.defaultPHP
 	}
 	out, err := m.run.Output(ctx, "apt-cache", "depends", "php-fpm")
-	if err != nil {
-		return ""
+	if err == nil {
+		if mm := phpDependsRe.FindStringSubmatch(out); mm != nil && validate.PHPVersion(mm[1]) == nil {
+			m.defaultPHP = mm[1]
+			return m.defaultPHP
+		}
 	}
-	if mm := phpDependsRe.FindStringSubmatch(out); mm != nil && validate.PHPVersion(mm[1]) == nil {
-		m.defaultPHP = mm[1]
-	}
-	return m.defaultPHP
+	// A fresh server whose package lists apt has not downloaded yet (many
+	// cloud images): the version the release ships, not cached, so apt's
+	// own answer replaces it once it has one.
+	return distroPHPByRelease[osCodename()]
+}
+
+// distroPHPByRelease is the PHP version of each supported release's
+// php-fpm package.
+var distroPHPByRelease = map[string]string{
+	"jammy": "8.1", "noble": "8.3", "resolute": "8.5", // Ubuntu 22.04, 24.04, 26.04
+	"bookworm": "8.2", "trixie": "8.4", // Debian 12, 13
 }
 
 // phpPackages are the extensions WordPress and most PHP applications need.

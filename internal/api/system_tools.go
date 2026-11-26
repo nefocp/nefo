@@ -11,6 +11,7 @@ import (
 	"github.com/nefocp/nefo/internal/database"
 	"github.com/nefocp/nefo/internal/hosting"
 	"github.com/nefocp/nefo/internal/jobs"
+	"github.com/nefocp/nefo/internal/postgres"
 	"github.com/nefocp/nefo/internal/software"
 	"github.com/nefocp/nefo/internal/store"
 	"github.com/nefocp/nefo/internal/usererr"
@@ -173,20 +174,43 @@ func softwareName(id string) (string, bool) {
 	name, ok := map[string]string{
 		"mariadb": "MariaDB", "redis": "Redis", "adminer": "Adminer", "nodejs": "Node.js", "python": "Python",
 		"docker": "Docker", "waf": "ModSecurity", "clamav": "ClamAV",
+		"composer": "Composer", "wpcli": "WP-CLI",
+		"postgresql": "PostgreSQL", "memcached": "Memcached",
+		"mysql": "MySQL", "phpmyadmin": "phpMyAdmin",
 	}[id]
 	return name, ok
 }
 
 func (s *Server) handleSoftware(w http.ResponseWriter, r *http.Request, a *authed) {
 	ctx := r.Context()
-	items, err := s.software.Catalog(ctx)
+	items, err := s.softwareItems(ctx)
 	if err != nil {
 		s.opError(w, r, err)
 		return
 	}
+	sites, err := s.store.ListSites(ctx)
+	if err != nil {
+		s.opError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, map[string]any{"items": items, "supported": s.hosting.Supported(), "sites": len(sites)})
+}
+
+// softwareItems lists what the Software page offers: the software
+// manager's items, then MariaDB, Adminer, the web firewall and ClamAV. The
+// setup wizard offers the same.
+func (s *Server) softwareItems(ctx context.Context) ([]software.Item, error) {
+	items, err := s.software.Catalog(ctx)
+	if err != nil {
+		return nil, err
+	}
+	items = append(items, s.toolItems(ctx)...) // Composer and WP-CLI (tools.go)
 	st := s.db.Status(ctx)
-	maria := software.Item{ID: "mariadb", Kind: "mariadb", Group: "data", Version: st.Version, Installed: st.Installed,
-		RAMMB: database.MemoryMB(), DataDir: "/var/lib/mysql", HasData: softwarePathExists("/var/lib/mysql")}
+	maria := software.Item{ID: "mariadb", Kind: "mariadb", Group: "data", Installed: st.Installed && st.Engine == database.MariaDB,
+		RAMMB: database.MemoryMBFor(database.MariaDB), DataDir: "/var/lib/mysql", HasData: softwarePathExists("/var/lib/mysql")}
+	if maria.Installed {
+		maria.Version = st.Version
+	}
 	if maria.Installed {
 		if dbs, err := s.db.UserDatabases(ctx); err == nil {
 			maria.Usage = map[string]int{"databases": len(dbs)}
@@ -194,6 +218,7 @@ func (s *Server) handleSoftware(w http.ResponseWriter, r *http.Request, a *authe
 		maria.Block(s.db.CheckRemove(ctx, false, ""))
 		maria.Stopped = !st.Running
 	}
+	items = append(items, s.dbToolItems(ctx, st)...) // MySQL and phpMyAdmin (dbengine.go)
 	adminer := software.Item{ID: "adminer", Kind: "adminer", Group: "data", Version: hosting.AdminerVersion, Installed: s.hosting.AdminerInstalled()}
 	if adminer.Installed {
 		adminer.Block(nil)
@@ -202,13 +227,54 @@ func (s *Server) handleSoftware(w http.ResponseWriter, r *http.Request, a *authe
 	waf.Block(nil)
 	clam := software.Item{ID: "clamav", Kind: "clamav", Group: "security", Installed: s.hosting.ClamAVInstalled(), RAMMB: 15}
 	clam.Block(nil)
-	items = append(items, maria, adminer, waf, clam)
-	sites, err := s.store.ListSites(ctx)
-	if err != nil {
-		s.opError(w, r, err)
-		return
+	return append(items, maria, s.postgresItem(ctx), s.software.MemcachedItem(ctx), adminer, waf, clam), nil
+}
+
+// postgresItem is PostgreSQL's item, which can be removed like MariaDB's.
+func (s *Server) postgresItem(ctx context.Context) software.Item {
+	st := s.pg.Status(ctx)
+	it := software.Item{ID: "postgresql", Kind: "postgresql", Group: "data", Version: st.Version, Installed: st.Installed,
+		RAMMB: postgres.MemoryMB(), DataDir: s.pg.DataDir(), HasData: s.pg.HasData()}
+	if it.Installed {
+		if dbs, err := s.pg.UserDatabases(ctx); err == nil {
+			it.Usage = map[string]int{"databases": len(dbs)}
+		}
+		it.Block(s.pg.CheckRemove(ctx, false, ""))
+		it.Stopped = !st.Running
 	}
-	writeJSON(w, http.StatusOK, map[string]any{"items": items, "supported": s.hosting.Supported(), "sites": len(sites)})
+	return it
+}
+
+// installSoftware installs an item of the Software page (not the web
+// server): the job of POST /api/software/{id}/install, and a step of the
+// setup. A new item's install goes here, so the setup can install it too.
+func (s *Server) installSoftware(ctx context.Context, id string, lg software.Logger) error {
+	switch id {
+	case "mariadb":
+		return s.db.Install(ctx, lg)
+	case "mysql":
+		return s.db.InstallMySQL(ctx, lg)
+	case "phpmyadmin":
+		return s.hosting.InstallPhpMyAdmin(ctx, lg)
+	case "adminer":
+		if err := s.hosting.InstallAdminer(ctx, lg); err != nil {
+			return err
+		}
+		return s.adminerPostgres(ctx, lg) // postgres.go
+	case "postgresql":
+		return s.installPostgres(ctx, lg)
+	case "memcached":
+		return s.software.InstallMemcached(ctx, lg)
+	case "waf":
+		return s.hosting.InstallWAF(ctx, lg)
+	case "clamav":
+		return s.hosting.InstallClamAV(ctx, lg)
+	case "python":
+		return s.software.InstallPython(ctx, lg)
+	case "wpcli":
+		return s.wpkit().InstallCLI(ctx, lg)
+	}
+	return s.software.Install(ctx, id, lg)
 }
 
 func (s *Server) handleSoftwareInstall(w http.ResponseWriter, r *http.Request, a *authed) {
@@ -218,26 +284,29 @@ func (s *Server) handleSoftwareInstall(w http.ResponseWriter, r *http.Request, a
 		s.opError(w, r, usererr.New("unknown_software", id))
 		return
 	}
+	// {"accept_eol": true}: an old PHP version is installed only after the
+	// administrator confirmed it gets no security updates.
+	var req struct {
+		AcceptEOL bool `json:"accept_eol"`
+	}
+	if r.ContentLength != 0 && !decodeJSON(w, r, &req) {
+		return
+	}
 	if !s.hosting.Supported() {
 		s.opError(w, r, hosting.ErrUnsupported)
 		return
 	}
+	if err := s.software.CheckInstall(r.Context(), id, req.AcceptEOL); err != nil {
+		s.opError(w, r, err)
+		return
+	}
+	// MariaDB or MySQL: one per server (dbengine.go).
+	if err := s.checkDBInstall(r.Context(), id); err != nil {
+		s.opError(w, r, err)
+		return
+	}
 	job, err := s.jobs.Start("install_software", name, 30*time.Minute, func(ctx context.Context, j *jobs.Job) error {
-		var err error
-		switch id {
-		case "mariadb":
-			err = s.db.Install(ctx, j)
-		case "adminer":
-			err = s.hosting.InstallAdminer(ctx, j)
-		case "waf":
-			err = s.hosting.InstallWAF(ctx, j)
-		case "clamav":
-			err = s.hosting.InstallClamAV(ctx, j)
-		case "python":
-			err = s.software.InstallPython(ctx, j)
-		default:
-			err = s.software.Install(ctx, id, j)
-		}
+		err := s.installSoftware(ctx, id, j)
 		if err == nil {
 			s.audit(ctx, user, "software_installed", ip, id)
 		}
@@ -251,7 +320,7 @@ func (s *Server) handleSoftwareInstall(w http.ResponseWriter, r *http.Request, a
 }
 
 // handleSoftwareRemove uninstalls an item: {"delete_data": false,
-// "confirm": ""}. delete_data (Docker and MariaDB) also deletes the data
+// "confirm": ""}. delete_data (Docker, MariaDB, MySQL, PostgreSQL) also deletes the data
 // folder, and needs confirm to be the item's ID. A removal that a guard
 // refuses (websites, containers or databases still use it) is answered
 // with the guard's error before any job starts.
@@ -289,10 +358,32 @@ func (s *Server) handleSoftwareRemove(w http.ResponseWriter, r *http.Request, a 
 			check = usererr.New("software_not_installed", name)
 		}
 		do = func(ctx context.Context, j *jobs.Job) error { return s.hosting.RemoveAdminer(ctx, j) }
-	case "mariadb":
-		check = s.db.CheckRemove(ctx, opts.DeleteData, opts.Confirm)
+	case "mariadb", "mysql":
+		e, _ := dbEngineOf(id)
+		check = s.db.CheckRemoveEngine(ctx, e, opts.DeleteData, opts.Confirm)
 		do = func(ctx context.Context, j *jobs.Job) error {
-			return s.db.Remove(ctx, opts.DeleteData, opts.Confirm, j)
+			return s.db.RemoveEngine(ctx, e, opts.DeleteData, opts.Confirm, j)
+		}
+	case "phpmyadmin":
+		if !s.hosting.PhpMyAdminInstalled() {
+			check = usererr.New("software_not_installed", name)
+		}
+		do = func(ctx context.Context, j *jobs.Job) error { return s.hosting.RemovePhpMyAdmin(ctx, j) }
+	case "postgresql":
+		check = s.pg.CheckRemove(ctx, opts.DeleteData, opts.Confirm)
+		do = func(ctx context.Context, j *jobs.Job) error {
+			return s.pg.Remove(ctx, opts.DeleteData, opts.Confirm, j)
+		}
+	case "memcached":
+		check = s.software.CheckRemoveMemcached(ctx)
+		do = func(ctx context.Context, j *jobs.Job) error { return s.software.RemoveMemcached(ctx, j) }
+	case "wpcli":
+		check = s.wpcliRemovable(ctx)
+		do = func(ctx context.Context, j *jobs.Job) error {
+			if err := s.wpcliRemovable(ctx); err != nil {
+				return err
+			}
+			return s.wpkit().RemoveCLI(j)
 		}
 	default:
 		check = s.software.CheckRemove(ctx, id, opts)

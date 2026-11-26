@@ -3,16 +3,13 @@ package hosting
 import (
 	"bufio"
 	"context"
-	"crypto/sha1"
-	"encoding/binary"
-	"encoding/hex"
-	"errors"
 	"fmt"
 	"os"
 	"regexp"
 	"slices"
 	"strings"
 
+	"github.com/nefocp/nefo/internal/pgpkey"
 	"github.com/nefocp/nefo/internal/version"
 )
 
@@ -38,6 +35,11 @@ const (
 var olsCodenames = []string{"focal", "jammy", "noble", "resolute", "buster", "bullseye", "bookworm", "trixie"}
 
 var codenameRe = regexp.MustCompile(`^[a-z]{2,20}$`)
+
+// OLSRelease reports whether LiteSpeed's repository has OpenLiteSpeed for
+// this release of the operating system (addRepo also needs an amd64 or
+// arm64 CPU).
+func OLSRelease() bool { return slices.Contains(olsCodenames, osCodename()) }
 
 // addRepo adds LiteSpeed's repository with its pinned key, and the systemd
 // drop-in that keeps the package from starting its demo configuration.
@@ -96,84 +98,5 @@ func osCodename() string {
 }
 
 // openPGPFingerprint returns the fingerprint of the only primary key in a
-// binary OpenPGP key file (version 4 keys). A file with secret keys, more
-// than one primary key or packets it does not expect in a public key is
-// refused: apt would trust every key in it.
-func openPGPFingerprint(b []byte) (string, error) {
-	var fp string
-	primaries := 0
-	for len(b) > 0 {
-		tag, body, rest, err := openPGPPacket(b)
-		if err != nil {
-			return "", err
-		}
-		b = rest
-		switch tag {
-		case 6: // public key
-			primaries++
-			if len(body) == 0 || body[0] != 4 {
-				return "", errors.New("not a version 4 key")
-			}
-			h := sha1.New()
-			h.Write([]byte{0x99, byte(len(body) >> 8), byte(len(body))})
-			h.Write(body)
-			fp = strings.ToUpper(hex.EncodeToString(h.Sum(nil)))
-		case 2, 12, 13, 14, 17: // signature, trust, user ID, public subkey, user attribute
-		default:
-			return "", fmt.Errorf("unexpected OpenPGP packet %d", tag)
-		}
-	}
-	if primaries != 1 {
-		return "", fmt.Errorf("%d primary keys instead of 1", primaries)
-	}
-	return fp, nil
-}
-
-// openPGPPacket splits the first packet off b (RFC 4880, section 4.2).
-func openPGPPacket(b []byte) (tag int, body, rest []byte, err error) {
-	if len(b) < 2 || b[0]&0x80 == 0 {
-		return 0, nil, nil, errors.New("not an OpenPGP packet (armored keys are not accepted)")
-	}
-	var n, hdr int
-	if b[0]&0x40 != 0 { // new format
-		tag = int(b[0] & 0x3f)
-		switch l := b[1]; {
-		case l < 192:
-			n, hdr = int(l), 2
-		case l < 224:
-			if len(b) < 3 {
-				return 0, nil, nil, errors.New("truncated packet")
-			}
-			n, hdr = (int(l)-192)<<8+int(b[2])+192, 3
-		case l == 255:
-			if len(b) < 6 {
-				return 0, nil, nil, errors.New("truncated packet")
-			}
-			n, hdr = int(binary.BigEndian.Uint32(b[2:6])), 6
-		default:
-			return 0, nil, nil, errors.New("partial packet lengths are not accepted in a key")
-		}
-	} else { // old format
-		tag = int(b[0]>>2) & 0x0f
-		switch b[0] & 3 {
-		case 0:
-			n, hdr = int(b[1]), 2
-		case 1:
-			if len(b) < 3 {
-				return 0, nil, nil, errors.New("truncated packet")
-			}
-			n, hdr = int(binary.BigEndian.Uint16(b[1:3])), 3
-		case 2:
-			if len(b) < 5 {
-				return 0, nil, nil, errors.New("truncated packet")
-			}
-			n, hdr = int(binary.BigEndian.Uint32(b[1:5])), 5
-		default:
-			return 0, nil, nil, errors.New("indeterminate packet length")
-		}
-	}
-	if n < 0 || hdr+n > len(b) {
-		return 0, nil, nil, errors.New("truncated packet")
-	}
-	return tag, b[hdr : hdr+n], b[hdr+n:], nil
-}
+// binary OpenPGP key file (see pgpkey.Fingerprint).
+func openPGPFingerprint(b []byte) (string, error) { return pgpkey.Fingerprint(b) }

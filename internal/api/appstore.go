@@ -256,7 +256,8 @@ func (s *Server) handleCheckApp(w http.ResponseWriter, r *http.Request, a *authe
 		check = s.hosting.CheckResources(r.Context(), app)
 		if req.SiteID != 0 {
 			in := hosting.AppRequest{Title: req.Title, AdminUser: req.AdminUser, AdminEmail: req.AdminEmail,
-				AdminPassword: req.AdminPassword, Inputs: req.Inputs, MariaDB: s.db.Status(r.Context()).Version}
+				AdminPassword: req.AdminPassword, Inputs: req.Inputs}
+			in.MariaDB, in.DBEngine = appDBServer(s.db.Status(r.Context()))
 			if in.AdminPassword == "" {
 				in.AdminPassword = secure.String(20, secure.PasswordChars)
 			}
@@ -358,8 +359,9 @@ func (s *Server) installPHPApp(w http.ResponseWriter, r *http.Request, a *authed
 	in := hosting.AppRequest{
 		Title: req.Title, AdminUser: strings.TrimSpace(req.AdminUser),
 		AdminEmail: strings.TrimSpace(req.AdminEmail), AdminPassword: req.AdminPassword,
-		MariaDB: st.Version, Inputs: req.Inputs,
+		Inputs: req.Inputs,
 	}
+	in.MariaDB, in.DBEngine = appDBServer(st)
 	if err := s.hosting.CheckPHPApp(r.Context(), id, app, in); err != nil {
 		s.opError(w, r, err)
 		return

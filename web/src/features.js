@@ -9,11 +9,15 @@ export const features = reactive({
   loaded: false,
   docker: false,
   redis: false,
-  mariadb: false,
+  mariadb: false, // MariaDB or MySQL: db_engine says which ("mariadb", "mysql" or "")
+  db_engine: '',
+  postgres: false,
+  memcached: false,
   node: false,
   python: false,
   wordpress_sites: false,
   web_server: '',
+  setup: false, // open the setup wizard after signing in
 })
 
 let pending = null
@@ -34,4 +38,10 @@ export function refreshFeatures(force = false) {
       last = Date.now()
     })
   return pending
+}
+
+// dbEngineName is the database server's name for messages: "MySQL" or
+// "MariaDB" (also while none is installed, as MariaDB is the default).
+export function dbEngineName() {
+  return features.db_engine === 'mysql' ? 'MySQL' : 'MariaDB'
 }

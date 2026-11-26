@@ -36,7 +36,8 @@ Each server has one panel account, `admin`. Nefo has no separate logins for cust
 
 ### Data
 
-- Run MariaDB tuned for small servers, with databases, users, SQL import and export, remote access per database, and Adminer behind the panel's sign-in. Browse Redis keys. See [Databases](./databases).
+- Run MariaDB or MySQL 8.4 tuned for small servers, with databases, users, SQL import and export and remote access per database, and PostgreSQL with its own databases and owners. Adminer and phpMyAdmin sit behind the panel's sign-in. Browse Redis keys, and add Memcached. See [Databases](./databases).
+- Import websites from a cPanel full backup, or from a site archive and SQL dumps made by aaPanel, HestiaCP, CyberPanel or any server. See [Import websites](./import).
 - Manage files with an editor, upload and download, archives and a trash that keeps deleted files for 30 days. See [Files](./files).
 - Back up websites, databases and folders on a schedule, to this server, to S3-compatible storage or to an SFTP server, and restore them in one click. See [Backups](./backups).
 
@@ -65,7 +66,7 @@ Nefo runs as root, so it protects its own sign-in:
 - **One server per panel.** Each server runs its own Nefo. Managing several servers from one panel isn't available yet.
 - **No Google Drive backups yet.** Backups go to this server, S3-compatible storage or SFTP.
 - **No accounts for customers.** There is one administrator account per server.
-- **No import from other panels.** Move websites by hand: create the website, upload its files and import its database.
+- **No mail, DNS or FTP accounts when importing.** An import from cPanel brings the websites, databases, certificates and cron jobs. See [What is not imported](./import#what-is-not-imported).
 - **Only Ubuntu and Debian.** See [Requirements](./requirements).
 
 ## Status
@@ -95,6 +96,6 @@ Everything else happens only because you asked for it:
 
 - **Updates:** Nefo checks for a new version only when you click **Check for updates** or run `nefo update`. It never updates itself. See [Update](./update).
 - **Things you set up:** alerts (Telegram, your SMTP server, Discord, Slack or your webhook), website monitoring (your websites, by their domain, like a visitor), remote backups (your S3 or SFTP storage), DNS validation and the DNS page (the Cloudflare API) and the mail relay (your mail provider).
-- **Software you install:** packages come from your distribution through apt, and some components come from their own projects, such as Node.js from nodejs.org, extra PHP versions from the ondrej/php repository, and OpenLiteSpeed from LiteSpeed's repository. Some installed software connects out on its own: for example, ClamAV downloads its virus databases.
+- **Software you install:** packages come from your distribution through apt, and some components come from their own projects, such as Node.js from nodejs.org, extra PHP versions from the packages.sury.org repository, and OpenLiteSpeed from LiteSpeed's repository. Some installed software connects out on its own: for example, ClamAV downloads its virus databases.
 
 Most requests from the panel identify themselves as `Nefo/<version>`. They don't include information about your server or your websites beyond what the task needs, such as the domain names in a certificate request.

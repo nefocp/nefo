@@ -49,7 +49,7 @@ Not yet. Install Nefo on each server and manage each one separately. Managing se
 
 ## Can I move my websites from another panel?
 
-There is no automatic import from another panel. Move each website by hand: create the website in Nefo, upload its files (with the file manager, from a URL or over SFTP), create its database and import the SQL dump. See [Websites](./websites), [Files](./files) and [Databases](./databases).
+Yes. Nefo imports a cPanel full backup (websites, databases with their users and passwords, certificates and cron jobs), and a site archive with its SQL dumps from aaPanel, HestiaCP, CyberPanel or any other server. Mail, DNS zones and FTP accounts are not imported. See [Import websites](./import).
 
 ## Can I give my clients their own login?
 

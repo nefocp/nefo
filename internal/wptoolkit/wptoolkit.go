@@ -28,7 +28,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nefocp/nefo/internal/fsutil"
 	"github.com/nefocp/nefo/internal/run"
 	"github.com/nefocp/nefo/internal/store"
 	"github.com/nefocp/nefo/internal/validate"
@@ -36,12 +35,7 @@ import (
 )
 
 const (
-	// WPCLIVersion is the pinned wp-cli release, published on 2025-05-07.
-	WPCLIVersion = "2.12.0"
-	wpcliURL     = "https://github.com/wp-cli/wp-cli/releases/download/v2.12.0/wp-cli-2.12.0.phar"
-	// wpcliSHA512 is the release's published wp-cli-2.12.0.phar.sha512,
-	// pinned here so the download host does not have to be trusted.
-	wpcliSHA512  = "be928f6b8ca1e8dfb9d2f4b75a13aa4aee0896f8a9a0a1c45cd5d2c98605e6172e6d014dda2e27f88c98befc16c040cbb2bd1bfa121510ea5cdf5f6a30fe8832"
+	// wp-cli comes from its latest GitHub release (see cli.go).
 	wpcliMaxSize = 32 << 20
 
 	// PharPath is where the panel keeps wp-cli. Site users read it, so it
@@ -73,13 +67,17 @@ type Toolkit struct {
 
 	// replaceable in tests
 	phar      string
-	sha512    string
-	download  func(ctx context.Context) ([]byte, error)
+	latestURL string // the GitHub API's latest wp-cli release
+	assetURL  string // the release downloads: <assetURL>v<version>/<file>
 	lookupIDs func(name string) (uid, gid int, err error)
 	now       func() time.Time
 
 	installMu sync.Mutex
 	installed bool
+
+	sumMu  sync.Mutex
+	sumKey string // the phar's size and time when sum was computed
+	sum    string
 
 	reads chan struct{}
 }
@@ -88,7 +86,7 @@ type Toolkit struct {
 func New(r run.Runner, root func(domain string) string) *Toolkit {
 	return &Toolkit{
 		run: r, root: root,
-		phar: PharPath, sha512: wpcliSHA512, download: downloadPhar, lookupIDs: lookupIDs, now: time.Now,
+		phar: PharPath, latestURL: wpcliLatestURL, assetURL: wpcliAssetURL, lookupIDs: lookupIDs, now: time.Now,
 		reads: make(chan struct{}, maxStatusRuns),
 	}
 }
@@ -100,36 +98,18 @@ func (t *Toolkit) Installed() bool {
 	return err == nil
 }
 
-// Ensure installs the pinned wp-cli release if it is missing or is not the
-// file the panel expects.
+// Ensure installs the latest wp-cli release if wp-cli is missing or is not
+// a file the panel installed (see CLIVersion).
 func (t *Toolkit) Ensure(ctx context.Context) error {
 	t.installMu.Lock()
 	defer t.installMu.Unlock()
 	if t.installed && t.Installed() {
 		return nil
 	}
-	if sum, err := fileSHA512(t.phar); err == nil && sum == t.sha512 {
-		t.installed = true
-		return nil
-	}
-	data, err := t.download(ctx)
-	if err != nil {
-		return err
-	}
-	h := sha512.Sum512(data)
-	if hex.EncodeToString(h[:]) != t.sha512 {
-		return errors.New("the wp-cli download does not match its published checksum")
-	}
-	dir := filepath.Dir(t.phar)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
-		return err
-	}
-	// The panel's umask is 077; site users must be able to read wp-cli.
-	if err := os.Chmod(dir, 0o755); err != nil {
-		return err
-	}
-	if err := fsutil.WriteFileAtomic(t.phar, data, 0o644); err != nil {
-		return err
+	if t.CLIVersion() == "" {
+		if err := t.installLatest(ctx, discardLog{}); err != nil {
+			return err
+		}
 	}
 	t.installed = true
 	return nil
@@ -148,29 +128,30 @@ func fileSHA512(path string) (string, error) {
 	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
-// downloadPhar fetches the pinned wp-cli release.
-func downloadPhar(ctx context.Context) ([]byte, error) {
+// fetch downloads a file of at most max bytes over HTTPS.
+func fetch(ctx context.Context, url string, max int64) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, wpcliURL, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
 		return nil, err
 	}
 	req.Header.Set("User-Agent", version.AppName+"/"+version.Version)
+	req.Header.Set("Accept", "application/vnd.github+json, application/octet-stream;q=0.9, */*;q=0.8")
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("download wp-cli: %w", err)
+		return nil, fmt.Errorf("download %s: %w", url, err)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("download wp-cli: HTTP %d", resp.StatusCode)
+		return nil, fmt.Errorf("download %s: HTTP %d", url, resp.StatusCode)
 	}
-	data, err := io.ReadAll(io.LimitReader(resp.Body, wpcliMaxSize+1))
+	data, err := io.ReadAll(io.LimitReader(resp.Body, max+1))
 	if err != nil {
-		return nil, fmt.Errorf("download wp-cli: %w", err)
+		return nil, fmt.Errorf("download %s: %w", url, err)
 	}
-	if len(data) > wpcliMaxSize {
-		return nil, errors.New("download wp-cli: larger than expected")
+	if int64(len(data)) > max {
+		return nil, fmt.Errorf("download %s: larger than expected", url)
 	}
 	return data, nil
 }

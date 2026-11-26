@@ -84,9 +84,17 @@ func sandbox(t *testing.T) string {
 	for _, d := range []string{"usr/bin", "usr/local/bin", "opt", "var/lib"} {
 		os.MkdirAll(filepath.Join(dir, d), 0o755)
 	}
+	// apt's sources and keyrings (phprepo.go), and no downloads from
+	// packages.sury.org: nothing listens there.
+	oldRoot, oldSury := sysRoot, suryBase
+	sysRoot, suryBase = filepath.Join(dir, "root"), "http://127.0.0.1:1/"
+	for _, d := range []string{"etc/apt/sources.list.d", "etc/apt/trusted.gpg.d", "usr/share/keyrings", "var/lib/apt/lists"} {
+		os.MkdirAll(filepath.Join(sysRoot, d), 0o755)
+	}
 	t.Cleanup(func() {
 		redisBin, dockerBin, nodeLinkDir, optDir, composeDir, dockerContainersDir, phpEtc = old[0], old[1], old[2], old[3], old[4], old[5], old[6]
 		dockerDataDirs = oldData
+		sysRoot, suryBase = oldRoot, oldSury
 	})
 	return dir
 }

@@ -21,6 +21,7 @@ import (
 
 	"github.com/nefocp/nefo/internal/appstore"
 	"github.com/nefocp/nefo/internal/run"
+	"github.com/nefocp/nefo/internal/software"
 	"github.com/nefocp/nefo/internal/store"
 	"github.com/nefocp/nefo/internal/usererr"
 	"github.com/nefocp/nefo/internal/validate"
@@ -53,9 +54,8 @@ func PHPApps() []PHPApp {
 }
 
 const (
-	composerBin = "/usr/bin/composer"
-	maxArchive  = 1 << 30
-	maxEntry    = 256 << 20
+	maxArchive = 1 << 30
+	maxEntry   = 256 << 20
 )
 
 // AppRequest describes an application installation.
@@ -423,9 +423,16 @@ func (m *Manager) sitePHP(ctx context.Context, site *store.Site, stdin []byte, a
 	return out, nil
 }
 
-// composer runs Composer as the site's user, streaming its output.
+// composer runs Composer as the site's user, streaming its output: the one
+// "composer" in a shell runs too (software.ComposerPath), the official
+// release in /usr/local/bin after an update on the Software page, else the
+// distribution's.
 func (m *Manager) composer(ctx context.Context, site *store.Site, lg Logger, args ...string) error {
-	full, err := m.phpArgs(site, "-1", append([]string{composerBin, "--no-interaction", "--no-progress"}, args...)...)
+	bin := software.ComposerPath()
+	if bin == "" {
+		return errors.New("Composer is not installed")
+	}
+	full, err := m.phpArgs(site, "-1", append([]string{bin, "--no-interaction", "--no-progress"}, args...)...)
 	if err != nil {
 		return err
 	}
@@ -435,7 +442,7 @@ func (m *Manager) composer(ctx context.Context, site *store.Site, lg Logger, arg
 }
 
 func (m *Manager) ensureComposer(ctx context.Context, lg Logger) error {
-	if fileExists(composerBin) {
+	if software.ComposerPath() != "" {
 		return nil
 	}
 	lg.Logf("Installing Composer")
@@ -652,9 +659,13 @@ func (m *Manager) installLaravel(ctx context.Context, site *store.Site, req AppR
 	if err != nil {
 		return err
 	}
+	driver := "mariadb"
+	if req.mysqlEngine() {
+		driver = "mysql"
+	}
 	env := setEnv(string(b), map[string]string{
 		"APP_ENV": "production", "APP_DEBUG": "false", "APP_URL": scheme + "://" + site.Domain,
-		"DB_CONNECTION": "mariadb", "DB_HOST": "localhost", "DB_PORT": "3306",
+		"DB_CONNECTION": driver, "DB_HOST": "localhost", "DB_PORT": "3306",
 		"DB_DATABASE": req.DB.Name, "DB_USERNAME": req.DB.Username, "DB_PASSWORD": req.DB.Password,
 	})
 	if err := writeOwned(root, ".env", []byte(env), 0o600, uid, gid); err != nil {

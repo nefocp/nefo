@@ -40,6 +40,8 @@ async function load() {
 onMounted(load)
 
 const extensions = computed(() => (cfg.value?.extensions || []).filter((e) => e.available || e.installed))
+// The settings this PHP version has: the server lists their defaults.
+const shown = (g) => g.keys.filter((k) => cfg.value && k in cfg.value.defaults)
 
 async function toggle(ext) {
   error.value = notice.value = ''
@@ -55,7 +57,7 @@ async function saveIni() {
   saving.value = true
   try {
     const values = {}
-    for (const g of groups) for (const k of g.keys) values[k] = (ini.value[k] ?? '').toString()
+    for (const g of groups) for (const k of shown(g)) values[k] = (ini.value[k] ?? '').toString()
     cfg.value = await api('PUT', `api/php/${props.version}/ini`, { ini: values })
     ini.value = { ...cfg.value.ini }
     notice.value = t('php.saved')
@@ -73,6 +75,7 @@ async function saveIni() {
       <button class="btn btn-sm" :class="{ 'btn-primary': tab === 'ext' }" @click="tab = 'ext'">{{ t('php.extensions') }}</button>
       <button class="btn btn-sm" :class="{ 'btn-primary': tab === 'ini' }" @click="tab = 'ini'">{{ t('php.settings') }}</button>
     </div>
+    <p v-if="cfg?.eol" class="alert alert-warn">{{ t('php.eol_warning', { v: version }) }}</p>
     <p v-if="error" class="alert alert-crit pre-wrap" role="alert">{{ error }}</p>
     <p v-if="notice" class="alert alert-ok" role="status">{{ notice }}</p>
     <JobLog v-if="job" :job="job" @close="clearJob" />
@@ -100,7 +103,7 @@ async function saveIni() {
       <p class="muted small">{{ t('php.settings_hint') }}</p>
       <fieldset v-for="g in groups" :key="g.title" class="stack ini-group">
         <legend>{{ t(g.title) }}</legend>
-        <label v-for="k in g.keys" :key="k" class="field ini-row">
+        <label v-for="k in shown(g)" :key="k" class="field ini-row">
           <span class="mono small">{{ k }}</span>
           <select v-if="choices[k]" v-model="ini[k]" class="input">
             <option value="">{{ t('php.default', { v: cfg.defaults[k] }) }}</option>

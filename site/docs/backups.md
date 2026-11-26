@@ -171,7 +171,7 @@ What a restore replaces:
 | **Folder** | The backup is unpacked next to the current content first. Only when that worked is the folder's content replaced, so a broken backup leaves the folder as it was. Files added since the backup are deleted. Owners, permissions and symbolic links come back. A missing folder is created |
 | **App** | The app's containers stop, its folder and data are replaced, the containers start again and the database dumps are loaded. The passwords saved in the backup come back too |
 
-The dumps of website and database backups are loaded like an [import](./databases#import) on the **Databases** page: as a temporary MariaDB user that can use only that database, so a dump never writes into another database.
+The dumps of website and database backups are loaded like an [import](./databases#import) on the **Databases** page: as a temporary MariaDB or MySQL user that can use only that database, so a dump never writes into another database.
 
 A website backup can only be restored while the website exists with the same domain. If you deleted the website, create it again with the same domain first, then restore.
 

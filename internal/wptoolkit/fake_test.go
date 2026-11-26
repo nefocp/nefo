@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/sha512"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -124,8 +125,12 @@ func newKit(t *testing.T, r *fakeRunner) (*Toolkit, string) {
 		t.Fatal(err)
 	}
 	sum := sha512.Sum512(data)
-	k.sha512 = hex.EncodeToString(sum[:])
-	k.download = func(context.Context) ([]byte, error) { return nil, errors.New("no downloads in tests") }
+	rec, _ := json.Marshal(cliRecord{Version: "2.12.1", SHA512: hex.EncodeToString(sum[:])})
+	if err := os.WriteFile(k.recordFile(), rec, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Nothing listens there: no downloads in tests.
+	k.latestURL, k.assetURL = "http://127.0.0.1:1/latest", "http://127.0.0.1:1/download/"
 	k.lookupIDs = func(string) (int, int, error) { return -1, -1, nil }
 	k.now = func() time.Time { return time.Date(2026, 11, 25, 10, 30, 0, 0, time.UTC) }
 	return k, base

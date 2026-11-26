@@ -36,7 +36,8 @@ Mỗi máy chủ có một tài khoản panel duy nhất là `admin`. Nefo khôn
 
 ### Dữ liệu
 
-- Chạy MariaDB đã tinh chỉnh cho máy chủ nhỏ, với database, người dùng, nhập và xuất SQL, truy cập từ xa cho từng database, cùng Adminer nằm sau trang đăng nhập của panel, và trình duyệt khóa cho Redis. Xem [Cơ sở dữ liệu](./databases).
+- Chạy MariaDB hoặc MySQL 8.4 đã tinh chỉnh cho máy chủ nhỏ, với database, người dùng, nhập và xuất SQL, truy cập từ xa cho từng database, và PostgreSQL với database và chủ sở hữu riêng. Adminer và phpMyAdmin nằm sau trang đăng nhập của panel. Có trình duyệt khóa cho Redis, và cài thêm được Memcached. Xem [Cơ sở dữ liệu](./databases).
+- Nhập website từ bản sao lưu đầy đủ của cPanel, hoặc từ file nén website và bản dump SQL của aaPanel, HestiaCP, CyberPanel hay bất kỳ máy chủ nào. Xem [Nhập website](./import).
 - Quản lý tệp tin với trình soạn thảo, tải lên và tải về, nén và giải nén, cùng thùng rác giữ tệp đã xóa trong 30 ngày. Xem [Tệp tin](./files).
 - Sao lưu website, database và thư mục theo lịch, lưu trên máy chủ này, lên kho tương thích S3 hoặc sang máy chủ SFTP, và khôi phục chỉ với một cú nhấp. Xem [Sao lưu](./backups).
 
@@ -65,7 +66,7 @@ Nefo chạy với quyền root, nên nó bảo vệ kỹ trang đăng nhập c�
 - **Mỗi panel một máy chủ.** Mỗi máy chủ chạy Nefo riêng. Hiện chưa quản lý được nhiều máy chủ từ một panel.
 - **Chưa sao lưu lên Google Drive.** Bản sao lưu được lưu trên máy chủ này, kho tương thích S3 hoặc SFTP.
 - **Không có tài khoản cho khách hàng.** Mỗi máy chủ chỉ có một tài khoản quản trị.
-- **Không nhập dữ liệu từ panel khác.** Hãy chuyển website bằng tay: tạo website, tải tệp lên và nhập database.
+- **Không nhập mail, DNS hay tài khoản FTP.** Khi nhập từ cPanel, Nefo mang sang website, database, chứng chỉ và cron job. Xem [Những gì không được nhập](./import#what-is-not-imported).
 - **Chỉ Ubuntu và Debian.** Xem [Yêu cầu hệ thống](./requirements).
 
 ## Tình trạng phát triển
@@ -95,6 +96,6 @@ Mọi kết nối khác chỉ diễn ra khi bạn yêu cầu:
 
 - **Cập nhật:** Nefo chỉ kiểm tra phiên bản mới khi bạn bấm **Kiểm tra cập nhật** hoặc chạy `nefo update`. Nefo không bao giờ tự cập nhật. Xem [Cập nhật](./update).
 - **Những gì bạn thiết lập:** cảnh báo (Telegram, máy chủ SMTP của bạn, Discord, Slack hoặc webhook của bạn), theo dõi website (chính các website của bạn, qua tên miền, như một người truy cập), sao lưu từ xa (kho S3 hoặc SFTP của bạn), xác thực DNS và trang DNS (API của Cloudflare) và chuyển tiếp mail (nhà cung cấp mail của bạn).
-- **Phần mềm bạn cài:** các gói lấy từ kho của hệ điều hành qua apt, một số thành phần lấy từ chính dự án của chúng, như Node.js từ nodejs.org, các phiên bản PHP khác từ kho ondrej/php, OpenLiteSpeed từ kho của LiteSpeed. Một số phần mềm đã cài tự kết nối ra ngoài, ví dụ ClamAV tự tải cơ sở dữ liệu virus.
+- **Phần mềm bạn cài:** các gói lấy từ kho của hệ điều hành qua apt, một số thành phần lấy từ chính dự án của chúng, như Node.js từ nodejs.org, các phiên bản PHP khác từ kho packages.sury.org, OpenLiteSpeed từ kho của LiteSpeed. Một số phần mềm đã cài tự kết nối ra ngoài, ví dụ ClamAV tự tải cơ sở dữ liệu virus.
 
 Phần lớn yêu cầu từ panel tự giới thiệu là `Nefo/<phiên bản>`. Chúng không chứa thông tin về máy chủ hay website của bạn, ngoài những gì công việc cần, như tên miền trong yêu cầu xin chứng chỉ.

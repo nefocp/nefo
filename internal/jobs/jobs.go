@@ -42,6 +42,7 @@ type Job struct {
 	err      string
 	started  time.Time
 	finished time.Time
+	cancel   context.CancelFunc // stops the job (see Manager.Cancel)
 }
 
 // Snapshot is a copy of a job's state, ready to be sent as JSON.
@@ -111,6 +112,29 @@ func (j *Job) addLine(s string) {
 // ID returns the job's ID.
 func (j *Job) ID() string { return j.id }
 
+// State returns the job's status and, once it failed, its error.
+func (j *Job) State() (status, errText string) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	return j.status, j.err
+}
+
+// LogFrom returns the complete log lines from line n on, counting from the
+// job's first line (also those no longer kept), and the n to ask from next
+// time. A line still being written is left for later. Something that
+// follows a job, such as "nefo setup", asks again until State says it has
+// finished: by then every line is complete.
+func (j *Job) LogFrom(n int) (lines []string, next int) {
+	j.mu.Lock()
+	defer j.mu.Unlock()
+	total := j.dropped + len(j.lines)
+	n = max(n, j.dropped)
+	if n >= total {
+		return []string{}, total
+	}
+	return append([]string{}, j.lines[n-j.dropped:]...), total
+}
+
 // Snapshot returns a copy of the job's current state.
 func (j *Job) Snapshot() Snapshot {
 	j.mu.Lock()
@@ -178,12 +202,14 @@ func (m *Manager) Start(kind, target string, timeout time.Duration, fn Func) (*J
 		m.mu.Unlock()
 		return nil, ErrBusy
 	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	j := &Job{
 		id:      secure.String(16, secure.LowerAlnum),
 		kind:    kind,
 		target:  target,
 		status:  StatusRunning,
 		started: time.Now(),
+		cancel:  cancel,
 	}
 	m.running = j
 	m.jobs = append(m.jobs, j)
@@ -195,9 +221,8 @@ func (m *Manager) Start(kind, target string, timeout time.Duration, fn Func) (*J
 
 	go func() {
 		defer m.wg.Done()
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
-		err := runSafely(ctx, j, fn)
+		err := runSafely(ctx, j, fn, m.log)
 		j.finish(err)
 		if err != nil {
 			m.log.Warn("job failed", "kind", kind, "target", target, "err", err)
@@ -214,10 +239,14 @@ func (m *Manager) Start(kind, target string, timeout time.Duration, fn Func) (*J
 	return j, nil
 }
 
-func runSafely(ctx context.Context, j *Job, fn Func) (err error) {
+func runSafely(ctx context.Context, j *Job, fn Func, log *slog.Logger) (err error) {
 	defer func() {
 		if r := recover(); r != nil {
 			err = fmt.Errorf("internal error: %v", r)
+			// The stack goes to the panel's own log, for a bug report.
+			if log != nil {
+				log.Error("job panicked", "kind", j.kind, "err", r, "stack", string(debug.Stack()))
+			}
 		}
 	}()
 	return fn(ctx, j)
@@ -233,6 +262,20 @@ func (m *Manager) Get(id string) (*Job, bool) {
 		}
 	}
 	return nil, false
+}
+
+// Cancel asks a running job to stop: its context is cancelled, and the job
+// cleans up and finishes as failed. It reports whether the job was running.
+// Only jobs written to stop on cancellation should offer it.
+func (m *Manager) Cancel(id string) bool {
+	m.mu.Lock()
+	j := m.running
+	m.mu.Unlock()
+	if j == nil || j.id != id || j.cancel == nil {
+		return false
+	}
+	j.cancel()
+	return true
 }
 
 // Recent returns the remembered jobs, newest first.

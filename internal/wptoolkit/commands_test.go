@@ -164,11 +164,9 @@ func TestStatusProblems(t *testing.T) {
 func TestEnsure(t *testing.T) {
 	k, base := newKit(t, &fakeRunner{})
 	k.phar = filepath.Join(base, "lib", "panel", "wp-cli.phar")
-	data := []byte("the real wp-cli")
+	data := []byte("#!/usr/bin/env php\nthe real wp-cli")
 	sum := sha512.Sum512(data)
-	k.sha512 = hex.EncodeToString(sum[:])
-	downloads := 0
-	k.download = func(context.Context) ([]byte, error) { downloads++; return data, nil }
+	gh := newFakeGitHub(t, k, "2.13.0", data, hex.EncodeToString(sum[:]))
 
 	if k.Installed() {
 		t.Fatal("installed before Ensure")
@@ -178,14 +176,14 @@ func TestEnsure(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if downloads != 1 || readFile(t, k.phar) != string(data) {
-		t.Fatalf("downloads = %d", downloads)
+	if gh.downloads != 1 || readFile(t, k.phar) != string(data) || k.CLIVersion() != "2.13.0" {
+		t.Fatalf("downloads = %d, version %q", gh.downloads, k.CLIVersion())
 	}
 
 	// A changed file is replaced; a download with the wrong checksum is refused.
 	k.installed = false
 	writeFile(t, k.phar, "tampered")
-	k.download = func(context.Context) ([]byte, error) { return []byte("evil"), nil }
+	gh.phar = []byte("#!/usr/bin/env php\nevil")
 	if err := k.Ensure(context.Background()); err == nil || !strings.Contains(err.Error(), "checksum") {
 		t.Fatalf("err = %v", err)
 	}

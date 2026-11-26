@@ -13,7 +13,6 @@ const ALIASES = {
   ols: 'openlitespeed',
   node: 'nodejs',
   'redis-server': 'redis',
-  mysql: 'mariadb',
   modsecurity: 'waf',
   'uptimekuma': 'uptime-kuma',
 }

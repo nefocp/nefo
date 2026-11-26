@@ -304,6 +304,24 @@ var migrations = []string{
 		error   TEXT    NOT NULL DEFAULT '',
 		PRIMARY KEY (site_id, ts)
 	) WITHOUT ROWID;`,
+	// 23: API keys for scripts; only a SHA-256 hash of each key is kept
+	`CREATE TABLE api_keys (
+		id           INTEGER PRIMARY KEY AUTOINCREMENT,
+		user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+		name         TEXT    NOT NULL UNIQUE COLLATE NOCASE,
+		prefix       TEXT    NOT NULL,
+		hash         TEXT    NOT NULL UNIQUE,
+		access       TEXT    NOT NULL,
+		addresses    TEXT    NOT NULL DEFAULT '',
+		created_at   INTEGER NOT NULL,
+		expires_at   INTEGER NOT NULL DEFAULT 0,
+		last_used_at INTEGER NOT NULL DEFAULT 0,
+		last_used_ip TEXT    NOT NULL DEFAULT ''
+	);`,
+	// 24: the engine of each database: "mysql" (MariaDB or MySQL) for the
+	// ones made so far, "postgresql" for PostgreSQL. Names and user names
+	// stay unique across engines (see pgdatabases.go).
+	`ALTER TABLE databases ADD COLUMN engine TEXT NOT NULL DEFAULT 'mysql';`,
 }
 
 // Open opens (and creates or upgrades) the database in dataDir.

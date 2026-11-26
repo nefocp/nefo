@@ -26,6 +26,7 @@ const DOCS: Group[] = [
     vi: 'Website',
     pages: [
       ['websites', 'Websites', 'Website'],
+      ['import', 'Import websites', 'Nhập website'],
       ['ssl', 'SSL certificates', 'Chứng chỉ SSL'],
       ['dns', 'DNS (Cloudflare)', 'DNS (Cloudflare)'],
       ['git-deploy', 'Deploy from Git', 'Triển khai từ Git'],
@@ -49,6 +50,7 @@ const DOCS: Group[] = [
       ['software', 'Software', 'Phần mềm'],
       ['docker', 'Docker', 'Docker'],
       ['security', 'Security', 'Bảo mật'],
+      ['api', 'API keys', 'Khóa API'],
       ['os', 'System', 'Hệ thống'],
       ['system', 'System tools', 'Công cụ hệ thống'],
       ['mail-alerts', 'Mail and alerts', 'Thư và cảnh báo'],

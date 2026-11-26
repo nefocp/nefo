@@ -460,6 +460,7 @@ onBeforeUnmount(() => {
     <Teleport defer to="#topbar-actions">
       <template v-if="status?.ready">
         <RouterLink :to="{ name: 'apps' }" class="btn ws-top-store"><Icon name="package" :size="15" />{{ t('ws.from_store') }}</RouterLink>
+        <RouterLink :to="{ name: 'site-import' }" class="btn ws-top-import"><Icon name="download" :size="15" />{{ t('ws.import') }}</RouterLink>
         <button type="button" class="btn btn-primary" :disabled="jobRunning" @click="openForm"><Icon name="plus" :size="15" />{{ t('websites.add') }}</button>
       </template>
     </Teleport>
@@ -688,6 +689,7 @@ onBeforeUnmount(() => {
       :site="drawerSite"
       :server="status.server || 'nginx'"
       :php-versions="phpList.map((p) => p.version)"
+      :php-eol="phpList.filter((p) => p.eol).map((p) => p.version)"
       :job="job"
       :busy="jobRunning"
       :database="siteDB(drawerSite)"
@@ -717,7 +719,7 @@ onBeforeUnmount(() => {
         <label class="field">
           <span>{{ t('websites.type') }}</span>
           <select v-model="form.php" class="input" @change="form.touchedType = true">
-            <option v-for="p in [...phpList].reverse()" :key="p.version" :value="p.version">{{ t('websites.type_php', { v: p.version }) }}</option>
+            <option v-for="p in [...phpList].reverse()" :key="p.version" :value="p.version">{{ t('websites.type_php', { v: p.version }) }}{{ p.eol ? ` (${t('software.eol_short')})` : '' }}</option>
             <option value="">{{ t('websites.type_static') }}</option>
             <option value="app">{{ t('websites.type_app') }}</option>
           </select>

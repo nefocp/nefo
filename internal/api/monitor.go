@@ -22,9 +22,12 @@ var alertEvents = map[string]string{
 func (s *Server) watchedServices(ctx context.Context) map[string]string {
 	out := map[string]string{}
 	for _, svc := range s.services.List(ctx) {
-		if svc.Name == "nginx" || svc.Name == "apache2" || svc.Name == "lshttpd" || svc.Name == "mariadb" || svc.Name == "redis-server" || svc.Name == "fail2ban" ||
+		if svc.Name == "nginx" || svc.Name == "apache2" || svc.Name == "lshttpd" || svc.Name == "mariadb" || svc.Name == "mysql" || svc.Name == "redis-server" || svc.Name == "fail2ban" ||
+			svc.Name == "memcached" || strings.HasPrefix(svc.Name, "postgresql@") ||
 			strings.HasSuffix(svc.Name, "-fpm") {
-			if svc.Enabled {
+			// PostgreSQL's clusters start through postgresql.service, so their
+			// own units are not enabled.
+			if svc.Enabled || strings.HasPrefix(svc.Name, "postgresql@") {
 				out[svc.Name] = svc.Active
 			}
 		}

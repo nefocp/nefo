@@ -217,6 +217,11 @@ func (s *Server) handleDeleteSite(w http.ResponseWriter, r *http.Request, a *aut
 		s.opError(w, r, err)
 		return
 	}
+	pgLinked, err := s.store.PGDatabasesForSite(r.Context(), id)
+	if err != nil {
+		s.opError(w, r, err)
+		return
+	}
 	// A deploy writes into the site's folder as its user: let it finish first.
 	if s.gitDeployRunning(site.Domain) {
 		s.opError(w, r, jobs.ErrBusy)
@@ -257,6 +262,14 @@ func (s *Server) handleDeleteSite(w http.ResponseWriter, r *http.Request, a *aut
 		}
 		if len(linked) > 0 {
 			s.restartDBIfNeeded(r.Context(), a.user.Username, clientIP(r))
+		}
+		for _, d := range pgLinked {
+			if err := s.pg.Delete(r.Context(), d.ID, d.Name); err != nil {
+				warnings = append(warnings, fmt.Sprintf("PostgreSQL database %s: %v", d.Name, err))
+				continue
+			}
+			s.store.DeleteSchedulesFor(r.Context(), "database", d.Name)
+			s.audit(r.Context(), a.user.Username, "pg_db_deleted", clientIP(r), d.Name)
 		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"warnings": warnings})

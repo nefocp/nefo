@@ -136,3 +136,22 @@ func TestMetricsNetwork(t *testing.T) {
 		t.Errorf("NetTotals with no samples = %v, %v, %v", rx, tx, err)
 	}
 }
+
+// A site created suspended (an import, a Docker app) is suspended in the
+// store too, not only in its web server configuration.
+func TestCreateSiteSuspended(t *testing.T) {
+	st, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer st.Close()
+	ctx := context.Background()
+	site := &Site{Domain: "closed.example", SysUser: "closed_example", Disabled: true}
+	if err := st.CreateSite(ctx, site); err != nil {
+		t.Fatal(err)
+	}
+	got, err := st.SiteByID(ctx, site.ID)
+	if err != nil || !got.Disabled {
+		t.Fatalf("disabled %v, %v", got != nil && got.Disabled, err)
+	}
+}

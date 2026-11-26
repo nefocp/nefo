@@ -3,6 +3,7 @@ import { ref, nextTick, onMounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { login } from '../auth.js'
+import { features, refreshFeatures } from '../features.js'
 import { ApiError } from '../api.js'
 import { errorMessage } from '../errors.js'
 import { BRAND, setDocumentTitle } from '../brand.js'
@@ -32,7 +33,14 @@ async function submit() {
   try {
     await login(username.value, password.value, needCode.value ? code.value : '')
     const next = route.query.next
-    router.replace(typeof next === 'string' && next.startsWith('/') ? next : '/')
+    let to = typeof next === 'string' && next.startsWith('/') ? next : '/'
+    // A new server (no web server, no websites) opens the setup instead of
+    // the dashboard, until the setup was finished or skipped.
+    if (to === '/') {
+      await refreshFeatures(true)
+      if (features.setup) to = '/setup'
+    }
+    router.replace(to)
   } catch (e) {
     if (e instanceof ApiError && e.code === 'totp_required') {
       needCode.value = true

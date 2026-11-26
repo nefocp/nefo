@@ -65,3 +65,31 @@ func TestListAndGuards(t *testing.T) {
 		t.Fatalf("nginx reload without config test: %q %v", f.calls, err)
 	}
 }
+
+// aliasRun plays systemd on a MariaDB server, where mysql.service is an
+// alias of mariadb.service.
+type aliasRun struct{ fakeRun }
+
+func (f *aliasRun) Output(ctx context.Context, name string, args ...string) (string, error) {
+	if name == "systemctl" && args[0] == "show" && (args[1] == "mysql.service" || args[1] == "mariadb.service") {
+		return "Id=mariadb.service\nLoadState=loaded\nActiveState=active\nSubState=running\nUnitFileState=enabled\n", nil
+	}
+	return f.fakeRun.Output(ctx, name, args...)
+}
+
+func TestAliasShownOnce(t *testing.T) {
+	m := New(&aliasRun{})
+	m.phpDir = t.TempDir()
+	n := 0
+	for _, s := range m.List(context.Background()) {
+		if s.Name == "mysql" {
+			t.Error("the mysql alias of MariaDB listed")
+		}
+		if s.Name == "mariadb" {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Fatalf("mariadb listed %d times", n)
+	}
+}

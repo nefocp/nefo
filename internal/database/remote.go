@@ -22,13 +22,15 @@ import (
 // Remote access lets chosen client addresses connect to one database from
 // other machines. For each address the database user gets a twin
 // 'user'@'address' with the same password and privileges, ufw opens port
-// 3306 to that address only, and MariaDB listens on every interface while at
-// least one database allows remote access.
+// 3306 to that address only, and the server listens on every interface while
+// at least one database allows remote access. MySQL works the same way; the
+// differences are noted where they are.
 
 const (
-	// remoteConfFile makes MariaDB listen on every interface. It sorts after
-	// 50-server.cnf and 90-panel.cnf, and the last value read wins.
-	remoteConfFile = "/etc/mysql/mariadb.conf.d/99-panel-remote.cnf"
+	// remoteConfName makes the server listen on every interface. In the
+	// engine's drop-in folder it sorts after 50-server.cnf (MariaDB),
+	// mysqld.cnf (MySQL) and 90-panel.cnf, and the last value read wins.
+	remoteConfName = "99-panel-remote.cnf"
 	// MaxRemoteHosts is the number of client addresses one database may allow.
 	MaxRemoteHosts = 10
 	// minRemotePrefix is the widest IPv4 range allowed (/16: 65,536 addresses).
@@ -168,8 +170,14 @@ var safeHostRe = regexp.MustCompile(`^[0-9a-f.:/]{2,64}$`)
 // remoteUserSQL returns the statements that drop the user's twins for the
 // hosts in drop and create (or refresh) those for add, with the database's
 // password and the same privileges as the local user. Hosts are in MariaDB
-// form.
+// form, which MySQL reads the same way.
 func remoteUserSQL(name, user, password string, add, drop []string) (string, error) {
+	return remoteUserSQLFor(MariaDB, name, user, password, add, drop)
+}
+
+// remoteUserSQLFor is remoteUserSQL for an engine. MySQL has no CREATE OR
+// REPLACE USER, so a twin is dropped and created again there.
+func remoteUserSQLFor(e Engine, name, user, password string, add, drop []string) (string, error) {
 	if validate.DBName(name) != nil || validate.DBName(user) != nil {
 		return "", fmt.Errorf("invalid database name %q", name)
 	}
@@ -187,7 +195,11 @@ func remoteUserSQL(name, user, password string, add, drop []string) (string, err
 		if !safeHostRe.MatchString(h) {
 			return "", fmt.Errorf("invalid host %q", h)
 		}
-		fmt.Fprintf(&b, "CREATE OR REPLACE USER '%s'@'%s' IDENTIFIED BY '%s';\n", user, h, password)
+		if e == MySQL {
+			fmt.Fprintf(&b, "DROP USER IF EXISTS '%s'@'%s';\nCREATE USER '%s'@'%s' IDENTIFIED BY '%s';\n", user, h, user, h, password)
+		} else {
+			fmt.Fprintf(&b, "CREATE OR REPLACE USER '%s'@'%s' IDENTIFIED BY '%s';\n", user, h, password)
+		}
 		fmt.Fprintf(&b, "GRANT ALL PRIVILEGES ON `%s`.* TO '%s'@'%s';\n", name, user, h)
 	}
 	return b.String(), nil
@@ -219,12 +231,12 @@ func listensAll(bind string) bool {
 // RemoteAccess is the remote access state of one database.
 type RemoteAccess struct {
 	Hosts []string `json:"hosts"`
-	// BindAddress is where MariaDB listens now; Listening means it accepts
-	// connections from other machines.
+	// BindAddress is where the server listens now; Listening means it
+	// accepts connections from other machines.
 	BindAddress string `json:"bind_address"`
 	Listening   bool   `json:"listening"`
-	// RestartPending means MariaDB must restart before the listen setting
-	// takes effect.
+	// RestartPending means the server must restart before the listen
+	// setting takes effect.
 	RestartPending  bool `json:"restart_pending"`
 	FirewallActive  bool `json:"firewall_active"`
 	FirewallPresent bool `json:"firewall_installed"`
@@ -260,7 +272,7 @@ func (m *Manager) Remote(ctx context.Context, id int64) (*RemoteAccess, error) {
 
 // SetRemote replaces the client addresses that may reach a database from
 // other machines; an empty list turns remote access off. It reports whether
-// MariaDB must now restart to change where it listens (see Restart).
+// the server must now restart to change where it listens (see Restart).
 func (m *Manager) SetRemote(ctx context.Context, id int64, hosts []string) (restart bool, err error) {
 	hosts, err = ParseRemoteHosts(hosts)
 	if err != nil {
@@ -306,7 +318,7 @@ func (m *Manager) SetRemote(ctx context.Context, id int64, hosts []string) (rest
 }
 
 // remoteHostsInDB returns the panel-made remote hosts of a user that exist
-// in MariaDB, normalised.
+// in the server, normalised.
 func (m *Manager) remoteHostsInDB(ctx context.Context, user string) ([]string, error) {
 	if validate.DBName(user) != nil {
 		return nil, fmt.Errorf("invalid user name %q", user)
@@ -346,7 +358,7 @@ func (m *Manager) syncRemoteUsers(ctx context.Context, d *store.Database, hosts,
 	if len(add) == 0 && len(drop) == 0 {
 		return nil
 	}
-	q, err := remoteUserSQL(d.Name, d.Username, d.Password, add, drop)
+	q, err := remoteUserSQLFor(m.engine(), d.Name, d.Username, d.Password, add, drop)
 	if err != nil {
 		return err
 	}
@@ -354,7 +366,16 @@ func (m *Manager) syncRemoteUsers(ctx context.Context, d *store.Database, hosts,
 	return err
 }
 
-func firewallComment(name string) string { return "MariaDB " + name }
+// firewallComment marks the ufw rules of a database: "MariaDB shop" or
+// "MySQL shop".
+func (m *Manager) firewallComment(name string) string { return m.engine().Name() + " " + name }
+
+// ownRule reports whether a ufw rule's comment is the panel's for the
+// database name, with either engine's name: a rule from before the server
+// was switched still belongs to the database.
+func ownRule(comment, name string) bool {
+	return comment == MariaDB.Name()+" "+name || comment == MySQL.Name()+" "+name
+}
 
 func rulePort(to string) int {
 	to = strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(to), "(v6)"))
@@ -387,9 +408,9 @@ func (m *Manager) syncRemoteFirewall(ctx context.Context, name string, hosts []s
 		}
 		return nil
 	}
-	comment := firewallComment(name)
+	comment := m.firewallComment(name)
 	if fw := m.fw.Firewall(ctx); fw.Installed && !fw.Active {
-		return m.syncRemoteFirewallOff(ctx, fw, comment, hosts)
+		return m.syncRemoteFirewallOff(ctx, fw, name, comment, hosts)
 	}
 	// Rule numbers change after every delete, so read the rules again each time.
 	for range 100 {
@@ -403,7 +424,7 @@ func (m *Manager) syncRemoteFirewall(ctx context.Context, name string, hosts []s
 		have := map[string]bool{}
 		var stale *security.Rule
 		for i, r := range fw.Rules {
-			if r.Comment != comment || rulePort(r.To) != mariadbPort {
+			if !ownRule(r.Comment, name) || rulePort(r.To) != mariadbPort {
 				continue
 			}
 			from := ruleFrom(r.From)
@@ -443,11 +464,11 @@ var addedRuleRe = regexp.MustCompile(`^allow from (\S+) to any port 3306 proto t
 // syncRemoteFirewallOff is syncRemoteFirewall while ufw is off: its rules
 // have no numbers then, so a stale one is deleted by what it says, before
 // turning the firewall on could make it live.
-func (m *Manager) syncRemoteFirewallOff(ctx context.Context, fw security.Firewall, comment string, hosts []string) error {
+func (m *Manager) syncRemoteFirewallOff(ctx context.Context, fw security.Firewall, name, comment string, hosts []string) error {
 	have := map[string]bool{}
 	for _, line := range fw.Added {
 		mm := addedRuleRe.FindStringSubmatch(strings.TrimSpace(line))
-		if mm == nil || mm[2] != comment {
+		if mm == nil || !ownRule(mm[2], name) {
 			continue
 		}
 		if slices.Contains(hosts, mm[1]) && !have[mm[1]] {
@@ -473,8 +494,8 @@ func (m *Manager) syncRemoteFirewallOff(ctx context.Context, fw security.Firewal
 }
 
 // writeListenConf writes the listen drop-in while any database allows
-// remote access and removes it when none does. A change marks MariaDB for a
-// restart.
+// remote access and removes it when none does. A change marks the server
+// for a restart.
 func (m *Manager) writeListenConf(ctx context.Context) error {
 	all, err := m.store.AllDBRemoteHosts(ctx)
 	if err != nil {
@@ -487,15 +508,16 @@ func (m *Manager) writeListenConf(ctx context.Context) error {
 			ipv6 = ipv6 || strings.Contains(h, ":")
 		}
 	}
-	old, readErr := os.ReadFile(m.remoteConf)
+	conf := m.remoteConfPath()
+	old, readErr := os.ReadFile(conf)
 	switch {
 	case !anyRemote && readErr == nil:
-		if err := os.Remove(m.remoteConf); err != nil {
+		if err := os.Remove(conf); err != nil {
 			return err
 		}
 		m.listenDirty = true
 	case anyRemote && (readErr != nil || string(old) != remoteConf(ipv6)):
-		if err := fsutil.WriteFileAtomic(m.remoteConf, []byte(remoteConf(ipv6)), 0o644); err != nil {
+		if err := fsutil.WriteFileAtomic(conf, []byte(remoteConf(ipv6)), 0o644); err != nil {
 			return err
 		}
 		m.listenDirty = true
@@ -503,8 +525,8 @@ func (m *Manager) writeListenConf(ctx context.Context) error {
 	return nil
 }
 
-// bindAddress returns where MariaDB listens. An empty value means every
-// interface.
+// bindAddress returns where the server listens. An empty value (MariaDB)
+// or "*" (MySQL's default) means every interface.
 func (m *Manager) bindAddress(ctx context.Context) (string, error) {
 	out, err := m.sql(ctx, "SELECT @@global.bind_address;")
 	if err != nil {
@@ -513,7 +535,7 @@ func (m *Manager) bindAddress(ctx context.Context) (string, error) {
 	return strings.TrimSpace(out), nil
 }
 
-// RestartPending reports whether MariaDB must restart before it listens
+// RestartPending reports whether the server must restart before it listens
 // where the panel's configuration says.
 func (m *Manager) RestartPending(ctx context.Context) bool {
 	m.mu.Lock()
@@ -527,20 +549,20 @@ func (m *Manager) restartPendingLocked(ctx context.Context) bool {
 	}
 	bind, err := m.bindAddress(ctx)
 	if err != nil {
-		return m.listenDirty // MariaDB is busy, maybe restarting
+		return m.listenDirty // the server is busy, maybe restarting
 	}
-	if fsutil.Exists(m.remoteConf) {
+	if fsutil.Exists(m.remoteConfPath()) {
 		return !listensAll(bind)
 	}
-	// The panel removed its file. MariaDB may also listen everywhere
+	// The panel removed its file. The server may also listen everywhere
 	// because of the administrator's own settings, so only the restart
 	// right after the change counts.
 	return m.listenDirty && listensAll(bind)
 }
 
-// Restart restarts MariaDB so a new listen setting takes effect. If MariaDB
+// Restart restarts the server so a new listen setting takes effect. If it
 // does not come back with the panel's remote access file, the file is
-// removed and MariaDB started again without it, so the websites keep
+// removed and the server started again without it, so the websites keep
 // working.
 func (m *Manager) Restart(ctx context.Context, lg Logger) error {
 	if err := m.ready(ctx); err != nil {
@@ -548,36 +570,39 @@ func (m *Manager) Restart(ctx context.Context, lg Logger) error {
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	lg.Logf("Restarting MariaDB")
-	if _, err := m.run.Output(ctx, "systemctl", "restart", "mariadb"); err != nil {
-		if !fsutil.Exists(m.remoteConf) {
+	e := m.engine()
+	conf := m.remoteConfPath()
+	lg.Logf("Restarting %s", e.Name())
+	if _, err := m.run.Output(ctx, "systemctl", "restart", e.service()); err != nil {
+		if !fsutil.Exists(conf) {
 			return err
 		}
-		lg.Logf("MariaDB did not start: %v", err)
-		lg.Logf("Removing %s and starting MariaDB again", m.remoteConf)
-		if rmErr := os.Remove(m.remoteConf); rmErr != nil {
+		lg.Logf("%s did not start: %v", e.Name(), err)
+		lg.Logf("Removing %s and starting %s again", conf, e.Name())
+		if rmErr := os.Remove(conf); rmErr != nil {
 			return rmErr
 		}
-		if _, err2 := m.run.Output(ctx, "systemctl", "restart", "mariadb"); err2 != nil {
+		if _, err2 := m.run.Output(ctx, "systemctl", "restart", e.service()); err2 != nil {
 			return err2
 		}
 		m.listenDirty = false
-		return errors.New("MariaDB could not start with remote access, so it was started without it")
+		return fmt.Errorf("%s could not start with remote access, so it was started without it", e.Name())
 	}
 	m.listenDirty = false
 	switch bind, err := m.bindAddress(ctx); {
 	case err != nil:
-		lg.Logf("MariaDB restarted, but does not answer yet: %v", err)
+		lg.Logf("%s restarted, but does not answer yet: %v", e.Name(), err)
 	case listensAll(bind):
-		lg.Logf("MariaDB listens on all interfaces (%s), port %d", bind, mariadbPort)
+		lg.Logf("%s listens on all interfaces (%s), port %d", e.Name(), bind, mariadbPort)
 	default:
-		lg.Logf("MariaDB listens on %s only", bind)
+		lg.Logf("%s listens on %s only", e.Name(), bind)
 	}
 	return nil
 }
 
-// remoteTwins returns the MariaDB hosts of a user's remote twins: the
-// stored ones and, while MariaDB runs, any panel-made twin it still has.
+// remoteTwins returns the hosts (in MariaDB form) of a user's remote twins:
+// the stored ones and, while the server runs, any panel-made twin it still
+// has.
 func (m *Manager) remoteTwins(ctx context.Context, d *store.Database, running bool) ([]string, error) {
 	hosts, err := m.store.DBRemoteHosts(ctx, d.ID)
 	if err != nil {

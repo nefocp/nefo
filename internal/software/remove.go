@@ -84,6 +84,12 @@ func (m *Manager) CheckRemove(ctx context.Context, id string, opts RemoveOptions
 			return usererr.New("software_confirm_mismatch", "docker")
 		}
 		return m.dockerUsage(ctx, sites).blocker()
+	case "composer":
+		if ComposerPath() == "" {
+			return usererr.New("software_not_installed", "Composer")
+		}
+		_, deploys := m.composerUsers(ctx, sites)
+		return composerBlocker(deploys)
 	}
 	return usererr.New("unknown_software", id)
 }
@@ -107,6 +113,8 @@ func (m *Manager) Remove(ctx context.Context, id string, opts RemoveOptions, lg 
 		return m.removePython(ctx, lg)
 	case "docker":
 		return m.removeDocker(ctx, opts.DeleteData, lg)
+	case "composer":
+		return m.removeComposer(ctx, lg)
 	}
 	return usererr.New("unknown_software", id)
 }

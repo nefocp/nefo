@@ -15,6 +15,7 @@ export const router = createRouter({
       children: [
         { path: '', name: 'dashboard', component: DashboardView },
         { path: 'websites', name: 'websites', component: () => import('./views/WebsitesView.vue') },
+        { path: 'websites/import', name: 'site-import', component: () => import('./views/ImportView.vue') },
         { path: 'apps', name: 'apps', component: () => import('./views/AppsView.vue') },
         { path: 'wordpress', name: 'wordpress', component: () => import('./views/WordPressView.vue') },
         { path: 'databases', name: 'databases', component: () => import('./views/DatabasesView.vue') },
@@ -30,6 +31,8 @@ export const router = createRouter({
         { path: 'firewall', name: 'firewall', component: () => import('./views/FirewallView.vue') },
         { path: 'settings', name: 'settings', component: () => import('./views/SettingsView.vue') },
         { path: 'software', name: 'software', component: () => import('./views/SoftwareView.vue') },
+        // The first setup of the server: opened after signing in on a new server.
+        { path: 'setup', name: 'setup', component: () => import('./views/SetupView.vue') },
         { path: 'system', name: 'system', component: () => import('./views/SystemView.vue') },
         { path: 'docker', name: 'docker', component: () => import('./views/DockerView.vue') },
         // Loaded on demand: the terminal library is large.

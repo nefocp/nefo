@@ -35,6 +35,8 @@ git push origin v1.2.0
 
 To build a release locally: `make release VERSION=v1.2.0 SIGNING_KEY=/path/to/release.key`.
 
+`install.sh` passes its setup options (after `--`, or in `NEFO_SETUP`) to the `nefo setup` of the binary it downloads, after checking them with `nefo setup --check`. Releases before `nefo setup` existed refuse every option, so an installer run with options and an older `NEFO_VERSION` stops before configuring anything. When you change the installer, test it in fresh containers both without options (it must behave as before) and with them.
+
 ## If the key is lost or leaked
 
 Create a new key pair, commit the new `release.pub`, and publish a release signed with the **old** key (if you still have it) that contains the new public key. Servers that install that release then trust the new key. If the old key leaked, announce it in a security advisory: installations must then be updated by hand (`install.sh` from a trusted copy).

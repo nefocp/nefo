@@ -99,7 +99,7 @@ func (s *Server) handleDBRestart(w http.ResponseWriter, r *http.Request, a *auth
 }
 
 func (s *Server) startDBRestart(user, ip string) (*jobs.Job, error) {
-	return s.jobs.Start("db_restart", "MariaDB", 5*time.Minute, func(ctx context.Context, j *jobs.Job) error {
+	return s.jobs.Start("db_restart", database.InstalledEngine().Name(), 5*time.Minute, func(ctx context.Context, j *jobs.Job) error {
 		err := s.db.Restart(ctx, j)
 		if err == nil {
 			s.audit(ctx, user, "db_restarted", ip, "listen setting")

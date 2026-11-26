@@ -29,20 +29,27 @@ type Service struct {
 }
 
 // candidates are the units the panel shows when they are installed.
-var candidates = []string{"nefo", "nginx", "apache2", "lshttpd", "mariadb", "redis-server", "fail2ban", "ssh", "cron", "ufw"}
+var candidates = []string{"nefo", "nginx", "apache2", "lshttpd", "mariadb", "mysql", "redis-server", "memcached", "fail2ban", "ssh", "cron", "ufw"}
 
 var phpFPMRe = regexp.MustCompile(`^php[0-9]+\.[0-9]+-fpm$`)
+
+// pgClusterRe matches the unit of a PostgreSQL version's main cluster.
+var pgClusterRe = regexp.MustCompile(`^postgresql@[0-9]{1,3}-main$`)
 
 // Manager reads and changes services.
 type Manager struct {
 	run    run.Runner
 	phpDir string
+	pgDir  string // PostgreSQL's clusters: <pgDir>/<version>/main
 }
 
 // New returns a Manager.
-func New(r run.Runner) *Manager { return &Manager{run: r, phpDir: "/etc/php"} }
+func New(r run.Runner) *Manager {
+	return &Manager{run: r, phpDir: "/etc/php", pgDir: "/etc/postgresql"}
+}
 
-// names returns the candidate units plus every installed PHP-FPM version.
+// names returns the candidate units plus every installed PHP-FPM version
+// and the main cluster of every PostgreSQL version.
 func (m *Manager) names() []string {
 	names := slices.Clone(candidates)
 	matches, _ := filepath.Glob(filepath.Join(m.phpDir, "*", "fpm"))
@@ -50,6 +57,15 @@ func (m *Manager) names() []string {
 		n := "php" + filepath.Base(filepath.Dir(p)) + "-fpm"
 		if phpFPMRe.MatchString(n) {
 			names = append(names, n)
+		}
+	}
+	if m.pgDir != "" {
+		matches, _ = filepath.Glob(filepath.Join(m.pgDir, "*", "main", "postgresql.conf"))
+		for _, p := range matches {
+			n := "postgresql@" + filepath.Base(filepath.Dir(filepath.Dir(p))) + "-main"
+			if pgClusterRe.MatchString(n) {
+				names = append(names, n)
+			}
 		}
 	}
 	return names
@@ -83,7 +99,7 @@ func (m *Manager) List(ctx context.Context) []Service {
 
 func (m *Manager) show(ctx context.Context, name string) (Service, bool) {
 	text, err := m.run.Output(ctx, "systemctl", "show", name+".service", "--no-pager",
-		"--property=LoadState,ActiveState,SubState,UnitFileState,ActiveEnterTimestamp,MemoryCurrent,Description")
+		"--property=Id,LoadState,ActiveState,SubState,UnitFileState,ActiveEnterTimestamp,MemoryCurrent,Description")
 	if err != nil {
 		return Service{}, false
 	}
@@ -94,6 +110,11 @@ func (m *Manager) show(ctx context.Context, name string) (Service, bool) {
 		}
 	}
 	if props["LoadState"] != "loaded" {
+		return Service{}, false
+	}
+	// An alias of another unit (MariaDB's mariadb.service is also
+	// mysql.service) shows once, under its own name.
+	if id := props["Id"]; id != "" && id != name+".service" {
 		return Service{}, false
 	}
 	s := Service{

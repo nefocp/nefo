@@ -5,6 +5,7 @@ import Modal from './Modal.vue'
 import Icon from './Icon.vue'
 import { api } from '../api.js'
 import { errorMessage } from '../errors.js'
+import { dbEngineName } from '../features.js'
 
 // DbRemoteAccess edits the client addresses that may connect to one
 // database from other machines. It emits "saved" with the restart job, if
@@ -14,6 +15,7 @@ const props = defineProps({
 })
 const emit = defineEmits(['close', 'saved'])
 const { t } = useI18n()
+const engine = dbEngineName() // "MariaDB" or "MySQL", for the messages
 
 const MAX = 10
 const state = ref(null)
@@ -56,7 +58,7 @@ async function save(list) {
     fill(res.remote)
     restarting.value = !!res.job
     notice.value = list.length ? t('databases.remote_saved') : t('databases.remote_disabled')
-    if (res.job) notice.value += ' ' + t('databases.remote_restarting')
+    if (res.job) notice.value += ' ' + t('databases.remote_restarting', { engine })
     emit('saved', { job: res.job || null, hosts: res.remote.hosts })
   } catch (e) {
     error.value = errorMessage(e)
@@ -75,7 +77,7 @@ async function restartNow() {
   try {
     const job = await api('POST', 'api/db/restart', {})
     restarting.value = true
-    notice.value = t('databases.remote_restarting')
+    notice.value = t('databases.remote_restarting', { engine })
     emit('saved', { job, hosts: state.value.hosts })
   } catch (e) {
     error.value = errorMessage(e)
@@ -96,16 +98,16 @@ onMounted(load)
     <template v-if="state">
       <p v-if="!state.firewall_installed" class="alert alert-crit">{{ t('databases.remote_no_firewall') }}</p>
       <p v-else-if="!state.firewall_active" class="alert alert-warn">
-        {{ t('databases.remote_firewall_inactive') }}
+        {{ t('databases.remote_firewall_inactive', { engine }) }}
         <RouterLink :to="{ name: 'firewall' }">{{ t('nav.firewall') }}</RouterLink>
       </p>
 
       <p v-if="state.hosts.length" class="row small">
         <span class="tag tag-warn">{{ t('databases.remote_on') }}</span>
-        <span v-if="state.restart_pending && !restarting" class="text-crit">{{ t('databases.remote_restart_pending') }}</span>
-        <span v-else-if="state.listening" class="muted">{{ t('databases.remote_listening', { port: state.port }) }}</span>
+        <span v-if="state.restart_pending && !restarting" class="text-crit">{{ t('databases.remote_restart_pending', { engine }) }}</span>
+        <span v-else-if="state.listening" class="muted">{{ t('databases.remote_listening', { port: state.port, engine }) }}</span>
         <button v-if="state.restart_pending && !restarting" type="button" class="btn btn-sm" :disabled="busy" @click="restartNow">
-          <Icon name="refresh" :size="15" />{{ t('databases.remote_restart') }}
+          <Icon name="refresh" :size="15" />{{ t('databases.remote_restart', { engine }) }}
         </button>
       </p>
 
@@ -138,7 +140,7 @@ onMounted(load)
             <li>{{ t('databases.remote_tip_firewall', { port: state.port }) }}</li>
             <li>{{ t('databases.remote_tip_static') }}</li>
             <li>{{ t('databases.remote_tip_tls') }}</li>
-            <li>{{ t('databases.remote_tip_restart') }}</li>
+            <li>{{ t('databases.remote_tip_restart', { engine }) }}</li>
           </ul>
         </div>
         <p class="small muted">{{ t('databases.remote_connect_hint', { user: db.username, port: state.port }) }}</p>

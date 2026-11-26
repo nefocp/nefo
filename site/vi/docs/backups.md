@@ -85,7 +85,7 @@ Sau mỗi lần sao lưu theo lịch, panel xóa các bản cũ nhất do lịch
 
 Xóa một lịch sẽ dừng lịch đó. Các bản sao lưu đã có vẫn được giữ. Khi xóa một website, một database hoặc một ứng dụng, lịch của nó cũng bị xóa, còn các bản sao lưu vẫn nằm ở trang **Sao lưu**.
 
-## Kho lưu trữ từ xa
+## Kho lưu trữ từ xa {#remote-storage}
 
 Một bản sao ở nhà cung cấp khác giúp bạn an toàn nếu máy chủ này gặp sự cố. Vào **Sao lưu** → **Kho lưu trữ từ xa** và chọn **Cấu hình**. Bạn có thể cấu hình cùng lúc kho tương thích S3 và máy chủ SFTP: khi đó bản sao lưu được tải lên cả hai nơi.
 
@@ -171,7 +171,7 @@ Khôi phục thay thế những gì:
 | **Thư mục** | Bản sao lưu được giải nén cạnh nội dung hiện tại trước. Chỉ khi việc đó thành công, nội dung thư mục mới bị thay, nên một bản sao lưu hỏng sẽ giữ nguyên thư mục như cũ. File thêm vào sau thời điểm sao lưu sẽ bị xóa. Chủ sở hữu, quyền và liên kết tượng trưng được khôi phục. Thư mục chưa có sẽ được tạo |
 | **Ứng dụng** | Các container của ứng dụng dừng, thư mục và dữ liệu được thay, container khởi động lại và các bản dump database được nạp. Mật khẩu lưu trong bản sao lưu cũng trở lại |
 
-Bản dump trong bản sao lưu website và database được nạp giống như khi [nhập](./databases#nhap) ở trang **Cơ sở dữ liệu**: bằng một user MariaDB tạm thời chỉ dùng được database đó, nên bản dump không bao giờ ghi vào database khác.
+Bản dump trong bản sao lưu website và database được nạp giống như khi [nhập](./databases#nhap) ở trang **Cơ sở dữ liệu**: bằng một user MariaDB hoặc MySQL tạm thời chỉ dùng được database đó, nên bản dump không bao giờ ghi vào database khác.
 
 Chỉ khôi phục được bản sao lưu website khi website vẫn tồn tại với cùng tên miền. Nếu đã xóa website, hãy tạo lại nó với cùng tên miền rồi khôi phục.
 

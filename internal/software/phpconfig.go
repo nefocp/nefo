@@ -39,6 +39,10 @@ type PHPConfig struct {
 	Extensions []PHPExtension    `json:"extensions"`
 	Ini        map[string]string `json:"ini"`
 	Defaults   map[string]string `json:"defaults"`
+	// EOL marks a version without security updates (PHPEndOfLife), Legacy
+	// one of 5.6 to 7.3.
+	EOL    bool `json:"eol,omitempty"`
+	Legacy bool `json:"legacy,omitempty"`
 }
 
 type iniRule struct {
@@ -63,6 +67,9 @@ var (
 )
 
 // iniRules are the php.ini keys the panel may set, with their PHP defaults.
+// Every key exists from PHP 5.6 on, the oldest version offered (see
+// TestIniRulesOldPHP); a key that only newer versions know, such as
+// opcache.jit (8.0), must not be written for older ones.
 var iniRules = map[string]iniRule{
 	"max_input_vars":                {"1000", intRange(100, 100000)},
 	"max_input_time":                {"60", intRange(-1, 3600)},
@@ -98,7 +105,8 @@ func (m *Manager) PHPConfig(ctx context.Context, v string) (*PHPConfig, error) {
 	if err := m.checkPHP(v); err != nil {
 		return nil, err
 	}
-	cfg := &PHPConfig{Version: v, Ini: readIni(panelIni(v)), Defaults: map[string]string{}}
+	cfg := &PHPConfig{Version: v, Ini: readIni(panelIni(v)), Defaults: map[string]string{},
+		EOL: PHPEndOfLife(v, m.distroPHP(ctx), phpNow()), Legacy: IsLegacyPHP(v)}
 	for k, r := range iniRules {
 		cfg.Defaults[k] = r.def
 	}
@@ -171,6 +179,13 @@ func (m *Manager) checkExtension(v, ext string) error {
 func (m *Manager) InstallExtension(ctx context.Context, v, ext string, lg Logger) error {
 	if err := m.checkExtension(v, ext); err != nil {
 		return err
+	}
+	// After the move from the PPA at start-up, apt has no lists for the
+	// new source until its next update.
+	if suryListsMissing() {
+		if err := run.Apt(ctx, m.run, lg, "update"); err != nil {
+			return err
+		}
 	}
 	lg.Logf("Installing php%s-%s", v, ext)
 	if err := run.Apt(ctx, m.run, lg, "install", "-y", "--no-install-recommends", "php"+v+"-"+ext); err != nil {

@@ -35,6 +35,7 @@ Usage:
   nefo info            Show the panel URL
   nefo reset-password  Set a new random password for an account
   nefo update          Install the latest release and restart the panel
+  nefo setup           Install a web server, PHP, a database and extras
   nefo version         Show the version
 
 Run "nefo <command> -h" for the options of a command.
@@ -58,6 +59,8 @@ func main() {
 		err = cmdResetPassword(args)
 	case "update":
 		err = cmdUpdate(args)
+	case "setup":
+		err = cmdSetup(args)
 	case "version", "--version", "-v":
 		fmt.Printf("%s %s (commit %s)\n", version.AppName, version.Version, version.Commit)
 	case "help", "--help", "-h":
@@ -321,6 +324,13 @@ func cmdServe(args []string) error {
 	defer stop()
 
 	srv := api.New(cfg, st, logger)
+	// "nefo setup" asks the panel through this socket (internal/api/local.go).
+	// It exists before the panel listens on its port.
+	if ln, err := srv.ListenLocal(); err != nil {
+		logger.Warn("local socket", "err", err)
+	} else {
+		go srv.ServeLocal(ctx, ln)
+	}
 	go srv.RefreshConfig(ctx)
 	go srv.RunMaintenance(ctx)
 	go srv.RunScheduler(ctx)

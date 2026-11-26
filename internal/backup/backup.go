@@ -53,6 +53,7 @@ type Logger interface {
 type Manager struct {
 	store   *store.Store
 	db      *database.Manager
+	pg      Postgres // nil: no PostgreSQL databases (see postgres.go)
 	hosting *hosting.Manager
 	dir     string
 	// protected are folders that folder backups may not touch.
@@ -78,6 +79,7 @@ type manifest struct {
 	App          string    `json:"app,omitempty"`
 	Path         string    `json:"path,omitempty"` // of a folder backup
 	Databases    []string  `json:"databases"`
+	PGDatabases  []string  `json:"pg_databases,omitempty"` // PostgreSQL, see postgres.go
 	CreatedAt    time.Time `json:"created_at"`
 	PanelVersion string    `json:"panel_version"`
 }
@@ -114,6 +116,9 @@ func (m *Manager) CheckTarget(ctx context.Context, kind, target string) error {
 		return err
 	case KindDatabase:
 		_, err := m.store.DatabaseByName(ctx, target)
+		if errors.Is(err, store.ErrNotFound) {
+			_, err = m.store.PGDatabaseByName(ctx, target)
+		}
 		return err
 	case KindApp:
 		_, err := m.hosting.AppBackup(ctx, target)
@@ -140,9 +145,16 @@ func (m *Manager) BackupSite(ctx context.Context, domain string, scheduleID int6
 	if err != nil {
 		return nil, err
 	}
+	pgdbs, err := m.pgDatabasesForSite(ctx, site.ID)
+	if err != nil {
+		return nil, err
+	}
 	man := manifest{Format: 1, Kind: KindSite, Domain: site.Domain, PHPVersion: site.PHPVersion, App: site.App}
 	for _, d := range dbs {
 		man.Databases = append(man.Databases, d.Name)
+	}
+	for _, d := range pgdbs {
+		man.PGDatabases = append(man.PGDatabases, d.Name)
 	}
 	// A Docker app keeps its data outside the website's folder: it gets a
 	// backup of its own next to the site's (same schedule, pruned with it).
@@ -171,13 +183,26 @@ func (m *Manager) BackupSite(ctx context.Context, domain string, scheduleID int6
 				return err
 			}
 		}
+		for _, d := range pgdbs {
+			if err := m.addPGDump(ctx, tw, d.Name, lg); err != nil {
+				return err
+			}
+		}
 		return nil
 	})
 }
 
 // BackupDatabase backs up one database.
 func (m *Manager) BackupDatabase(ctx context.Context, name string, scheduleID int64, remote bool, lg Logger) (*store.Backup, error) {
-	if _, err := m.store.DatabaseByName(ctx, name); err != nil {
+	if _, err := m.store.DatabaseByName(ctx, name); errors.Is(err, store.ErrNotFound) {
+		if _, perr := m.store.PGDatabaseByName(ctx, name); perr == nil {
+			man := manifest{Format: 1, Kind: KindDatabase, PGDatabases: []string{name}}
+			return m.make(ctx, KindDatabase, name, man, scheduleID, remote, lg, func(tw *tar.Writer) error {
+				return m.addPGDump(ctx, tw, name, lg)
+			})
+		}
+		return nil, err
+	} else if err != nil {
 		return nil, err
 	}
 	man := manifest{Format: 1, Kind: KindDatabase, Databases: []string{name}}
@@ -508,6 +533,8 @@ func (m *Manager) Restore(ctx context.Context, id int64, lg Logger) error {
 			dbName := strings.TrimSuffix(strings.TrimPrefix(name, "databases/"), ".sql")
 			err = m.restoreDB(ctx, dbName, site, tr, lg)
 			restoredDBs = append(restoredDBs, dbName)
+		case strings.HasPrefix(name, pgDir) && strings.HasSuffix(name, ".sql"):
+			err = m.restorePG(ctx, strings.TrimSuffix(strings.TrimPrefix(name, pgDir), ".sql"), site, tr, lg)
 		}
 		if err != nil {
 			return err

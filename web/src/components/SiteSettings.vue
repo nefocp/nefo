@@ -10,6 +10,8 @@ import { errorMessage } from '../errors.js'
 const props = defineProps({
   site: { type: Object, required: true },
   phpVersions: { type: Array, required: true },
+  // Versions that get no security updates on this server (the web status's "eol").
+  phpEol: { type: Array, default: () => [] },
   section: { type: String, default: '' },
 })
 const show = (part) => !props.section || props.section === part
@@ -106,9 +108,13 @@ async function save() {
       <template v-if="site.php_version && show('php')">
         <label class="field">
           <span>{{ t('websites.php_version') }}</span>
-          <select v-model="form.php_version" class="input input-auto">
-            <option v-for="v in phpVersions" :key="v" :value="v">PHP {{ v }}</option>
-          </select>
+          <span class="row php-pick">
+            <select v-model="form.php_version" class="input input-auto">
+              <option v-for="v in phpVersions" :key="v" :value="v">PHP {{ v }}{{ phpEol.includes(v) ? ` (${t('software.eol_short')})` : '' }}</option>
+            </select>
+            <span v-if="phpEol.includes(form.php_version)" class="tag tag-crit">{{ t('software.eol_badge') }}</span>
+          </span>
+          <small v-if="phpEol.includes(form.php_version)" class="muted">{{ t('software.eol_site_hint') }}</small>
         </label>
         <div class="row">
           <label class="field grow">
@@ -154,5 +160,6 @@ async function save() {
 
 <style scoped>
 .php-allow { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 4px 16px; }
+.php-pick { align-items: center; flex-wrap: wrap; gap: 8px; }
 .php-allow legend { font-weight: 600; margin-bottom: 4px; width: 100%; }
 </style>

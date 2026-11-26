@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/nefocp/nefo/internal/database"
 	"github.com/nefocp/nefo/internal/jobs"
 	"github.com/nefocp/nefo/internal/usererr"
 )
@@ -19,16 +20,44 @@ func pathID(r *http.Request) (int64, bool) {
 	return id, err == nil && id > 0
 }
 
+// handleDBStatus answers GET /api/db/status: the database server's state,
+// with "engine" ("mariadb", "mysql" or "" while none is installed) and,
+// for the install choice, why MySQL is not offered ("mysql_unavailable",
+// null when it is).
 func (s *Server) handleDBStatus(w http.ResponseWriter, r *http.Request, a *authed) {
-	writeJSON(w, http.StatusOK, s.db.Status(r.Context()))
+	st := s.db.Status(r.Context())
+	writeJSON(w, http.StatusOK, struct {
+		database.Status
+		MySQLUnavailable *reason `json:"mysql_unavailable"`
+	}{st, s.mysqlUnavailable(st)})
 }
 
+// handleDBInstall installs the database server: {"engine": "mariadb"} (the
+// default, also for an empty body) or {"engine": "mysql"} (dbengine.go).
 func (s *Server) handleDBInstall(w http.ResponseWriter, r *http.Request, a *authed) {
 	user, ip := a.user.Username, clientIP(r)
-	job, err := s.jobs.Start("install_db", "", 30*time.Minute, func(ctx context.Context, j *jobs.Job) error {
-		err := s.db.Install(ctx, j)
+	var req struct {
+		Engine string `json:"engine"`
+	}
+	if r.ContentLength != 0 && !decodeJSON(w, r, &req) {
+		return
+	}
+	if req.Engine == "" {
+		req.Engine = string(database.MariaDB)
+	}
+	e, ok := dbEngineOf(req.Engine)
+	if !ok {
+		s.opError(w, r, usererr.New("unknown_software", req.Engine))
+		return
+	}
+	if err := s.db.CheckInstall(r.Context(), e); err != nil {
+		s.opError(w, r, err)
+		return
+	}
+	job, err := s.jobs.Start("install_db", e.Name(), 30*time.Minute, func(ctx context.Context, j *jobs.Job) error {
+		err := s.installDB(ctx, e, j)
 		if err == nil {
-			s.audit(ctx, user, "db_installed", ip, "")
+			s.audit(ctx, user, "db_installed", ip, string(e))
 		}
 		return err
 	})

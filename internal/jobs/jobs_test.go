@@ -3,6 +3,7 @@ package jobs
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"strings"
@@ -95,5 +96,54 @@ func TestLogIsCapped(t *testing.T) {
 	}
 	if l := s.Log[len(s.Log)-1]; len(l) != maxLineLen {
 		t.Fatalf("long line kept %d bytes", len(l))
+	}
+}
+
+func TestLogFromFollowsALongJob(t *testing.T) {
+	m := newManager()
+	release := make(chan struct{})
+	j, err := m.Start("long", "", time.Minute, func(ctx context.Context, j *Job) error {
+		for i := 0; i < maxLines+5; i++ {
+			j.Logf("line %d", i)
+		}
+		io.WriteString(j, "half a line")
+		<-release
+		return errors.New("boom")
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		if _, next := j.LogFrom(0); next == maxLines+5 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("the log did not grow")
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	// The first 5 lines were dropped: asking from 0 starts at the oldest kept.
+	lines, next := j.LogFrom(0)
+	if len(lines) != maxLines || lines[0] != "line 5" || next != maxLines+5 {
+		t.Fatalf("from 0: %d lines, first %q, next %d", len(lines), lines[0], next)
+	}
+	if lines, next := j.LogFrom(maxLines + 3); len(lines) != 2 || lines[1] != fmt.Sprintf("line %d", maxLines+4) || next != maxLines+5 {
+		t.Fatalf("from the end: %q %d", lines, next)
+	}
+	if lines, _ := j.LogFrom(next + 10); len(lines) != 0 {
+		t.Fatalf("past the end: %q", lines)
+	}
+	if st, _ := j.State(); st != StatusRunning {
+		t.Fatalf("state %s", st)
+	}
+	close(release)
+	waitDone(t, j)
+	// Finishing completes the half line.
+	if lines, _ := j.LogFrom(next); len(lines) != 1 || lines[0] != "half a line" {
+		t.Fatalf("after the end: %q", lines)
+	}
+	if st, e := j.State(); st != StatusFailed || e != "boom" {
+		t.Fatalf("state %s %q", st, e)
 	}
 }

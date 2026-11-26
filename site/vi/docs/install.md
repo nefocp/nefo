@@ -73,7 +73,7 @@ Mật khẩu chỉ hiện một lần. Panel chỉ lưu bản băm (hash) của 
 7. **Cài dịch vụ systemd** `nefo`, khởi động nó và cho nó tự chạy khi máy khởi động.
 8. **Mở cổng của panel** trên ufw nếu ufw đang bật, hoặc trên firewalld nếu máy đang chạy firewalld. Nếu cả hai đều không bật, trình cài đặt không đổi tường lửa nào.
 
-Trình cài đặt không cài gì thêm: không web server, không PHP, không database. Bạn sẽ thêm chúng sau, từ panel.
+Nếu bạn không đưa [tùy chọn thiết lập](#set-the-server-up-in-the-same-run), trình cài đặt không cài gì thêm: không web server, không PHP, không database. Panel sẽ đề nghị thiết lập chúng khi bạn đăng nhập lần đầu (xem [Những việc đầu tiên](./first-steps#set-up-the-server)).
 
 ## Mở panel lần đầu
 
@@ -104,6 +104,7 @@ Bạn có thể thay đổi cách trình cài đặt hoạt động bằng các 
 | `NEFO_VERSION` | `latest` | Cài một bản phát hành cụ thể, ví dụ `v0.1.0`, thay vì bản mới nhất. |
 | `NEFO_REPO` | `nefocp/nefo` | Tải từ một kho GitHub khác (`chủ-sở-hữu/tên`), ví dụ một bản fork. |
 | `NEFO_FORCE` | chưa đặt | Đặt bằng `1` để thử cài trên hệ điều hành chưa được hỗ trợ. Phần kiểm tra CPU vẫn áp dụng. |
+| `NEFO_SETUP` | chưa đặt | Các tùy chọn cho `nefo setup`, để thiết lập máy chủ ngay trong lần cài. Xem [bên dưới](#set-the-server-up-in-the-same-run). |
 
 Đặt biến ngay trước `bash`:
 
@@ -114,6 +115,29 @@ curl -fsSL https://github.com/nefocp/nefo/releases/latest/download/install.sh | 
 Nếu dùng `sudo`, hãy viết `| sudo NEFO_VERSION=v0.1.0 bash`.
 
 `NEFO_REPO` chỉ đổi nơi trình cài đặt tải về. Các bản cập nhật sau này lấy từ kho được gắn sẵn trong chương trình, hoặc từ `update_url` trong tệp cấu hình (xem [Cập nhật](./update#where-updates-come-from)).
+
+## Thiết lập máy chủ ngay khi cài {#set-the-server-up-in-the-same-run}
+
+Trình cài đặt cũng có thể thiết lập máy chủ giống trang thiết lập của panel: một web server, các phiên bản PHP, một máy chủ cơ sở dữ liệu và các thành phần thêm. Hãy đưa các tùy chọn của [`nefo setup`](./cli#nefo-setup) sau `bash -s --`:
+
+```sh
+curl -fsSL https://github.com/nefocp/nefo/releases/latest/download/install.sh | sudo bash -s -- --web nginx --php 8.4 --db mariadb --redis
+```
+
+Hoặc đặt chúng trong biến `NEFO_SETUP`:
+
+```sh
+curl -fsSL https://github.com/nefocp/nefo/releases/latest/download/install.sh | sudo NEFO_SETUP="--web nginx --php 8.4 --db mariadb" bash
+```
+
+Khi có tùy chọn thiết lập:
+
+- Trình cài đặt kiểm tra các tùy chọn ngay sau khi tải về, trước khi cấu hình bất cứ thứ gì. Một tùy chọn sai, ví dụ `--web caddy`, sẽ làm nó dừng lại, và bạn có thể chạy lại. Tùy chọn chỉ được chứa chữ cái, chữ số và `. , = _ -`.
+- Khi panel đã khởi động, trình cài đặt chạy `nefo setup` với các tùy chọn của bạn cùng `--yes`, và hiện nhật ký của nó. Việc này mất vài phút. Panel thực hiện việc cài đặt như một tác vụ của nó, nên vẫn tiếp tục kể cả khi phiên SSH bị ngắt: khi đó hãy theo dõi trong panel.
+- Địa chỉ, tên đăng nhập và mật khẩu được in ra ở cuối, sau phần thiết lập.
+- Panel sẽ không mở trang thiết lập sau khi bạn đăng nhập nữa.
+
+Nếu quá trình thiết lập dừng, ví dụ vì một lần tải về bị lỗi, panel vẫn được cài. Trình cài đặt vẫn in địa chỉ và mật khẩu, rồi báo rằng việc thiết lập đã dừng, và kết thúc với mã lỗi. Hãy khắc phục lỗi, rồi chạy `nefo setup` với đúng các tùy chọn đó: các phần đã cài sẽ được bỏ qua.
 
 ## Cài lại
 

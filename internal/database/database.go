@@ -1,13 +1,17 @@
-// Package database installs MariaDB and manages databases and their users.
+// Package database installs MariaDB or MySQL (see Engine) and manages
+// databases and their users.
 //
-// The panel runs as root and talks to MariaDB with the mariadb command over
-// the local socket, where Debian and Ubuntu let root in without a password.
-// SQL is sent on stdin so passwords never appear in the process list. Names
-// and passwords pass strict allow-lists first (see package validate), so no
+// The panel runs as root and talks to the server with its command-line
+// client (mariadb or mysql) over the local socket, where root logs in
+// without a password (unix_socket on MariaDB, auth_socket on MySQL). SQL is
+// sent on stdin so passwords never appear in the process list. Names and
+// passwords pass strict allow-lists first (see package validate), so no
 // value can break out of its quotes.
 package database
 
 import (
+	"bufio"
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -15,6 +19,7 @@ import (
 	"log/slog"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"strconv"
@@ -30,10 +35,12 @@ import (
 	"github.com/nefocp/nefo/internal/validate"
 )
 
-// ErrNotInstalled is returned while MariaDB is not installed.
-var ErrNotInstalled = errors.New("MariaDB is not installed")
+// ErrNotInstalled is returned while no database server (MariaDB or MySQL)
+// is installed.
+var ErrNotInstalled = errors.New("the database server (MariaDB or MySQL) is not installed")
 
-const configFile = "/etc/mysql/mariadb.conf.d/90-panel.cnf"
+// panelConfName holds the panel's tuning, in the engine's drop-in folder.
+const panelConfName = "90-panel.cnf"
 
 // Logger receives progress messages for a job log.
 type Logger interface {
@@ -41,7 +48,7 @@ type Logger interface {
 	Logf(format string, args ...any)
 }
 
-// Manager manages MariaDB.
+// Manager manages the database server, MariaDB or MySQL.
 type Manager struct {
 	run   run.Runner
 	store *store.Store
@@ -49,32 +56,35 @@ type Manager struct {
 	mu    sync.Mutex
 
 	fw          Firewall // for remote access, see SetFirewall
-	listenDirty bool     // the listen setting changed and MariaDB has not restarted since
+	listenDirty bool     // the listen setting changed and the server has not restarted since
 
 	importMu sync.Mutex             // guards imports
 	imports  map[string]*sync.Mutex // one lock per database name, see Import
 
-	// replaceable in tests
+	// replaceable in tests; "" means the engine's own path
 	supported  func() bool
+	detect     func() Engine // nil: InstalledEngine
 	remoteConf string
 	slowConf   string
 	slowLog    string
 	dataDir    string // "" for /var/lib/mysql (see remove.go)
 	etcDir     string // "" for /etc/mysql
+	repo       mysqlRepo
 }
 
 // New returns a Manager.
 func New(r run.Runner, st *store.Store, log *slog.Logger) *Manager {
-	return &Manager{run: r, store: st, log: log, supported: supported,
-		remoteConf: remoteConfFile, slowConf: slowConfFile, slowLog: slowLogFile}
+	return &Manager{run: r, store: st, log: log, supported: supported, repo: defaultMySQLRepo()}
 }
 
-// Status describes the MariaDB server.
+// Status describes the database server.
 type Status struct {
-	Supported bool   `json:"supported"`
-	Installed bool   `json:"installed"`
-	Version   string `json:"version"`
-	Running   bool   `json:"running"`
+	Supported bool `json:"supported"`
+	Installed bool `json:"installed"`
+	// Engine is the installed server, "mariadb" or "mysql" ("" while none is).
+	Engine  Engine `json:"engine"`
+	Version string `json:"version"`
+	Running bool   `json:"running"`
 }
 
 var versionRe = regexp.MustCompile(`Ver ([0-9]+\.[0-9]+\.[0-9]+)`)
@@ -87,21 +97,22 @@ func supported() bool {
 	return err == nil
 }
 
-// Status reports whether MariaDB is installed and running.
+// Status reports whether the database server is installed and running.
 func (m *Manager) Status(ctx context.Context) Status {
 	st := Status{Supported: m.supported()}
 	if !st.Supported {
 		return st
 	}
-	out, err := m.run.Output(ctx, "mariadbd", "--version")
+	e := m.engine()
+	out, err := m.run.Output(ctx, e.daemon(), "--version")
 	if err != nil {
 		return st
 	}
-	st.Installed = true
+	st.Installed, st.Engine = true, e
 	if mm := versionRe.FindStringSubmatch(out); mm != nil {
 		st.Version = mm[1]
 	}
-	out, err = m.run.Output(ctx, "systemctl", "is-active", "mariadb")
+	out, err = m.run.Output(ctx, "systemctl", "is-active", e.service())
 	st.Running = err == nil && strings.HasPrefix(out, "active")
 	return st
 }
@@ -115,12 +126,17 @@ func (m *Manager) ready(ctx context.Context) error {
 
 // Install installs MariaDB, limits its memory use to suit the server and
 // removes the anonymous users and test database some versions ship with.
+// It is refused while MySQL is installed (see InstallMySQL), or when the
+// data directory holds MySQL's data.
 func (m *Manager) Install(ctx context.Context, lg Logger) error {
 	if !m.supported() {
 		return errors.New("MariaDB can only be installed on Debian or Ubuntu")
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if err := m.checkInstall(ctx, MariaDB); err != nil {
+		return err
+	}
 
 	lg.Logf("Updating the package lists")
 	if err := run.Apt(ctx, m.run, lg, "update"); err != nil {
@@ -131,7 +147,7 @@ func (m *Manager) Install(ctx context.Context, lg Logger) error {
 		return err
 	}
 	lg.Logf("Tuning MariaDB for this server's memory")
-	if err := fsutil.WriteFileAtomic(configFile, []byte(tuning(memTotal())), 0o644); err != nil {
+	if err := fsutil.WriteFileAtomic(filepath.Join(m.confDir(MariaDB), panelConfName), []byte(tuning(memTotal())), 0o644); err != nil {
 		return err
 	}
 	if _, err := m.run.Output(ctx, "systemctl", "enable", "mariadb"); err != nil {
@@ -189,9 +205,15 @@ func memTotal() int64 {
 	return 0
 }
 
-// sql runs statements as MariaDB's root user and returns tab-separated rows.
+// sql runs statements as the server's root user and returns tab-separated
+// rows.
 func (m *Manager) sql(ctx context.Context, statements string) (string, error) {
-	return m.run.Input(ctx, []byte(statements), "mariadb", "--batch", "--skip-column-names", "--raw")
+	return m.sqlWith(ctx, m.engine(), statements)
+}
+
+// sqlWith is sql with engine e's client.
+func (m *Manager) sqlWith(ctx context.Context, e Engine, statements string) (string, error) {
+	return m.run.Input(ctx, []byte(statements), e.client(), "--batch", "--skip-column-names", "--raw")
 }
 
 // Info is a database with its size, for the list in the UI.
@@ -218,7 +240,12 @@ func (m *Manager) List(ctx context.Context) ([]Info, error) {
 	}
 	sizes := map[string]int64{}
 	if m.Status(ctx).Running {
-		out, err := m.sql(ctx, `SELECT s.SCHEMA_NAME, COALESCE(SUM(t.DATA_LENGTH + t.INDEX_LENGTH), 0)
+		fresh := ""
+		if m.engine() == MySQL {
+			// MySQL caches table sizes for a day by default.
+			fresh = "SET SESSION information_schema_stats_expiry = 0;\n"
+		}
+		out, err := m.sql(ctx, fresh+`SELECT s.SCHEMA_NAME, COALESCE(SUM(t.DATA_LENGTH + t.INDEX_LENGTH), 0)
 FROM information_schema.SCHEMATA s LEFT JOIN information_schema.TABLES t ON t.TABLE_SCHEMA = s.SCHEMA_NAME
 GROUP BY s.SCHEMA_NAME;`)
 		if err == nil {
@@ -319,12 +346,12 @@ func (m *Manager) drop(ctx context.Context, name, user string, remoteHosts ...st
 	if validate.DBName(name) != nil || validate.DBName(user) != nil {
 		return fmt.Errorf("refusing to drop invalid name %q", name)
 	}
-	twins, err := remoteUserSQL(name, user, "", nil, remoteHosts)
+	twins, err := remoteUserSQLFor(m.engine(), name, user, "", nil, remoteHosts)
 	if err != nil {
 		return err
 	}
 	_, err = m.sql(ctx, twins+fmt.Sprintf("DROP DATABASE IF EXISTS `%s`;\nDROP USER IF EXISTS '%s'@'localhost';\n"+
-		"DROP USER IF EXISTS '%s'@'localhost';", name, user, importUserPrefix+name))
+		"DROP USER IF EXISTS '%s'@'localhost';", name, user, m.importUser(name)))
 	return err
 }
 
@@ -358,7 +385,7 @@ func (m *Manager) SetPassword(ctx context.Context, id int64, password string) (*
 	}
 	// The twins are created again with the new password, which also
 	// repairs one that went missing.
-	twinSQL, err := remoteUserSQL(d.Name, d.Username, password, twins, nil)
+	twinSQL, err := remoteUserSQLFor(m.engine(), d.Name, d.Username, password, twins, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -376,8 +403,8 @@ func (m *Manager) SetPassword(ctx context.Context, id int64, password string) (*
 //
 // Remote access goes with it: the user's remote twins are dropped, its ufw
 // rules removed, and the listen drop-in removed when no other database
-// allows remote access. MariaDB then still listens on every interface until
-// it restarts, so callers should check RestartPending afterwards.
+// allows remote access. The server then still listens on every interface
+// until it restarts, so callers should check RestartPending afterwards.
 func (m *Manager) Delete(ctx context.Context, id int64, confirm string) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -410,7 +437,7 @@ func (m *Manager) Delete(ctx context.Context, id int64, confirm string) error {
 		return err
 	}
 	if err := m.writeListenConf(ctx); err != nil {
-		m.log.Warn("update the MariaDB listen setting", "err", err)
+		m.log.Warn("update the database server's listen setting", "err", err)
 	}
 	return nil
 }
@@ -420,20 +447,27 @@ func (m *Manager) Dump(ctx context.Context, name string, w io.Writer) error {
 	if err := validate.DBName(name); err != nil {
 		return err
 	}
-	return m.run.Pipe(ctx, nil, w, "mariadb-dump", "--single-transaction", "--quick",
-		"--routines", "--triggers", "--default-character-set=utf8mb4", name)
+	e := m.engine()
+	args := []string{"--single-transaction", "--quick", "--routines", "--triggers", "--default-character-set=utf8mb4"}
+	if e == MySQL {
+		// Without GTID statements the dump also imports as a plain user
+		// (see Import), and into MariaDB.
+		args = append(args, "--set-gtid-purged=OFF")
+	}
+	return m.run.Pipe(ctx, nil, w, e.dumper(), append(args, name)...)
 }
 
-// importUserPrefix starts the name of the temporary MariaDB account an
-// import runs as. The panel's own users never have a dash in their name
-// (see validate.DBName), so it can't be one of them, and with a database
-// name of at most 32 characters it fits MariaDB's 80-character limit.
+// importUserPrefix starts the name of the temporary account an import runs
+// as. The panel's own users never have a dash in their name (see
+// validate.DBName), so it can't be one of them. With a database name of at
+// most 32 characters it fits MariaDB's 80-character limit; MySQL's is 32,
+// see Manager.importUser.
 const importUserPrefix = "nefo-import-"
 
 // Import runs an SQL dump against a database.
 //
-// The dump runs as a temporary MariaDB account that may only use this
-// database, not as root: a dump that says USE other_db, CREATE DATABASE
+// The dump runs as a temporary account that may only use this database,
+// not as root: a dump that says USE other_db, CREATE DATABASE
 // other_db or INSERT INTO other_db.t is refused (see OtherDBError) instead
 // of writing into another database. This guards against mistakes, not
 // against a hostile dump: the account may also set the DEFINER of
@@ -449,7 +483,7 @@ func (m *Manager) Import(ctx context.Context, name string, r io.Reader) error {
 	lock.Lock()
 	defer lock.Unlock()
 
-	user := importUserPrefix + name
+	user := m.importUser(name)
 	password := secure.String(32, secure.PasswordChars)
 	// The account goes away (see dropImportUser) also when the import
 	// fails or ctx is cancelled, so the cleanup gets a context of its own.
@@ -467,10 +501,30 @@ func (m *Manager) Import(ctx context.Context, name string, r io.Reader) error {
 		return err
 	}
 	defer os.Remove(cnf)
+	e := m.engine()
+	if e == MySQL {
+		r = skipSandboxLine(r)
+	}
 	// --defaults-file must come first. It also keeps a ~/.my.cnf of root
 	// from replacing the account's user name or password.
-	err = m.run.Pipe(ctx, r, io.Discard, "mariadb", "--defaults-file="+cnf, "--default-character-set=utf8mb4", name)
+	err = m.run.Pipe(ctx, r, io.Discard, e.client(), "--defaults-file="+cnf, "--default-character-set=utf8mb4", name)
 	return importError(name, err)
+}
+
+// sandboxLineRe is the first line newer mariadb-dump versions write. The
+// mysql client stops at it ("Unknown command '\-'"), so a dump from MariaDB
+// imports into MySQL without it. The line does nothing on MySQL.
+var sandboxLineRe = regexp.MustCompile(`^/\*M?!999999\\- enable the sandbox mode \*/\r?\n?$`)
+
+// skipSandboxLine returns r without MariaDB's sandbox line, if it starts
+// with one.
+func skipSandboxLine(r io.Reader) io.Reader {
+	br := bufio.NewReaderSize(r, 4096)
+	line, err := br.ReadSlice('\n')
+	if (err == nil || err == io.EOF) && sandboxLineRe.Match(line) {
+		return br
+	}
+	return io.MultiReader(bytes.NewReader(bytes.Clone(line)), br)
 }
 
 // importLock returns the lock for imports into the database name.
@@ -494,7 +548,7 @@ func grantPattern(name string) string { return strings.ReplaceAll(name, "_", `\_
 
 // createImportUser creates the account an import runs as, with every
 // privilege on the database name and nothing else, and returns the path of
-// MariaDB's socket. An account left by an import that crashed, or kept by
+// the server's socket. An account left by an import that crashed, or kept by
 // dropImportUser, gets a new password and is unlocked.
 func (m *Manager) createImportUser(ctx context.Context, name, user, password string) (string, error) {
 	out, err := m.sql(ctx, fmt.Sprintf(`CREATE USER IF NOT EXISTS '%[1]s'@'localhost' IDENTIFIED BY '%[2]s';
@@ -506,15 +560,19 @@ SELECT @@socket;`, user, password, grantPattern(name)))
 	}
 	// MariaDB before 10.4 can't lock accounts, so nothing to undo there.
 	_, _ = m.sql(ctx, fmt.Sprintf("ALTER USER '%s'@'localhost' ACCOUNT UNLOCK;", user))
-	// Creating a trigger, view or routine for another DEFINER needs SET
-	// USER (MariaDB 10.5.2 and later), or SUPER on older versions, which
-	// don't know SET USER.
-	if _, err := m.sql(ctx, fmt.Sprintf("GRANT SET USER ON *.* TO '%s'@'localhost';", user)); err != nil {
-		if _, err2 := m.sql(ctx, fmt.Sprintf("GRANT SUPER ON *.* TO '%s'@'localhost';", user)); err2 != nil {
-			return "", err
+	// Creating a trigger, view or routine for another DEFINER needs one of
+	// these (see importDefinerGrants); the first that works is enough.
+	var first error
+	for _, q := range m.importDefinerGrants(user) {
+		_, err := m.sql(ctx, q)
+		if err == nil {
+			return strings.TrimSpace(out), nil
+		}
+		if first == nil {
+			first = err
 		}
 	}
-	return strings.TrimSpace(out), nil
+	return "", first
 }
 
 // dropImportUser removes the account after an import. Triggers, views,
@@ -546,7 +604,7 @@ func (m *Manager) dropImportUser(ctx context.Context, name, user string) {
 	m.log.Info("kept the import user, as objects in the database run as it", "user", user, "db", name)
 }
 
-// writeClientConf writes a mariadb option file with the import account's
+// writeClientConf writes a client option file with the import account's
 // credentials, readable by root only, and returns its path. The password
 // is never on the command line or in the environment, where other users of
 // the server could read it.
@@ -556,9 +614,9 @@ func writeClientConf(user, password, socket string) (string, error) {
 		return "", err
 	}
 	s := fmt.Sprintf("[client]\nuser=%s\npassword=%s\n", user, password)
-	// With --defaults-file mariadb reads no other option file, such as the
-	// client settings in /etc/mysql, so this one names the socket MariaDB
-	// really uses.
+	// With --defaults-file the client reads no other option file, such as
+	// the client settings in /etc/mysql, so this one names the socket the
+	// server really uses.
 	if strings.HasPrefix(socket, "/") && !strings.ContainsAny(socket, "\r\n#\\") {
 		s += "socket=" + socket + "\n"
 	}
@@ -597,8 +655,9 @@ func (e *OtherDBError) Error() string {
 
 func (e *OtherDBError) Unwrap() error { return e.ue }
 
-// importError explains a failed import. MariaDB refusing another database
-// becomes an OtherDBError; any other error keeps mariadb's own message.
+// importError explains a failed import. The server refusing another
+// database becomes an OtherDBError; any other error keeps the client's own
+// message.
 func importError(name string, err error) error {
 	var re *run.Error
 	if err == nil || !errors.As(err, &re) {

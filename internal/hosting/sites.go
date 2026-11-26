@@ -479,6 +479,7 @@ func (m *Manager) poolBytes(site *store.Site) ([]byte, error) {
 		Allow:    strings.Fields(site.PHPAllow),
 
 		MaxInputVars: appMaxInputVars(site.App),
+		PHP:          site.PHPVersion,
 	})
 }
 

@@ -9,7 +9,7 @@ import Modal from '../components/Modal.vue'
 import { api, ApiError } from '../api.js'
 import { errorMessage } from '../errors.js'
 import { formatBytesL, formatNumber } from '../format.js'
-import { features } from '../features.js'
+import { features, refreshFeatures } from '../features.js'
 import { put, list } from '../data.js'
 import { usePageMeta } from '../page.js'
 import { toast } from '../toast.js'
@@ -17,10 +17,13 @@ import JobLog from '../components/JobLog.vue'
 import CopyField from '../components/CopyField.vue'
 import DbRemoteAccess from '../components/DbRemoteAccess.vue'
 import DbSlowLog from '../components/DbSlowLog.vue'
+import DbPostgres from '../components/DbPostgres.vue'
+import DbMemcached from '../components/DbMemcached.vue'
 import { useJob } from '../composables/useJob.js'
 
 // Databases: MariaDB (the list, logins, import and export, remote access),
-// its slow query log, and Redis when it is installed, as tabs.
+// its slow query log, and PostgreSQL, Redis and Memcached when they are
+// installed, as tabs.
 const RedisView = defineAsyncComponent(() => import('./RedisView.vue'))
 
 const { t, locale } = useI18n()
@@ -35,7 +38,7 @@ const error = ref('')
 const notice = ref('')
 const creds = ref(null) // credentials being shown
 
-const { job, running: jobRunning, watch: watchJob, resume, clear: clearJob } = useJob(() => load())
+const { job, running: jobRunning, watch: watchJob, resume, clear: clearJob } = useJob(() => Promise.all([load(), refreshFeatures(true)])) // the engine's name follows an install
 
 async function load() {
   try {
@@ -57,10 +60,17 @@ function clearMessages() {
   notice.value = ''
 }
 
-// ---- tabs: ?tab=redis|slow ----
+// The database server is MariaDB or MySQL 8.4 (status.engine once one is
+// installed); MariaDB is the default and the lighter one.
+const engineName = computed(() => (status.value?.engine === 'mysql' ? 'MySQL' : 'MariaDB'))
+const engineLogo = computed(() => (status.value?.engine === 'mysql' ? 'mysql' : 'mariadb'))
+
+// ---- tabs: ?tab=postgres|redis|memcached|slow ----
 const tabs = computed(() => [
-  { id: 'list', label: t('pg.db_tab_list'), logo: 'mariadb', n: status.value?.installed ? databases.value.length : null },
+  { id: 'list', label: t('pg.db_tab_list'), logo: engineLogo.value === 'mysql' ? '' : 'mariadb', icon: 'database', n: status.value?.installed ? databases.value.length : null },
+  features.postgres || route.query.tab === 'postgres' ? { id: 'postgres', label: 'PostgreSQL', logo: 'postgresql' } : null,
   features.redis || route.query.tab === 'redis' ? { id: 'redis', label: 'Redis', logo: 'redis' } : null,
+  features.memcached || route.query.tab === 'memcached' ? { id: 'memcached', label: 'Memcached', icon: 'memory' } : null,
   status.value?.installed ? { id: 'slow', label: t('pg.db_tab_slow'), icon: 'clock' } : null,
 ].filter(Boolean))
 const tab = computed(() => (tabs.value.some((x) => x.id === route.query.tab) ? route.query.tab : 'list'))
@@ -70,14 +80,14 @@ function setTab(id) {
 
 usePageMeta(() => ({
   sub: status.value?.installed
-    ? [`MariaDB ${status.value.version || ''}`.trim(), t('pg.db_count', { n: databases.value.length }, databases.value.length), features.redis ? 'Redis' : ''].filter(Boolean).join(' · ')
+    ? [`${engineName.value} ${status.value.version || ''}`.trim(), t('pg.db_count', { n: databases.value.length }, databases.value.length), features.redis ? 'Redis' : ''].filter(Boolean).join(' · ')
     : t('databases.subtitle'),
 }))
 
-async function install() {
+async function install(engine = 'mariadb') {
   clearMessages()
   try {
-    watchJob(await api('POST', 'api/db/install', {}))
+    watchJob(await api('POST', 'api/db/install', { engine }))
   } catch (e) {
     error.value = errorMessage(e)
   }
@@ -85,7 +95,7 @@ async function install() {
 
 async function restart() {
   clearMessages()
-  if (!window.confirm(t('pg.db_restart_confirm'))) return
+  if (!window.confirm(t('pg.db_restart_confirm', { engine: engineName.value }))) return
   try {
     const res = await api('POST', 'api/db/restart', {})
     watchJob(res.job ?? res)
@@ -262,12 +272,22 @@ const remoteCount = computed(() => databases.value.filter((d) => list(d.remote_h
 const formatDate = (v) => new Date(v).toLocaleDateString(locale.value, { year: 'numeric', month: 'short', day: 'numeric' })
 const ready = computed(() => status.value?.installed)
 const adminer = ref(false)
-api('GET', 'api/software').then((r) => (adminer.value = list(r.items).some((i) => i.id === 'adminer' && i.installed))).catch(() => {})
+const phpmyadmin = ref(false)
+api('GET', 'api/software')
+  .then((r) => {
+    const on = (id) => list(r.items).some((i) => i.id === id && i.installed)
+    adminer.value = on('adminer')
+    phpmyadmin.value = on('phpmyadmin')
+  })
+  .catch(() => {})
+// phpMyAdmin opens on the database; its sign-in comes first.
+const pmaLink = (name) => `phpmyadmin/index.php?route=/database/structure&db=${encodeURIComponent(name)}`
 
 function actions(d) {
   return [
     { label: t('databases.show'), icon: 'key', inline: true, onClick: () => showCredentials(d) },
     { label: t('databases.export'), icon: 'download', href: `api/databases/${d.id}/export` },
+    ...(phpmyadmin.value ? [{ label: t('databases.open_phpmyadmin'), icon: 'external', href: pmaLink(d.name) }] : []),
     { label: t('databases.import'), icon: 'upload', onClick: () => openImport(d) },
     { label: t('databases.change_password'), icon: 'refresh', onClick: () => newPassword(d) },
     { label: t('databases.remote'), icon: 'globe', disabled: jobRunning.value, onClick: () => openRemote(d) },
@@ -305,12 +325,12 @@ onMounted(async () => {
     </template>
 
     <template v-else-if="status">
-      <!-- MariaDB header -->
-      <section class="svc-head">
-        <AppLogo name="mariadb" size="lg" />
+      <!-- MariaDB header (the PostgreSQL and Memcached tabs have their own) -->
+      <section v-if="tab !== 'postgres' && tab !== 'memcached'" class="svc-head">
+        <AppLogo :name="engineLogo" icon="database" size="lg" />
         <div class="svc-text">
           <h2 class="svc-title">
-            MariaDB <span v-if="status.version" class="muted" style="font-weight: 600">{{ status.version }}</span>
+            {{ engineName }} <span v-if="status.version" class="muted" style="font-weight: 600">{{ status.version }}</span>
             <span v-if="status.installed" class="status-pill" :class="status.running ? 'ok' : 'crit'">{{ status.running ? t('pg.svc_state_active') : t('pg.svc_state_inactive') }}</span>
             <span v-else class="status-pill">{{ t('pg.not_installed') }}</span>
           </h2>
@@ -324,6 +344,7 @@ onMounted(async () => {
         </div>
         <div v-if="status.installed" class="svc-actions">
           <a v-if="adminer" class="btn" href="adminer/" target="_blank" rel="noopener"><AppLogo name="adminer" size="xs" />{{ t('databases.open_adminer') }}</a>
+          <a v-if="phpmyadmin" class="btn" href="phpmyadmin/" target="_blank" rel="noopener"><AppLogo name="phpmyadmin" icon="sliders" size="xs" />{{ t('databases.open_phpmyadmin') }}</a>
           <button type="button" class="btn" :disabled="jobRunning" @click="restart"><Icon name="refresh" :size="15" />{{ t('pg.restart') }}</button>
         </div>
       </section>
@@ -347,7 +368,11 @@ onMounted(async () => {
           <AppLogo name="mariadb" size="lg" style="margin: 0 auto 14px" />
           <p class="empty-lead">{{ t('databases.install_title') }}</p>
           <p class="muted">{{ t('databases.install_body') }}</p>
-          <button class="btn btn-primary" :disabled="jobRunning" @click="install"><Icon name="download" />{{ t('databases.install') }}</button>
+          <div class="db-install">
+            <button class="btn btn-primary" :disabled="jobRunning" @click="install('mariadb')"><Icon name="download" />{{ t('databases.install') }}</button>
+            <button v-if="!status.mysql_unavailable" class="btn" :disabled="jobRunning" @click="install('mysql')">{{ t('databases.install_mysql') }}</button>
+          </div>
+          <p v-if="!status.mysql_unavailable" class="muted small">{{ t('databases.install_choice') }}</p>
         </section>
 
         <template v-else>
@@ -359,11 +384,18 @@ onMounted(async () => {
             <div class="creds">
               <CopyField :label="t('databases.col_name')" :value="creds.name" />
               <CopyField :label="t('databases.col_user')" :value="creds.username" />
-              <CopyField :label="t('databases.password')" :value="creds.password" />
+              <CopyField v-if="creds.password" :label="t('databases.password')" :value="creds.password" />
+              <div v-else class="copy-field">
+                <span class="muted small">{{ t('databases.password') }}</span>
+                <span class="small">{{ t('databases.password_kept') }}</span>
+              </div>
               <CopyField :label="t('databases.host')" :value="creds.host" />
             </div>
             <p v-if="adminer" class="note">
               <a class="btn btn-sm" href="adminer/" target="_blank" rel="noopener"><Icon name="external" :size="15" />{{ t('databases.open_adminer') }}</a>
+            </p>
+            <p v-if="phpmyadmin" class="note">
+              <a class="btn btn-sm" :href="pmaLink(creds.name)" target="_blank" rel="noopener"><Icon name="external" :size="15" />{{ t('databases.open_phpmyadmin') }}</a>
             </p>
           </section>
 
@@ -403,7 +435,7 @@ onMounted(async () => {
                         <div class="name-ico-text">
                           <div class="mono db-name">{{ d.name }}</div>
                           <div class="name-ico-sub">{{ t('pg.db_user', { user: d.username }) }}</div>
-                          <div v-if="d.missing" class="small text-crit">{{ t('databases.missing') }}</div>
+                          <div v-if="d.missing" class="small text-crit">{{ t('databases.missing', { engine: engineName }) }}</div>
                         </div>
                       </div>
                     </td>
@@ -429,7 +461,9 @@ onMounted(async () => {
         </template>
       </template>
 
+      <DbPostgres v-else-if="tab === 'postgres'" :adminer="adminer" />
       <RedisView v-else-if="tab === 'redis'" embedded />
+      <DbMemcached v-else-if="tab === 'memcached'" />
       <DbSlowLog v-else-if="tab === 'slow'" />
     </template>
 
@@ -513,6 +547,7 @@ onMounted(async () => {
 
 <style scoped>
 .db-name { font-weight: 500; }
+.db-install { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-bottom: 8px; }
 .creds-card .card-head h2 { display: flex; align-items: center; gap: 9px; }
 .accent-ico { color: var(--accent); }
 </style>

@@ -31,8 +31,9 @@ import (
 	"github.com/nefocp/nefo/internal/version"
 )
 
-// PHPVersions are the versions offered for installation.
-var PHPVersions = []string{"7.4", "8.0", "8.1", "8.2", "8.3", "8.4", "8.5"}
+// PHPVersions are the versions offered for installation, oldest first. The
+// first ones are LegacyPHPVersions, for old websites (see legacyphp.go).
+var PHPVersions = []string{"5.6", "7.0", "7.1", "7.2", "7.3", "7.4", "8.0", "8.1", "8.2", "8.3", "8.4", "8.5"}
 
 // Item is one installable component.
 type Item struct {
@@ -44,7 +45,7 @@ type Item struct {
 	// failed, or someone stopped it on the Services page).
 	Stopped bool `json:"stopped,omitempty"`
 	// ThirdParty means the packages come from an extra repository
-	// (ppa:ondrej/php or packages.sury.org) rather than the distribution.
+	// (packages.sury.org/php) rather than the distribution.
 	ThirdParty bool `json:"third_party"`
 	UsedBy     int  `json:"used_by"` // websites using this PHP version
 	// Removable means the panel can uninstall it now; otherwise Blocked is
@@ -68,6 +69,24 @@ type Item struct {
 	Usage map[string]int `json:"usage,omitempty"`
 	// Lines is the number of Node.js release lines installed in /opt.
 	Lines int `json:"lines,omitempty"`
+	// EOL marks a PHP version that gets no security updates on this server
+	// (PHPEndOfLife: past its upstream date, and not the distribution's).
+	// Legacy marks 5.6 to 7.3 (LegacyPHPVersions), shown apart and
+	// installed only after a confirmation. SecurityUntil is the last day of
+	// upstream security support.
+	EOL           bool   `json:"eol,omitempty"`
+	Legacy        bool   `json:"legacy,omitempty"`
+	SecurityUntil string `json:"security_until,omitempty"`
+	// NotOffered is why it can't be installed on this server (an error
+	// code with NotOfferedDetail), such as an old PHP version that is not
+	// published for this release.
+	NotOffered       string `json:"not_offered,omitempty"`
+	NotOfferedDetail string `json:"not_offered_detail,omitempty"`
+	// Source is where a tool comes from: "apt" (the distribution's package)
+	// or "official" (the project's own release, checked against its
+	// published checksum). Updatable tools have an Update action.
+	Source    string `json:"source,omitempty"`
+	Updatable bool   `json:"updatable,omitempty"`
 }
 
 // Block marks an installed item as not removable for err (a usererr).
@@ -129,12 +148,25 @@ func (m *Manager) Catalog(ctx context.Context) ([]Item, error) {
 			installedCount++
 		}
 	}
+	supported := supportedPHPInstalled()
 	items := []Item{}
 	for _, v := range PHPVersions {
 		it := Item{ID: "php" + v, Kind: "php", Group: "php", Version: v, Installed: phpInstalled(v), ThirdParty: v != distro,
-			UsedBy: used[v], RAMMB: 25}
+			UsedBy: used[v], RAMMB: 25, EOL: PHPEndOfLife(v, distro, phpNow()), Legacy: IsLegacyPHP(v)}
+		if v != distro {
+			it.SecurityUntil = PHPSecurityUntil(v)
+		}
 		if it.Installed {
-			it.Block(phpBlocker(v, it.UsedBy, installedCount))
+			err := phpBlocker(v, it.UsedBy, installedCount)
+			if err == nil {
+				err = lastSupportedBlocker(v, supported)
+			}
+			it.Block(err)
+		} else if it.Legacy {
+			var ue *usererr.Error
+			if errors.As(legacyInstallBlocker(v), &ue) {
+				it.NotOffered, it.NotOfferedDetail = ue.Code, ue.Detail
+			}
 		}
 		items = append(items, it)
 	}
@@ -217,6 +249,8 @@ func (m *Manager) Install(ctx context.Context, id string, lg Logger) error {
 		return m.installNode(ctx, lg)
 	case id == "docker":
 		return m.installDocker(ctx, lg)
+	case id == "composer":
+		return m.installComposer(ctx, lg)
 	}
 	return usererr.New("unknown_software", id)
 }
@@ -230,6 +264,12 @@ func (m *Manager) installPHP(ctx context.Context, v string, lg Logger) error {
 	if validate.PHPVersion(v) != nil || !slices.Contains(PHPVersions, v) {
 		return usererr.New("unknown_software", "php"+v)
 	}
+	legacy := IsLegacyPHP(v)
+	if legacy {
+		if err := legacyInstallBlocker(v); err != nil {
+			return err
+		}
+	}
 	if v != m.distroPHP(ctx) {
 		if err := m.addPHPRepository(ctx, lg); err != nil {
 			return err
@@ -239,13 +279,37 @@ func (m *Manager) installPHP(ctx context.Context, v string, lg Logger) error {
 		return err
 	}
 	pkgs := []string{}
-	for _, e := range PHPExtensions {
+	for _, e := range phpExtensionsFor(v) {
 		pkgs = append(pkgs, "php"+v+"-"+e)
+	}
+	if legacy {
+		// The repository must have this version; extras only where it has them.
+		names := []string{"php" + v + "-fpm"}
+		for _, e := range phpExtrasFor(v) {
+			names = append(names, "php"+v+"-"+e)
+		}
+		out, _ := m.run.Output(ctx, "apt-cache", append([]string{"policy"}, names...)...)
+		candidates := parseCandidates(out)
+		if !candidates[names[0]] {
+			b, _ := os.ReadFile(osReleaseFile)
+			return usererr.New("php_not_published", osName(b)+", "+PHPRepository())
+		}
+		for _, n := range names[1:] {
+			if candidates[n] {
+				pkgs = append(pkgs, n)
+			}
+		}
 	}
 	if RedisInstalled() {
 		pkgs = append(pkgs, "php"+v+"-redis")
 	}
+	if MemcachedInstalled() {
+		pkgs = append(pkgs, "php"+v+"-memcached")
+	}
 	lg.Logf("Installing PHP %s", v)
+	if legacy {
+		lg.Logf("PHP %s gets no security updates any more. Use it only to keep an old website running while you move it to a supported version.", v)
+	}
 	if err := run.Apt(ctx, m.run, lg, append([]string{"install", "--no-install-recommends"}, pkgs...)...); err != nil {
 		return err
 	}
@@ -275,38 +339,27 @@ func TunePHPPool(v string) error {
 	return fsutil.WriteFileAtomic(p, re.ReplaceAll(b, []byte("pm = ondemand")), 0o644)
 }
 
-// addPHPRepository adds ppa:ondrej/php on Ubuntu or packages.sury.org on
-// Debian, which provide every supported PHP version.
+// addPHPRepository adds packages.sury.org/php, which provides every PHP
+// version for Ubuntu and Debian, with its pinned key (see phprepo.go).
 func (m *Manager) addPHPRepository(ctx context.Context, lg Logger) error {
-	osr, _ := os.ReadFile("/etc/os-release")
+	osr, _ := os.ReadFile(osReleaseFile)
 	id, codename := osField(osr, "ID"), osField(osr, "VERSION_CODENAME")
-	switch id {
-	case "ubuntu":
-		if matches, _ := filepath.Glob("/etc/apt/sources.list.d/ondrej-*php*"); len(matches) > 0 {
-			return nil
-		}
-		lg.Logf("Adding the PHP repository ppa:ondrej/php")
-		return m.run.Stream(ctx, lg, "/bin/sh", "-c", `umask 022 && exec add-apt-repository -y "$1"`, "sh", "ppa:ondrej/php")
-	case "debian":
-		if !regexp.MustCompile(`^[a-z]{2,20}$`).MatchString(codename) {
-			return errors.New("unknown Debian release")
-		}
-		keyring := "/usr/share/keyrings/sury-php.gpg"
-		if exists(keyring) {
-			return nil
-		}
-		lg.Logf("Adding the PHP repository packages.sury.org")
-		key, err := download(ctx, "https://packages.sury.org/php/apt.gpg", 1<<20)
-		if err != nil {
-			return err
-		}
-		if err := fsutil.WriteFileAtomic(keyring, key, 0o644); err != nil {
-			return err
-		}
-		src := fmt.Sprintf("deb [signed-by=%s] https://packages.sury.org/php/ %s main\n", keyring, codename)
-		return fsutil.WriteFileAtomic("/etc/apt/sources.list.d/sury-php.list", []byte(src), 0o644)
+	if id != "ubuntu" && id != "debian" {
+		return usererr.New("unsupported")
 	}
-	return usererr.New("unsupported")
+	// A server that still has the frozen PPA (if the move at start-up
+	// failed) keeps using it until the move works (phprepo.go).
+	if sury, ppa, _ := phpSources(); sury || len(ppa) > 0 {
+		// The key's expiry date gets extended now and then: refresh the
+		// panel's copy (a source from sury's own instructions has its own).
+		if sury && exists(sysPath(suryKeyring)) {
+			if err := ensureSuryKey(ctx); err != nil {
+				lg.Logf("Warning: could not refresh the packages.sury.org key: %v", err)
+			}
+		}
+		return nil
+	}
+	return addSury(ctx, codename, lg)
 }
 
 func osField(b []byte, key string) string {
@@ -369,7 +422,10 @@ func (m *Manager) phpRemovable(ctx context.Context, v string) error {
 			n++
 		}
 	}
-	return phpBlocker(v, used, n)
+	if err := phpBlocker(v, used, n); err != nil {
+		return err
+	}
+	return lastSupportedBlocker(v, supportedPHPInstalled())
 }
 
 // phpBlocker: a version websites use stays, and so does the last one,

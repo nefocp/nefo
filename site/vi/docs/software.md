@@ -1,6 +1,6 @@
 ---
 title: Phần mềm
-description: Cài và gỡ web server, các phiên bản PHP, MariaDB, Redis, Adminer, Node.js, Python, Docker, tường lửa web và ClamAV, cùng quản lý extension PHP và thiết lập php.ini.
+description: Cài và gỡ web server, các phiên bản PHP, MariaDB hoặc MySQL, PostgreSQL, Redis, Memcached, Adminer, phpMyAdmin, Node.js, Python, Docker, tường lửa web và ClamAV, cùng quản lý extension PHP và thiết lập php.ini.
 ---
 
 # Phần mềm
@@ -18,15 +18,20 @@ Mỗi thẻ cho biết thành phần đó tốn khoảng bao nhiêu RAM khi ch�
 | **Nginx, Apache hoặc OpenLiteSpeed** | Nginx | khoảng 15 MB |
 | | Apache | khoảng 40 MB |
 | | OpenLiteSpeed | khoảng 26 MB |
-| **Các phiên bản PHP** | PHP 7.4, 8.0, 8.1, 8.2, 8.3, 8.4 và 8.5 | khoảng 25 MB mỗi bản |
-| **Cơ sở dữ liệu và bộ nhớ đệm** | MariaDB | dung lượng buffer pool cộng khoảng 100 MB (xem [Cơ sở dữ liệu](./databases#cach-mariadb-đuoc-tinh-chinh)) |
+| **Các phiên bản PHP** | PHP 7.4, 8.0, 8.1, 8.2, 8.3, 8.4 và 8.5, và trong **Phiên bản cũ** là 5.6, 7.0, 7.1, 7.2 và 7.3 | khoảng 25 MB mỗi bản |
+| **Cơ sở dữ liệu và bộ nhớ đệm** | MariaDB, hoặc thay vào đó MySQL 8.4 LTS | MariaDB: dung lượng buffer pool cộng khoảng 100 MB (xem [Cơ sở dữ liệu](./databases#cach-mariadb-đuoc-tinh-chinh)). MySQL: dung lượng buffer pool cộng khoảng 150 MB, hoặc 300 MB từ khoảng 4 GB RAM (xem [Cơ sở dữ liệu](./databases#how-mysql-is-tuned)) |
+| | PostgreSQL | khoảng 30 đến 40 MB khi rảnh, tăng dần tới `shared_buffers` cộng khoảng 40 MB (xem [Cơ sở dữ liệu](./databases#how-postgresql-is-tuned)) |
 | | Redis | tối đa 64, 128 hoặc 256 MB, tùy RAM của máy chủ |
+| | Memcached | tối đa 64, 128 hoặc 256 MB, tùy RAM của máy chủ; vài MB khi còn trống |
 | | Adminer (giao diện database) | không tốn RAM khi không dùng |
+| | phpMyAdmin (giao diện database) | không tốn RAM khi không dùng |
 | **Môi trường chạy** | Node.js | không tốn RAM khi không dùng |
 | | Ứng dụng Python | không tốn RAM khi không dùng |
 | **Container** | Docker | khoảng 90 MB, cộng với các container của bạn |
 | **Bảo mật** | Tường lửa web (ModSecurity) | khoảng 40 MB |
 | | Phần mềm diệt virus ClamAV | khoảng 15 MB, và cần khoảng 1,4 GB RAM trống khi quét |
+| **Công cụ** | Composer | không tốn RAM, chỉ chạy khi được gọi |
+| | WP-CLI | không tốn RAM, chỉ chạy khi được gọi |
 
 ## Cài một thành phần
 
@@ -34,13 +39,13 @@ Mỗi thẻ cho biết thành phần đó tốn khoảng bao nhiêu RAM khi ch�
 2. Chọn **Cài** trên thẻ của thành phần đó.
 3. Theo dõi log. Khi tác vụ xong, thẻ hiện **Đã cài** kèm phiên bản.
 
-Một số thẻ sau đó có thêm liên kết: **Mở Cơ sở dữ liệu**, **Mở Redis**, **Mở Adminer** hoặc **Mở Docker**.
+Một số thẻ sau đó có thêm liên kết: **Mở Cơ sở dữ liệu**, **Mở PostgreSQL**, **Mở Redis**, **Mở Memcached**, **Mở Adminer**, **Mở phpMyAdmin** hoặc **Mở Docker**.
 
 ## Gỡ một thành phần
 
 1. Chọn **Gỡ cài đặt** trên thẻ của thành phần. Với một phiên bản PHP, nút này nằm trong menu của phiên bản đó.
 2. Đọc phần giải thích trong hộp thoại về những gì việc gỡ sẽ làm.
-3. Với MariaDB và Docker, bạn có thể đánh dấu ô để xóa luôn dữ liệu. Khi đó bạn phải gõ tên thành phần để xác nhận.
+3. Với MariaDB, MySQL, PostgreSQL và Docker, bạn có thể đánh dấu ô để xóa luôn dữ liệu. Khi đó bạn phải gõ tên thành phần để xác nhận.
 4. Chọn **Gỡ cài đặt**.
 
 ### Khi việc gỡ bị từ chối
@@ -50,14 +55,17 @@ Panel không bao giờ gỡ phần mềm đang được dùng. Khi một thành 
 | Thành phần | Bị từ chối khi |
 |---|---|
 | Web server | Còn bất kỳ website nào, trong panel hoặc dưới dạng tệp cấu hình trong thư mục site của web server |
-| Một phiên bản PHP | Có website đang dùng nó, hoặc đó là phiên bản PHP duy nhất (web server và Adminer cần ít nhất một bản) |
-| MariaDB | MariaDB còn bất kỳ database nào ngoài các database hệ thống của nó. Panel hỏi chính MariaDB, nên database tạo bằng tay hoặc bằng công cụ khác cũng được tính. Nếu MariaDB đang dừng và thư mục dữ liệu đã bị chuyển chỗ, panel không kiểm tra được nên từ chối |
+| Một phiên bản PHP | Có website đang dùng nó, hoặc đó là phiên bản PHP duy nhất (web server và Adminer cần ít nhất một bản). Một phiên bản còn được hỗ trợ (7.4 trở lên) cũng được giữ lại khi nó là bản duy nhất bên cạnh các [phiên bản cũ](#older-php-versions) |
+| Composer | Có script triển khai Git chạy `composer` |
+| WP-CLI | Còn website WordPress: bộ công cụ WordPress chạy nó cho các website này |
+| MariaDB hoặc MySQL | Nó còn bất kỳ database nào ngoài các database hệ thống của nó. Panel hỏi chính máy chủ cơ sở dữ liệu, nên database tạo bằng tay hoặc bằng công cụ khác cũng được tính. Nếu nó đang dừng và thư mục dữ liệu đã bị chuyển chỗ, panel không kiểm tra được nên từ chối |
+| PostgreSQL | PostgreSQL còn bất kỳ database nào ngoài `postgres`, `template0` và `template1`, theo lời chính PostgreSQL, hoặc nó đang dừng nên panel không kiểm tra được |
 | Node.js | Có website ứng dụng dùng Node.js mặc định của máy chủ, hoặc `node` trong `/usr/local/bin` không do panel cài |
 | Một dòng ở **Các phiên bản Node.js** | Đó là bản mặc định của máy chủ, hoặc có website ứng dụng đã chọn nó |
 | Ứng dụng Python | Có website ứng dụng chạy Python |
 | Docker | Có website chạy ứng dụng Docker, còn dự án Compose, hoặc Docker còn container, đang chạy hay đã dừng |
 
-Redis, Adminer, tường lửa web và ClamAV luôn gỡ được.
+Redis, Memcached, Adminer, phpMyAdmin, tường lửa web và ClamAV luôn gỡ được.
 
 ### Gỡ cài đặt giữ lại gì
 
@@ -66,16 +74,22 @@ Redis, Adminer, tường lửa web và ClamAV luôn gỡ được.
 | Web server | Thư mục website trong `/var/www`, chứng chỉ, PHP | Web server, cấu hình panel tạo cho nó, Adminer, và luật tường lửa cho cổng 80 và 443 |
 | Phiên bản PHP | | Phiên bản đó, các extension và thư viện chỉ chúng dùng |
 | MariaDB | Thư mục dữ liệu `/var/lib/mysql`, trừ khi bạn đánh dấu **Xóa luôn thư mục dữ liệu (/var/lib/mysql)** và gõ `mariadb`. Cài lại MariaDB sẽ dùng lại thư mục này | Gói server và client, cùng các thiết lập panel tạo cho MariaDB |
+| MySQL | Thư mục dữ liệu `/var/lib/mysql`, trừ khi bạn đánh dấu **Xóa luôn thư mục dữ liệu (/var/lib/mysql)** và gõ `mysql`. Cài lại MySQL sẽ dùng lại thư mục này | Gói server và client, các thiết lập panel tạo cho MySQL, cùng kho của Oracle và khóa của kho |
+| PostgreSQL | Dữ liệu trong `/var/lib/postgresql` và thiết lập cluster trong `/etc/postgresql`, trừ khi bạn đánh dấu **Xóa luôn dữ liệu và thiết lập (/var/lib/postgresql và /etc/postgresql)** và gõ `postgresql`. Các gói được gỡ mà không purge, nên cài lại PostgreSQL sẽ chạy lại đúng cluster đó | Các gói PostgreSQL |
 | Redis | | Redis, extension PHP của nó, và mọi dữ liệu trong Redis. PHP-FPM khởi động lại |
+| Memcached | | Memcached, extension PHP của nó, và mọi dữ liệu trong bộ nhớ đệm. PHP-FPM khởi động lại |
 | Adminer | Database của bạn | Các tệp của Adminer và site nội bộ của nó |
+| phpMyAdmin | Database của bạn | Các tệp của phpMyAdmin, tệp tạm, site nội bộ và thiết lập của nó |
 | Node.js | Các phiên bản Node.js khác. Cả thư mục của bản mặc định, nếu có website ứng dụng đã chọn phiên bản đó | `node`, `npm` và `npx` trong `/usr/local/bin`, cùng bản Node.js mà chúng trỏ tới |
 | Ứng dụng Python | Bản thân `python3`, vì hệ thống cần nó, và môi trường ảo trong thư mục của các ứng dụng cũ | Gói venv và pip |
 | Docker | Image, volume và build cache trong `/var/lib/docker`, trừ khi bạn đánh dấu **Xóa luôn mọi image, volume và build cache (/var/lib/docker)** và gõ `docker`. Cài lại Docker sẽ dùng lại chúng | Docker và plugin Compose |
 | Tường lửa web | Nhật ký của tường lửa | ModSecurity và bộ luật OWASP. Web server khởi động lại |
 | ClamAV | | ClamAV và cơ sở dữ liệu virus của nó |
+| Composer | Website Laravel và Drupal, vốn chỉ cần nó lúc cài | `/usr/local/bin/composer` và gói `composer` của hệ điều hành |
+| WP-CLI | | `/usr/local/lib/panel/wp-cli.phar`. Bộ công cụ WordPress sẽ tự cài lại khi cần |
 
 ::: danger
-Xóa dữ liệu của MariaDB hoặc Docker là không thể hoàn tác. Hãy chắc chắn rằng bạn đã sao lưu những gì còn cần.
+Xóa dữ liệu của MariaDB, MySQL, PostgreSQL hoặc Docker là không thể hoàn tác. Hãy chắc chắn rằng bạn đã sao lưu những gì còn cần.
 :::
 
 ## Menu chỉ hiện những gì đã cài
@@ -84,7 +98,7 @@ Menu bên trái ẩn các trang của phần mềm chưa cài:
 
 - **Docker** hiện ra khi đã cài Docker.
 - **WordPress** hiện ra khi đã có một website WordPress.
-- Trên trang **Cơ sở dữ liệu**, thẻ **Redis** hiện ra khi đã cài Redis, còn **Truy vấn chậm** hiện ra khi đã cài MariaDB.
+- Trên trang **Cơ sở dữ liệu**, các thẻ **PostgreSQL**, **Redis** và **Memcached** hiện ra khi đã cài phần mềm tương ứng, còn **Truy vấn chậm** hiện ra khi đã cài MariaDB hoặc MySQL.
 
 **Website**, **Cơ sở dữ liệu** và **Phần mềm** luôn hiện, vì đó là nơi bạn cài các thành phần. Trang bạn đang mở vẫn được hiện.
 
@@ -112,11 +126,47 @@ Xem [Website](./websites) để tạo và cấu hình site.
 
 Bạn có thể cài nhiều phiên bản PHP song song và chọn phiên bản cho từng website ở **Website** → (site) → **PHP**.
 
-- Phiên bản đi kèm hệ điều hành được lấy từ kho phần mềm của hệ điều hành. Các phiên bản khác được lấy từ kho `ondrej/php` trên Ubuntu, hoặc `packages.sury.org` trên Debian. Panel hỏi trước khi thêm kho đó vào máy chủ.
-- Mỗi phiên bản được cài kèm các extension: fpm, cli, mysql, curl, gd, mbstring, xml, zip, intl, bcmath và opcache. Nếu đã cài Redis, extension redis cũng được thêm.
+- Phiên bản đi kèm hệ điều hành được lấy từ kho phần mềm của hệ điều hành. Các phiên bản khác được lấy từ kho `packages.sury.org/php` của Ondřej Surý, trên cả Ubuntu và Debian. Panel hỏi trước khi thêm kho đó vào máy chủ, và chỉ chấp nhận khóa ký của kho có fingerprint `15058500 A0235D97 F5D10063 B188E2B6 95BD4743`.
+- Mỗi phiên bản được cài kèm các extension: fpm, cli, mysql, curl, gd, mbstring, xml, zip, intl, bcmath và opcache. Nếu đã cài Redis hoặc Memcached, extension redis hoặc memcached cũng được thêm.
+- Trước PHP 8.0, json là một gói riêng và cũng được thêm. PHP 5.6 còn được cài kèm mcrypt, nếu kho có gói này.
 - Panel chuyển pool PHP-FPM mặc định của phiên bản sang chế độ khởi tạo worker theo nhu cầu (ondemand), nên một phiên bản không website nào dùng gần như không tốn RAM.
 
 Chọn **Quản lý** trên một phiên bản đã cài để mở phần **Extension** và **Cài đặt** của nó.
+
+### Phiên bản không còn cập nhật bảo mật {#end-of-life}
+
+Mỗi phiên bản PHP chỉ nhận cập nhật bảo mật từ PHP đến một ngày nhất định (xem [php.net/supported-versions.php](https://www.php.net/supported-versions.php)): 8.1 đến 31/12/2025, 8.2 đến 31/12/2026, 8.3 đến 31/12/2027, 8.4 đến 31/12/2028 và 8.5 đến 31/12/2029. 7.4 và 8.0 đã hết. Sau ngày đó, phiên bản lấy từ `packages.sury.org` hiện nhãn **Hết vòng đời — không còn cập nhật bảo mật** kèm một dòng ghi ngày, trên trang Phần mềm, trong cửa sổ **Quản lý** và trong menu chọn phiên bản PHP của website. Panel so ngày đó với hôm nay, nên nhãn tự xuất hiện.
+
+Phiên bản PHP đi kèm hệ điều hành (8.1 trên Ubuntu 22.04, 8.3 trên 24.04, 8.5 trên 26.04, 8.2 trên Debian 12, 8.4 trên Debian 13) không bao giờ có nhãn này: đội bảo mật của hệ điều hành vẫn vá nó trong suốt thời gian bản phát hành còn được hỗ trợ.
+
+Hãy chuyển website khỏi phiên bản có nhãn khi có thể. Bạn vẫn cài được phiên bản đó mà không cần xác nhận thêm; chỉ các [phiên bản cũ](#older-php-versions) mới hỏi.
+
+### Các phiên bản PHP cũ {#older-php-versions}
+
+PHP 5.6, 7.0, 7.1, 7.2 và 7.3 nằm trong mục **Phiên bản cũ**, được thu gọn bên dưới các phiên bản khác. Chúng dành cho website chuyển từ máy chủ khác (cPanel, aaPanel…) mà chưa chạy được trên PHP mới hơn.
+
+::: danger Hết vòng đời: không còn cập nhật bảo mật
+PHP đã ngừng cập nhật bảo mật cho các phiên bản này từ nhiều năm trước: 5.6 từ năm 2018, 7.3 từ năm 2021 (xem [php.net/eol.php](https://www.php.net/eol.php)). Các lỗ hổng đã biết của chúng sẽ không bao giờ được vá, nên website chạy trên chúng dễ bị tấn công hơn. Chỉ dùng chúng để giữ một website cũ hoạt động trong lúc bạn cập nhật nó, rồi chuyển nó sang phiên bản còn được hỗ trợ. Đừng dùng cho website mới.
+:::
+
+- Mỗi phiên bản hiện nhãn **Hết vòng đời — không còn cập nhật bảo mật**, trên trang Phần mềm và trong menu chọn phiên bản PHP của các website.
+- Khi cài một phiên bản, panel yêu cầu bạn xác nhận rủi ro đó trước.
+- Phải cài một phiên bản còn được hỗ trợ (7.4 trở lên) trước, và phiên bản được hỗ trợ cuối cùng không gỡ được khi còn phiên bản cũ. Vì vậy một phiên bản cũ không bao giờ là bản PHP duy nhất của máy chủ: web server, Adminer, Composer và các công cụ của panel luôn có một bản còn được hỗ trợ.
+- Kho ứng dụng giữ nguyên yêu cầu phiên bản tối thiểu của nó: WordPress cần PHP 7.4, các ứng dụng khác cần bản mới hơn. Bộ công cụ WordPress vẫn quản lý được website WordPress chạy phiên bản cũ, nhưng không cập nhật chính WordPress ở đó, vì WordPress hiện tại cần PHP 7.4. Nó vẫn cập nhật plugin và giao diện; WP-CLI bỏ qua các bản cập nhật cần PHP mới hơn.
+- Pool PHP-FPM của website và các thiết lập php.ini giống như ở phiên bản mới hơn: mọi thiết lập panel ghi đều có trong PHP 5.6.
+
+`packages.sury.org/php` có PHP 5.6 đến 7.3 cho Ubuntu 22.04, 24.04, 26.04 và Debian 12, 13, trên amd64 và arm64. Khi cài, panel cũng hỏi apt, và từ chối kèm lý do nếu kho không có phiên bản đó.
+
+### Máy chủ từng dùng PPA ondrej/php {#ondrej-php-ppa}
+
+Các phiên bản panel trước đây lấy các phiên bản PHP bổ sung trên Ubuntu từ `ppa:ondrej/php`. PPA đó đã bị đóng băng và không còn nhận cập nhật: người duy trì nay phát hành các gói cho Ubuntu tại `packages.sury.org/php` (xem thông báo trên [launchpad.net/~ondrej/+archive/ubuntu/php](https://launchpad.net/~ondrej/+archive/ubuntu/php)).
+
+Khi panel khởi động trên một máy chủ Ubuntu vẫn còn PPA này, nó chuyển máy chủ sang kho mới một lần, đúng như thông báo của PPA hướng dẫn:
+
+1. Thêm `packages.sury.org/php` với khóa đã ghim (`/usr/share/keyrings/sury-php.gpg` và `/etc/apt/sources.list.d/sury-php.list`), trừ khi đã có nguồn cho kho này.
+2. Chuyển file nguồn của PPA trong `/etc/apt/sources.list.d`, cùng khóa của PPA `/etc/apt/trusted.gpg.d/ondrej-ubuntu-php.gpg` nếu có, vào thư mục `apt-backup` trong thư mục dữ liệu của panel (`/var/lib/nefo/apt-backup`). Khóa đó được tin cậy cho mọi kho, và nay không còn gì cần đến nó. Các PPA khác, kể cả của cùng người duy trì, được giữ nguyên.
+
+Không gói nào được cài, gỡ hay hạ phiên bản, và panel không chạy `apt-get update` lúc khởi động. Lần cập nhật kế tiếp (lần kiểm tra cập nhật của panel, một lần cài, hoặc lệnh `apt update` của bạn) sẽ đọc nguồn mới, và các gói PHP đã cài nhận bản cập nhật tiếp theo từ đó. Log của panel ghi lại những gì đã thay đổi. Nếu không tải được khóa, PPA được giữ nguyên và panel thử lại ở lần khởi động sau. Dòng PPA nằm trong chính `/etc/apt/sources.list`, hoặc trong một file có cả các kho khác, sẽ không bị sửa: log sẽ nhắc bạn tự thay nó.
 
 ### Extension
 
@@ -189,9 +239,36 @@ Khi bạn cài Redis, panel:
 
 Trước khi gỡ Redis, hãy tắt plugin bộ nhớ đệm trên các website. Chúng vẫn chạy được khi không có bộ nhớ đệm, chỉ chậm hơn một chút.
 
+## PostgreSQL {#postgresql}
+
+Thẻ **PostgreSQL** cài gói `postgresql` của hệ điều hành (16 trên Ubuntu 24.04, 15 trên Debian 12, 17 trên Debian 13, 14 trên Ubuntu 22.04). Panel tinh chỉnh nó theo RAM của máy chủ bằng một file trong `conf.d`, chỉ cho nó lắng nghe trên localhost, và ghi `pg_hba.conf` yêu cầu mật khẩu với mọi người trừ user hệ thống `postgres` qua socket nội bộ. Database của nó nằm ở **Cơ sở dữ liệu** → **PostgreSQL**; xem [Cơ sở dữ liệu](./databases#postgresql) để biết các thiết lập, quy tắc nhập và sao lưu.
+
+Khi đã cài Adminer, panel thêm extension `pgsql` của PHP cho phiên bản PHP chạy Adminer, để Adminer mở được cả database PostgreSQL. Extension này chỉ được thêm cùng với PostgreSQL.
+
+## Memcached {#memcached}
+
+Memcached là bộ nhớ đệm nhỏ trong RAM, dùng cho session PHP và cache của ứng dụng (ví dụ cache driver `memcached` của Laravel).
+
+Khi bạn cài Memcached, panel:
+
+- cài `memcached` và extension memcached cho mọi phiên bản PHP đã cài, và thêm extension này cho các phiên bản PHP cài sau;
+- ghi `/etc/memcached.conf`: Memcached chỉ lắng nghe trên `127.0.0.1:11211`, chỉ qua TCP, tắt UDP (`-U 0`), nên không thể bị lợi dụng để khuếch đại tấn công;
+- giới hạn bộ nhớ theo máy chủ: 64 MB khi dưới 1,5 GB RAM, 128 MB từ 1,5 GB, 256 MB từ 3 GB, và cho phép 512 kết nối khi dưới 1,5 GB RAM, 1024 kết nối từ mức đó trở lên.
+
+Khi bộ nhớ đầy, Memcached bỏ các mục lâu không dùng nhất. Để xem các con số của nó, vào **Cơ sở dữ liệu** → **Memcached**.
+
+Trước khi gỡ Memcached, hãy chuyển session và cache của website sang nơi khác: ứng dụng có cache driver là Memcached sẽ lỗi khi không có nó.
+
 ## MariaDB và Adminer
 
-MariaDB là máy chủ cơ sở dữ liệu, được tinh chỉnh theo RAM của máy chủ và chỉ truy cập được từ chính máy chủ. Adminer giúp xem database trên trình duyệt và chỉ truy cập được qua bước đăng nhập của panel. Adminer cần web server và PHP. Xem trang [Cơ sở dữ liệu](./databases).
+Thẻ **Máy chủ cơ sở dữ liệu** cài MariaDB hoặc MySQL 8.4 LTS, được tinh chỉnh theo RAM của máy chủ và chỉ truy cập được từ chính máy chủ. Mỗi máy chủ chỉ có một trong hai:
+
+- Khi chưa cài cái nào, thẻ cho bạn chọn, mặc định là **MariaDB**: nó nhẹ hơn và là nền tảng của WordPress cùng hầu hết ứng dụng PHP. **MySQL 8.4 LTS** lấy từ kho của Oracle và chỉ có trên Ubuntu 22.04, 24.04, 26.04 và Debian 12, 13, với máy chủ amd64. Ở những nơi khác, thẻ nói rõ vì sao không có.
+- Khi đã cài một cái, thẻ cho biết đó là cái nào, phiên bản, RAM ước tính và nút **Gỡ cài đặt**. Chỉ khi gỡ nó mới cài được cái còn lại.
+
+Việc đổi từ cái này sang cái kia không tự động: hãy xuất các database, gỡ cài đặt, cài cái còn lại rồi nhập lại. Xem [Chọn MariaDB hay MySQL](./databases#choose-mariadb-or-mysql).
+
+Adminer và phpMyAdmin giúp xem database trên trình duyệt và chỉ truy cập được qua bước đăng nhập của panel. Cả hai cần web server và PHP, và đều dùng được với MariaDB lẫn MySQL. Xem trang [Cơ sở dữ liệu](./databases#phpmyadmin).
 
 ## Docker
 
@@ -205,3 +282,22 @@ Cổng do container Docker mở sẽ bỏ qua tường lửa ufw. Vì vậy pane
 - **Phần mềm diệt virus ClamAV** là bộ quét bổ sung, tùy chọn, cho việc quét mã độc. Cơ sở dữ liệu virus của nó được tải ngay sau khi cài, nên vài phút sau việc quét mới dùng được nó. ClamAV hợp với máy chủ từ 2 GB RAM trở lên.
 
 Xem trang [Bảo mật](./security) cho cả hai.
+
+## Công cụ: Composer và WP-CLI {#tools}
+
+Nhóm **Công cụ** hiện hai công cụ dòng lệnh mà panel tự cài khi có thứ cần đến chúng. Mỗi thẻ cho biết công cụ đã cài chưa, phiên bản, nguồn gốc và thứ đang dùng nó. Nút **Cập nhật** cài bản phát hành chính thức mới nhất. Panel tải nó qua HTTPS cùng checksum mà dự án công bố bên cạnh, và từ chối file tải về không khớp: công cụ đang cài vẫn giữ nguyên. File mới thay file cũ trong một bước duy nhất.
+
+### Composer {#composer}
+
+Composer là trình quản lý gói của PHP. Cài Laravel hoặc Drupal từ Kho ứng dụng sẽ cài nó, và script triển khai Git cùng terminal cũng có thể chạy nó.
+
+- **Cài** cài gói `composer` của hệ điều hành, được cập nhật bảo mật cùng phần còn lại của hệ thống.
+- **Cập nhật** cài bản ổn định mới nhất từ getcomposer.org vào `/usr/local/bin/composer`, có kiểm tra checksum SHA-256 công bố. Bản này đứng trước trong `PATH`, nên `composer` trong terminal, script triển khai Git và việc panel cài Laravel, Drupal đều dùng nó. Gói của hệ điều hành vẫn được giữ.
+- **Gỡ cài đặt** gỡ cả hai. Việc gỡ bị từ chối khi có script triển khai Git chạy `composer`. Website Laravel và Drupal không chặn việc gỡ: chúng chỉ cần Composer lúc cài và vẫn chạy bình thường khi không có nó. Cài lại một trong hai ứng dụng này sẽ cài lại Composer.
+
+### WP-CLI {#wp-cli}
+
+WP-CLI chạy WordPress từ dòng lệnh. [Bộ công cụ WordPress](./wordpress) dùng nó để cập nhật, bật chế độ bảo trì, đặt lại mật khẩu và tạo bản staging, và tự cài nó ở lần đầu cần đến.
+
+- **Cài** và **Cập nhật** tải bản phát hành mới nhất từ GitHub về `/usr/local/lib/panel/wp-cli.phar`, có kiểm tra checksum SHA-512 mà bản phát hành công bố.
+- **Gỡ cài đặt** bị từ chối khi còn website WordPress.

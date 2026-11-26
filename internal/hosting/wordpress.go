@@ -43,10 +43,17 @@ type WordPressRequest struct {
 	AdminPassword string
 	DB            *store.Database
 	// MariaDB is the database server's version (Moodle picks its release
-	// by it); Inputs are app-specific form values (WooCommerce's country).
+	// by it), "" on MySQL; Inputs are app-specific form values
+	// (WooCommerce's country).
 	MariaDB string
 	Inputs  map[string]string
+	// DBEngine is the database server: "mariadb" (or "") or "mysql". Apps
+	// with a driver per server (Laravel, Moodle) are set up for it.
+	DBEngine string
 }
+
+// mysqlEngine reports whether the request's database server is MySQL.
+func (r WordPressRequest) mysqlEngine() bool { return r.DBEngine == "mysql" }
 
 // CheckWordPress validates a request before any work starts, so the UI can
 // show mistakes at once.

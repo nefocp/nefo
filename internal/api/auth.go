@@ -12,9 +12,13 @@ import (
 	"github.com/nefocp/nefo/internal/version"
 )
 
+// authed is who made a request: a browser session (tokenHash) or an API key
+// (key, see apikeys.go). For a key, user.Username also names the key, so
+// the audit entries of the request show which key it was.
 type authed struct {
 	user      *store.User
 	tokenHash string
+	key       *store.APIKey
 }
 
 type authedHandler func(w http.ResponseWriter, r *http.Request, a *authed)
@@ -30,9 +34,21 @@ func toUserResponse(u *store.User) userResponse {
 
 func itoa(n int) string { return strconv.Itoa(n) }
 
-// requireAuth only calls h for a request with a valid session cookie.
-func (s *Server) requireAuth(h authedHandler) http.Handler {
+// requireAuth only calls h for a request with a valid session cookie, or
+// with a valid API key that allows the request (apikeys.go).
+func (s *Server) requireAuth(h authedHandler) http.Handler { return s.authenticate(h, false) }
+
+// sessionOnly is requireAuth for the routes an API key must never reach,
+// even a full one: they answer a key with 403 api_key_forbidden.
+func (s *Server) sessionOnly(h authedHandler) http.Handler { return s.authenticate(h, true) }
+
+func (s *Server) authenticate(h authedHandler, sessionOnly bool) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// A request with a Bearer token is never a cookie session.
+		if token, ok := bearerToken(r); ok {
+			s.serveWithKey(w, r, token, h, sessionOnly || sessionOnlyPath(r.URL.Path))
+			return
+		}
 		a, err := s.session(r)
 		if errors.Is(err, errNoSession) || errors.Is(err, store.ErrNotFound) {
 			http.SetCookie(w, s.cookie("", -1))
@@ -110,6 +126,12 @@ func (s *Server) checkTOTP(u *store.User, code string) bool {
 }
 
 func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
+	// A request with an API key never starts a session (and skipped the
+	// X-Requested-With check).
+	if _, ok := bearerToken(r); ok {
+		writeError(w, http.StatusForbidden, "api_key_forbidden")
+		return
+	}
 	var req struct {
 		Username string `json:"username"`
 		Password string `json:"password"`

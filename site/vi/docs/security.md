@@ -27,7 +27,7 @@ Lệnh in ra URL với địa chỉ IP đầu tiên của máy chủ, và cả v
 
 Cổng và đường dẫn được lưu ở mục `listen` và `entrance` trong `/etc/nefo/config.json`. Panel không có chỗ nào để đổi chúng. Muốn đổi đường dẫn bằng tay, hãy đặt `entrance` thành 8 đến 32 chữ thường và chữ số, rồi chạy `systemctl restart nefo`.
 
-### HTTPS ngay từ lần chạy đầu
+### HTTPS ngay từ lần chạy đầu {#https-from-the-first-start}
 
 Panel dùng HTTPS (TLS 1.2 trở lên) ngay từ lần chạy đầu tiên. Nó tự tạo một chứng chỉ tự ký trong `/var/lib/nefo/tls/`, nên lần đầu trình duyệt sẽ cảnh báo. Để hết cảnh báo, hãy xin chứng chỉ Let's Encrypt miễn phí cho một tên miền trỏ về máy chủ này:
 
@@ -39,7 +39,7 @@ Panel dùng HTTPS (TLS 1.2 trở lên) ngay từ lần chạy đầu tiên. Nó 
 
 Chứng chỉ tự động gia hạn như chứng chỉ của website; nếu gia hạn lỗi, panel thử lại sau mỗi 12 giờ. Muốn bỏ chứng chỉ, chọn **Xóa**: panel quay lại dùng chứng chỉ tự ký. Xem thêm về chứng chỉ ở trang [Chứng chỉ SSL](./ssl).
 
-### Giới hạn đăng nhập
+### Giới hạn đăng nhập {#sign-in-limits}
 
 - Sai 5 lần trong 15 phút thì địa chỉ đó bị khóa 15 phút. Trang đăng nhập sẽ báo "Bạn đã nhập sai quá nhiều lần. Hãy thử lại sau … giây."
 - Sai mật khẩu và sai mã xác thực hai lớp đều bị tính. Nhập sai mật khẩu hiện tại trong các form đổi mật khẩu và 2FA ở trang **Tài khoản** cũng bị tính.

@@ -17,14 +17,18 @@ type Database struct {
 	Password  string
 	SiteID    int64 // 0 when not linked to a site
 	CreatedAt time.Time
+	// Engine is EngineMySQL (MariaDB or MySQL) or EnginePostgres. The
+	// functions of this file only see EngineMySQL databases, so the MariaDB
+	// code never touches a PostgreSQL one; pgdatabases.go has the others.
+	Engine string
 }
 
-const dbCols = `id, name, username, password, COALESCE(site_id, 0), created_at`
+const dbCols = `id, name, username, password, COALESCE(site_id, 0), created_at, engine`
 
 func scanDatabase(row scanner) (*Database, error) {
 	var d Database
 	var created int64
-	err := row.Scan(&d.ID, &d.Name, &d.Username, &d.Password, &d.SiteID, &created)
+	err := row.Scan(&d.ID, &d.Name, &d.Username, &d.Password, &d.SiteID, &created, &d.Engine)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -47,9 +51,12 @@ func (s *Store) CreateDatabase(ctx context.Context, d *Database) error {
 	if d.CreatedAt.IsZero() {
 		d.CreatedAt = time.Now()
 	}
+	if d.Engine == "" {
+		d.Engine = EngineMySQL
+	}
 	res, err := s.db.ExecContext(ctx,
-		`INSERT INTO databases (name, username, password, site_id, created_at) VALUES (?, ?, ?, ?, ?)`,
-		d.Name, d.Username, d.Password, nullID(d.SiteID), d.CreatedAt.Unix())
+		`INSERT INTO databases (name, username, password, site_id, created_at, engine) VALUES (?, ?, ?, ?, ?, ?)`,
+		d.Name, d.Username, d.Password, nullID(d.SiteID), d.CreatedAt.Unix(), d.Engine)
 	if isUniqueViolation(err) {
 		return ErrConflict
 	}
@@ -60,14 +67,14 @@ func (s *Store) CreateDatabase(ctx context.Context, d *Database) error {
 	return err
 }
 
-// ListDatabases returns every database record, sorted by name.
+// ListDatabases returns every MariaDB database record, sorted by name.
 func (s *Store) ListDatabases(ctx context.Context) ([]*Database, error) {
-	return s.queryDatabases(ctx, `SELECT `+dbCols+` FROM databases ORDER BY name`)
+	return s.queryDatabases(ctx, `SELECT `+dbCols+` FROM databases WHERE engine = 'mysql' ORDER BY name`)
 }
 
-// DatabasesForSite returns the databases linked to a site.
+// DatabasesForSite returns the MariaDB databases linked to a site.
 func (s *Store) DatabasesForSite(ctx context.Context, siteID int64) ([]*Database, error) {
-	return s.queryDatabases(ctx, `SELECT `+dbCols+` FROM databases WHERE site_id = ? ORDER BY name`, siteID)
+	return s.queryDatabases(ctx, `SELECT `+dbCols+` FROM databases WHERE site_id = ? AND engine = 'mysql' ORDER BY name`, siteID)
 }
 
 func (s *Store) queryDatabases(ctx context.Context, q string, args ...any) ([]*Database, error) {
@@ -87,9 +94,9 @@ func (s *Store) queryDatabases(ctx context.Context, q string, args ...any) ([]*D
 	return out, rows.Err()
 }
 
-// DatabaseByID returns one database record.
+// DatabaseByID returns one MariaDB database record.
 func (s *Store) DatabaseByID(ctx context.Context, id int64) (*Database, error) {
-	return scanDatabase(s.db.QueryRowContext(ctx, `SELECT `+dbCols+` FROM databases WHERE id = ?`, id))
+	return scanDatabase(s.db.QueryRowContext(ctx, `SELECT `+dbCols+` FROM databases WHERE id = ? AND engine = 'mysql'`, id))
 }
 
 // UpdateDatabase saves the password and site link of a database.
@@ -111,7 +118,8 @@ func (s *Store) DeleteDatabase(ctx context.Context, id int64) error {
 	return err
 }
 
-// DBNameTaken reports whether a database or database user already uses name.
+// DBNameTaken reports whether a database or database user of any engine
+// already uses name.
 func (s *Store) DBNameTaken(ctx context.Context, name string) (bool, error) {
 	var n int
 	err := s.db.QueryRowContext(ctx,
@@ -119,7 +127,7 @@ func (s *Store) DBNameTaken(ctx context.Context, name string) (bool, error) {
 	return n > 0, err
 }
 
-// DatabaseByName returns the database record with the given name.
+// DatabaseByName returns the MariaDB database record with the given name.
 func (s *Store) DatabaseByName(ctx context.Context, name string) (*Database, error) {
-	return scanDatabase(s.db.QueryRowContext(ctx, `SELECT `+dbCols+` FROM databases WHERE name = ?`, name))
+	return scanDatabase(s.db.QueryRowContext(ctx, `SELECT `+dbCols+` FROM databases WHERE name = ? AND engine = 'mysql'`, name))
 }

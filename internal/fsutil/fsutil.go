@@ -2,6 +2,7 @@
 package fsutil
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 )
@@ -36,6 +37,35 @@ func WriteFileAtomic(path string, data []byte, perm os.FileMode) error {
 	}
 	return os.Rename(tmp, path)
 }
+
+// MkdirAll is os.MkdirAll with perm given to every folder it creates,
+// whatever the umask: the panel runs with umask 077, so os.MkdirAll alone
+// makes folders only root can enter, and a service that reads them as its
+// own user (MySQL, PostgreSQL, PHP-FPM, Nginx) silently sees nothing.
+// Folders that already exist keep their mode.
+func MkdirAll(path string, perm os.FileMode) error {
+	path = filepath.Clean(path)
+	if fi, err := os.Stat(path); err == nil {
+		if !fi.IsDir() {
+			return &os.PathError{Op: "mkdir", Path: path, Err: errNotDir}
+		}
+		return nil
+	}
+	if parent := filepath.Dir(path); parent != path {
+		if err := MkdirAll(parent, perm); err != nil {
+			return err
+		}
+	}
+	if err := os.Mkdir(path, perm); err != nil {
+		if fi, serr := os.Stat(path); serr == nil && fi.IsDir() {
+			return nil // made by someone else meanwhile
+		}
+		return err
+	}
+	return os.Chmod(path, perm)
+}
+
+var errNotDir = errors.New("not a directory")
 
 // Exists reports whether path exists.
 func Exists(path string) bool {

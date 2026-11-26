@@ -22,10 +22,11 @@ import (
 )
 
 const (
-	// slowConfFile keeps the slow query log settings across restarts.
-	slowConfFile = "/etc/mysql/mariadb.conf.d/99-panel-slowlog.cnf"
-	// slowLogFile is in the directory Debian's logrotate rule for MariaDB
-	// covers (/var/log/mysql/*.log).
+	// slowConfName keeps the slow query log settings across restarts, in
+	// the engine's drop-in folder (see Manager.slowConfPath).
+	slowConfName = "99-panel-slowlog.cnf"
+	// slowLogFile is MariaDB's, in the directory Debian's logrotate rule for
+	// MariaDB covers (/var/log/mysql/*.log); see Engine.slowLogFile.
 	slowLogFile = "/var/log/mysql/mariadb-slow.log"
 
 	// MinSlowThreshold and MaxSlowThreshold bound the slow query threshold,
@@ -41,7 +42,7 @@ const (
 	slowTail = 4 << 20
 )
 
-// SlowLog describes MariaDB's slow query log.
+// SlowLog describes the database server's slow query log.
 type SlowLog struct {
 	Running   bool    `json:"running"`
 	Enabled   bool    `json:"enabled"`
@@ -50,17 +51,18 @@ type SlowLog struct {
 	Size      int64   `json:"size"`
 }
 
-// SlowLogStatus reads the slow query log settings: from MariaDB while it
-// runs, otherwise from the panel's drop-in.
+// SlowLogStatus reads the slow query log settings: from the server while
+// it runs, otherwise from the panel's drop-in.
 func (m *Manager) SlowLogStatus(ctx context.Context) (*SlowLog, error) {
 	if err := m.ready(ctx); err != nil {
 		return nil, err
 	}
-	sl := &SlowLog{File: slowLogFile, Threshold: 10}
-	if fi, err := os.Lstat(m.slowLog); err == nil && fi.Mode().IsRegular() {
+	file := m.engine().slowLogFile()
+	sl := &SlowLog{File: file, Threshold: 10}
+	if fi, err := os.Lstat(m.slowLogPath()); err == nil && fi.Mode().IsRegular() {
 		sl.Size = fi.Size()
 	}
-	if b, err := os.ReadFile(m.slowConf); err == nil {
+	if b, err := os.ReadFile(m.slowConfPath()); err == nil {
 		sl.Enabled, sl.Threshold = parseSlowConf(string(b))
 	}
 	sl.Running = m.Status(ctx).Running
@@ -73,12 +75,12 @@ func (m *Manager) SlowLogStatus(ctx context.Context) (*SlowLog, error) {
 	}
 	f := strings.Split(strings.TrimSpace(out), "\t")
 	if len(f) != 3 {
-		return nil, fmt.Errorf("unexpected answer from MariaDB: %q", out)
+		return nil, fmt.Errorf("unexpected answer from %s: %q", m.engine().Name(), out)
 	}
 	sl.Threshold, _ = strconv.ParseFloat(f[1], 64)
 	// The log only counts as on when it is written to the panel's file,
 	// which is the one the viewer reads.
-	sl.Enabled = f[0] == "1" && f[2] == slowLogFile
+	sl.Enabled = f[0] == "1" && f[2] == file
 	return sl, nil
 }
 
@@ -111,6 +113,11 @@ func formatThreshold(t float64) (string, error) {
 }
 
 func slowConf(enabled bool, threshold string) string {
+	return slowConfFor(slowLogFile, enabled, threshold)
+}
+
+// slowConfFor is the drop-in for a server that writes the log to file.
+func slowConfFor(file string, enabled bool, threshold string) string {
 	on := "0"
 	if enabled {
 		on = "1"
@@ -118,16 +125,20 @@ func slowConf(enabled bool, threshold string) string {
 	return `# Managed by the panel. Do not edit: the panel rewrites this file.
 [mysqld]
 slow_query_log = ` + on + `
-slow_query_log_file = ` + slowLogFile + `
+slow_query_log_file = ` + file + `
 long_query_time = ` + threshold + "\n"
 }
 
 // slowLogSQL returns the statements that apply the settings to the running
 // server. long_query_time applies to connections opened afterwards.
 func slowLogSQL(enabled bool, threshold string) string {
+	return slowLogSQLFor(slowLogFile, enabled, threshold)
+}
+
+func slowLogSQLFor(file string, enabled bool, threshold string) string {
 	q := "SET GLOBAL long_query_time = " + threshold + ";\n"
 	if enabled {
-		return q + "SET GLOBAL slow_query_log_file = '" + slowLogFile + "';\nSET GLOBAL slow_query_log = ON;\n"
+		return q + "SET GLOBAL slow_query_log_file = '" + file + "';\nSET GLOBAL slow_query_log = ON;\n"
 	}
 	return q + "SET GLOBAL slow_query_log = OFF;\n"
 }
@@ -148,38 +159,41 @@ func (m *Manager) SetSlowLog(ctx context.Context, enabled bool, threshold float6
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	file := m.engine().slowLogFile()
 	if enabled {
-		// MariaDB writes the log as the mysql user. These are the owner and
-		// mode the Debian package gives the directory.
-		if _, err := m.run.Output(ctx, "install", "-d", "-o", "mysql", "-g", "adm", "-m", "2750", path.Dir(slowLogFile)); err != nil {
+		// The server writes the log as the mysql user. These are the owner
+		// and mode Debian's MariaDB package gives the directory; MySQL's
+		// own error log in it stays writable for it.
+		if _, err := m.run.Output(ctx, "install", "-d", "-o", "mysql", "-g", "adm", "-m", "2750", path.Dir(file)); err != nil {
 			return err
 		}
 	}
-	if _, err := m.sql(ctx, slowLogSQL(enabled, t)); err != nil {
+	if _, err := m.sql(ctx, slowLogSQLFor(file, enabled, t)); err != nil {
 		return err
 	}
-	return fsutil.WriteFileAtomic(m.slowConf, []byte(slowConf(enabled, t)), 0o644)
+	return fsutil.WriteFileAtomic(m.slowConfPath(), []byte(slowConfFor(file, enabled, t)), 0o644)
 }
 
 // openSlowLog opens the slow log for reading or writing. The directory
 // belongs to the mysql user, so the file must be a plain file, not a link
 // that points the root-owned panel somewhere else.
 func (m *Manager) openSlowLog(flag int) (*os.File, error) {
-	before, err := os.Lstat(m.slowLog)
+	name := m.slowLogPath()
+	before, err := os.Lstat(name)
 	if err != nil {
 		return nil, err
 	}
 	if !before.Mode().IsRegular() {
-		return nil, fmt.Errorf("%s is not a regular file", m.slowLog)
+		return nil, fmt.Errorf("%s is not a regular file", name)
 	}
-	f, err := os.OpenFile(m.slowLog, flag, 0)
+	f, err := os.OpenFile(name, flag, 0)
 	if err != nil {
 		return nil, err
 	}
 	after, err := f.Stat()
 	if err != nil || !os.SameFile(before, after) {
 		f.Close()
-		return nil, fmt.Errorf("%s changed while it was opened", m.slowLog)
+		return nil, fmt.Errorf("%s changed while it was opened", name)
 	}
 	return f, nil
 }
@@ -206,7 +220,7 @@ func (m *Manager) SlowQueries(ctx context.Context, limit int) ([]SlowQuery, erro
 	return parseSlowLog(io.LimitReader(f, slowTail), start > 0, limit), nil
 }
 
-// ClearSlowLog empties the slow query log. MariaDB appends to the file, so
+// ClearSlowLog empties the slow query log. The server appends to the file, so
 // it carries on at the start; FLUSH SLOW LOGS reopens it to be sure.
 func (m *Manager) ClearSlowLog(ctx context.Context) error {
 	m.mu.Lock()
@@ -253,7 +267,8 @@ var (
 	useRe       = regexp.MustCompile("^use `?([^`;]+)`?;$")
 )
 
-// parseSlowLog parses MariaDB's slow query log format:
+// parseSlowLog parses MariaDB's slow query log format (MySQL's differs in
+// its "# Time: 2025-11-25T14:03:07.123456Z" line and has no "Schema:"):
 //
 //	# Time: 251125 14:03:07
 //	# User@Host: root[root] @ localhost []
@@ -382,8 +397,12 @@ func scanLinesLong(data []byte, atEOF bool) (int, []byte, error) {
 	return 0, nil, nil
 }
 
-// parseSlowTime parses "251125 14:03:07" or "251125  9:03:07" (server time).
+// parseSlowTime parses "251125 14:03:07" or "251125  9:03:07" (MariaDB,
+// server time) or "2025-11-25T14:03:07.123456Z" (MySQL, UTC by default).
 func parseSlowTime(s string) (time.Time, bool) {
+	if t, err := time.Parse(time.RFC3339Nano, strings.TrimSpace(s)); err == nil {
+		return t, true
+	}
 	f := strings.Fields(s)
 	if len(f) != 2 {
 		return time.Time{}, false
