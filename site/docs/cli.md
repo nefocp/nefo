@@ -1,0 +1,210 @@
+---
+title: Command line
+description: Every nefo command and its options, the configuration file, and how to manage the nefo service with systemctl and journalctl.
+---
+
+# Command line
+
+The `nefo` program at `/usr/local/bin/nefo` runs the panel, and it also has a few commands for the server's root user. This page lists them, then shows how to manage the `nefo` service and what is in the configuration file. Run every command as root.
+
+## Commands
+
+| Command | What it does |
+|---|---|
+| `nefo info` | Show the panel's URL |
+| `nefo reset-password` | Set a new random password and sign out all sessions |
+| `nefo update` | Install the latest release and restart the panel |
+| `nefo version` | Show the version |
+| `nefo init` | Create the configuration file and the first admin account |
+| `nefo serve` | Run the panel (systemd does this for you) |
+| `nefo help` | Show the list of commands |
+
+Run `nefo <command> -h` to see the options of a command. Options work with one dash or two: `-port` and `--port` are the same.
+
+Every command except `version` and `help` reads the configuration file `/etc/nefo/config.json`. To use another file, add `--config /path/to/config.json`, or set the `NEFO_CONFIG` environment variable.
+
+## nefo info
+
+Shows the panel's URL and where its files are.
+
+```sh
+nefo info
+```
+
+```
+URL:    https://panel.example.com:28443/k3x9p2qa7m1z/
+URL:    https://203.0.113.10:28443/k3x9p2qa7m1z/
+Config: /etc/nefo/config.json
+Data:   /var/lib/nefo
+```
+
+The first line appears once the panel has its own domain (**Settings** → **Certificate**). The second uses the server's first IP address. If your provider gives the server a private address and a separate public one, pass the public one:
+
+```sh
+nefo info --host 203.0.113.10
+```
+
+| Option | What it does |
+|---|---|
+| `--host` | The host name or IP address to show in the URL |
+| `--port` | Print only the port number, for scripts |
+| `--config` | The configuration file to read |
+
+## nefo reset-password
+
+Sets a new random password for the account, signs it out on every device, and prints the password. Use it when you forgot the password.
+
+```sh
+nefo reset-password
+```
+
+```
+New password for admin: ••••••••••••••••••••
+```
+
+If you also lost the phone with your authenticator app, add `--disable-2fa`. It turns off two-factor authentication for the account:
+
+```sh
+nefo reset-password --disable-2fa
+```
+
+```
+New password for admin: ••••••••••••••••••••
+Two-factor authentication is off. Turn it on again after signing in.
+```
+
+| Option | What it does |
+|---|---|
+| `--disable-2fa` | Also turn off two-factor authentication |
+| `--user` | The account name (default `admin`) |
+| `--config` | The configuration file to read |
+
+The panel keeps running: you don't need to restart it. The reset is written to the audit log.
+
+## nefo update
+
+Checks the project's GitHub releases. If there is a newer version, it downloads it, checks its signature and checksum, replaces the program and restarts the panel.
+
+```sh
+nefo update
+```
+
+To only see whether an update is available:
+
+```sh
+nefo update --check
+```
+
+```
+Installed: v0.1.0
+Latest:    v0.2.0
+```
+
+| Option | What it does |
+|---|---|
+| `--check` | Only show the installed and the latest version |
+| `--config` | The configuration file to read |
+
+See [Update](./update) for what the update checks and what to do if it fails.
+
+## nefo version
+
+Shows the version and the commit it was built from. `nefo --version` and `nefo -v` do the same.
+
+```sh
+nefo version
+```
+
+```
+Nefo v0.1.0 (commit 1a2b3c4)
+```
+
+## nefo init
+
+Creates the configuration file and the first admin account. The installer runs it for you, so you normally don't need it. It refuses to overwrite an existing configuration file.
+
+It chooses a random port from 20000 to 49999 and a random secret path, turns on HTTPS, and creates the account `admin` with a random password. If the data folder already has accounts, it keeps them, writes only the new configuration file, and doesn't print a password.
+
+| Option | What it does |
+|---|---|
+| `--config` | Where to write the configuration file (default `/etc/nefo/config.json`) |
+| `--data` | The data folder (default `/var/lib/nefo`) |
+| `--listen` | The address to listen on, such as `:28443`, instead of a random port |
+| `--host` | The host name or IP address to show in the printed URL |
+| `--dev` | Development mode: plain HTTP on `127.0.0.1:8080` with the path `dev`. Never use it on a server. |
+
+## nefo serve
+
+Runs the panel. The `nefo` service starts it with `nefo serve --config /etc/nefo/config.json`, so you don't run it yourself. A second copy would fail, because the service already uses the port.
+
+## Manage the nefo service
+
+| Command | What it does |
+|---|---|
+| `systemctl status nefo` | Show whether the panel is running, and its latest log lines |
+| `systemctl restart nefo` | Restart the panel |
+| `systemctl stop nefo` | Stop the panel |
+| `systemctl start nefo` | Start the panel |
+| `journalctl -u nefo` | Show the panel's log |
+| `journalctl -u nefo -f` | Follow the log as new lines arrive |
+| `journalctl -u nefo -n 100 --no-pager` | Show the last 100 lines |
+| `journalctl -u nefo --since "1 hour ago"` | Show the log of the last hour |
+
+Restarting the panel doesn't stop your websites, databases or other services. You can also restart it from **Settings → Panel → Restart the panel**.
+
+When the panel stops, it lets a running task, such as a software installation, finish first, for up to 75 seconds. If the panel stops because of an error, systemd starts it again after 3 seconds.
+
+The service file is `/etc/systemd/system/nefo.service`:
+
+```ini
+[Unit]
+Description=Nefo server control panel
+Documentation=https://nefo.io
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/nefo serve --config /etc/nefo/config.json
+Restart=on-failure
+RestartSec=3
+UMask=0077
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target
+```
+
+The panel runs as root, because it manages the whole server.
+
+## The configuration file
+
+`/etc/nefo/config.json` is readable by root only. The installer writes it, for example:
+
+```json
+{
+  "listen": ":28443",
+  "entrance": "k3x9p2qa7m1z",
+  "data_dir": "/var/lib/nefo",
+  "tls": {
+    "enabled": true
+  }
+}
+```
+
+| Field | What it means |
+|---|---|
+| `listen` | The address and port the panel listens on. `:28443` means port 28443 on every address. |
+| `entrance` | The secret path. 8 to 32 lowercase letters or digits. Every other path answers `404`. |
+| `data_dir` | The data folder: the panel's database `nefo.db`, certificates and keys. |
+| `tls.enabled` | HTTPS for the panel. Keep it on. |
+| `tls.cert`, `tls.key` | Optional paths to your own certificate and key for the panel. They take priority over the panel's Let's Encrypt certificate and the self-signed one. |
+| `acme_directory` | Optional certificate authority for certificates. Empty means Let's Encrypt. Set `https://acme-staging-v02.api.letsencrypt.org/directory` while testing: staging certificates aren't trusted by browsers, but failed attempts don't count against Let's Encrypt's limits. |
+| `update_url` | Optional address that updates are downloaded from. Empty means the project's GitHub releases. It must start with `https://`. |
+| `dev` | Development mode. Never set it on a server. |
+
+After you edit the file, restart the panel with `systemctl restart nefo`. If the file has an error, the panel doesn't start: `journalctl -u nefo` shows the reason.
+
+::: warning Changing the port
+If you change the port in `listen`, open the new port first, both in ufw (for example `ufw allow 31234/tcp`) and in your provider's cloud firewall. Otherwise you can't reach the panel after the restart.
+:::

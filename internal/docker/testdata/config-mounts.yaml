@@ -1,0 +1,37 @@
+services:
+  app:
+    image: alpine
+    expose: ["80"]
+    secrets: [s1]
+    configs: [c1]
+    volumes:
+      - hostroot:/h
+      - /etc/localtime:/etc/localtime:ro
+      - type: tmpfs
+        target: /tmp
+    network_mode: "service:other"
+  other:
+    image: alpine
+    network_mode: none
+    ports:
+      - target: 80
+        published: 8090
+        host_ip: "::1"
+        mode: host
+volumes:
+  hostroot:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /
+  ext:
+    external: true
+secrets:
+  s1:
+    file: /root/.ssh/id_rsa
+configs:
+  c1:
+    file: ./c.txt
+  c2:
+    content: hello

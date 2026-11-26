@@ -1,0 +1,32 @@
+services:
+  web:
+    image: traefik/whoami
+    ports:
+      - "127.0.0.1:18081:80"
+      - "8080:80"
+      - "[::1]:18082:80/udp"
+      - "9000-9001:9000-9001"
+      - target: 81
+        published: "18083"
+        host_ip: 0.0.0.0
+      - "443"
+    volumes:
+      - /etc:/host-etc:ro
+      - data:/data
+      - ./local:/local
+      - type: bind
+        source: /var/run/docker.sock
+        target: /var/run/docker.sock
+      - /:/rootfs
+    privileged: true
+    network_mode: host
+    pid: host
+    ipc: host
+  db:
+    image: alpine
+    volumes:
+      - /var/run/docker.sock:/sock
+      - /etc/:/x
+      - /root/../etc:/y
+volumes:
+  data:

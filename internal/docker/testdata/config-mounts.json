@@ -1,0 +1,91 @@
+{
+  "configs": {
+    "c1": {
+      "name": "panel-t2_c1",
+      "file": "/tmp/agent-docker/t2/c.txt"
+    }
+  },
+  "name": "panel-t2",
+  "secrets": {
+    "s1": {
+      "name": "panel-t2_s1",
+      "file": "/root/.ssh/id_rsa"
+    }
+  },
+  "services": {
+    "app": {
+      "command": null,
+      "configs": [
+        {
+          "source": "c1"
+        }
+      ],
+      "depends_on": {
+        "other": {
+          "condition": "service_started",
+          "restart": true,
+          "required": true
+        }
+      },
+      "entrypoint": null,
+      "expose": [
+        "80"
+      ],
+      "image": "alpine",
+      "network_mode": "service:other",
+      "secrets": [
+        {
+          "source": "s1",
+          "target": "/run/secrets/s1"
+        }
+      ],
+      "volumes": [
+        {
+          "type": "volume",
+          "source": "hostroot",
+          "target": "/h",
+          "volume": {}
+        },
+        {
+          "type": "bind",
+          "source": "/etc/localtime",
+          "target": "/etc/localtime",
+          "read_only": true,
+          "bind": {
+            "create_host_path": true
+          }
+        },
+        {
+          "type": "tmpfs",
+          "target": "/tmp"
+        }
+      ]
+    },
+    "other": {
+      "command": null,
+      "entrypoint": null,
+      "image": "alpine",
+      "network_mode": "none",
+      "ports": [
+        {
+          "mode": "host",
+          "host_ip": "::1",
+          "target": 80,
+          "published": "8090",
+          "protocol": "tcp"
+        }
+      ]
+    }
+  },
+  "volumes": {
+    "hostroot": {
+      "name": "panel-t2_hostroot",
+      "driver": "local",
+      "driver_opts": {
+        "device": "/",
+        "o": "bind",
+        "type": "none"
+      }
+    }
+  }
+}

@@ -1,0 +1,40 @@
+/usr/sbin/mariadbd, Version: 10.11.14-MariaDB-0ubuntu0.24.04.1-log (Ubuntu 24.04). started with:
+Tcp port: 3306  Unix socket: /run/mysqld/mysqld.sock
+Time		    Id Command	Argument
+# Time: 251125 14:03:07
+# User@Host: root[root] @ localhost []
+# Thread_id: 41  Schema:   QC_hit: No
+# Query_time: 0.300321  Lock_time: 0.000000  Rows_sent: 1  Rows_examined: 0
+# Rows_affected: 0  Bytes_sent: 64
+SET timestamp=1764079387;
+SELECT SLEEP(0.3);
+# User@Host: shop[shop] @  [198.51.100.7]
+# Thread_id: 42  Schema: shop  QC_hit: No
+# Query_time: 1.204518  Lock_time: 0.000103  Rows_sent: 20  Rows_examined: 184220
+# Rows_affected: 0  Bytes_sent: 2817
+use shop;
+SET timestamp=1764079387;
+SELECT o.id, o.total
+FROM orders o
+WHERE o.status = 'open'
+ORDER BY o.created_at DESC LIMIT 20;
+# Time: 251125 14:05:41
+# User@Host: shop[shop] @ localhost []
+# Thread_id: 43  Schema: shop  QC_hit: No
+# Query_time: 0.512007  Lock_time: 0.000011  Rows_sent: 0  Rows_examined: 0
+# Rows_affected: 0  Bytes_sent: 11
+SET timestamp=1764079541;
+# administrator command: Prepare;
+/usr/sbin/mariadbd, Version: 10.11.14-MariaDB-0ubuntu0.24.04.1-log (Ubuntu 24.04). started with:
+Tcp port: 3306  Unix socket: /run/mysqld/mysqld.sock
+Time		    Id Command	Argument
+# Time: 251126  9:05:01
+# User@Host: wp_example_com[wp_example_com] @ localhost []
+# Thread_id: 7  Schema: wp_example_com  QC_hit: No
+# Query_time: 2.500113  Lock_time: 0.000050  Rows_sent: 0  Rows_examined: 1532
+# Rows_affected: 1  Bytes_sent: 52
+# Full_scan: Yes  Full_join: No  Tmp_table: No  Tmp_table_on_disk: No
+# Filesort: No  Filesort_on_disk: No  Merge_passes: 0  Priority_queue: No
+use wp_example_com;
+SET insert_id=1532,timestamp=1764147901;
+UPDATE wp_options SET option_value = 'a:0:{}' WHERE option_name = 'cron';

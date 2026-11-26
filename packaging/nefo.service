@@ -1,0 +1,19 @@
+# Reference copy of the unit that scripts/install.sh writes, for distribution
+# packages. The panel manages the whole server, so it runs as root; the attack
+# surface is kept small in the code instead (see CONTRIBUTING.md).
+[Unit]
+Description=Nefo server control panel
+Documentation=https://nefo.io
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/nefo serve --config /etc/nefo/config.json
+Restart=on-failure
+RestartSec=3
+UMask=0077
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

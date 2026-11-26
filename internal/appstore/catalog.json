@@ -1,0 +1,2538 @@
+{
+  "schema": 1,
+  "catalog_version": 2026112501,
+  "generated": "2026-11-25",
+  "min_panel": "0.17.0",
+  "apps": [
+    {
+      "id": "open-webui",
+      "name": "Open WebUI",
+      "category": "ai",
+      "kind": "docker",
+      "version": "0.13.4",
+      "description": {
+        "en": "A ChatGPT-style chat interface for models in Ollama or any OpenAI-compatible API.",
+        "vi": "Giao diện trò chuyện kiểu ChatGPT cho mô hình trong Ollama hoặc API tương thích OpenAI."
+      },
+      "notes": {
+        "en": "Uses Ollama automatically when it is installed; otherwise add an API key in its admin settings. It needs about 900 MB of memory.",
+        "vi": "Tự dùng Ollama khi đã cài; nếu không, thêm API key trong phần quản trị. Ứng dụng cần khoảng 900 MB bộ nhớ."
+      },
+      "license": "Open WebUI License (BSD-3-Clause with a branding clause)",
+      "source_available": true,
+      "homepage": "https://openwebui.com",
+      "source": "https://github.com/open-webui/open-webui",
+      "logo": "open-webui",
+      "resources": {
+        "memory_limit_mb": 1536,
+        "min_ram_mb": 1800,
+        "recommended_ram_mb": 3600,
+        "disk_mb": 2048,
+        "image_mb": 4584,
+        "idle_ram_mb": 875
+      },
+      "requires": {
+        "https": true,
+        "arch": [
+          "amd64",
+          "arm64"
+        ]
+      },
+      "admin": {
+        "method": "bootstrap_env",
+        "password_secret": "admin_password",
+        "email_login": true
+      },
+      "updates": {
+        "strategy": "recreate"
+      },
+      "docker": {
+        "web": {
+          "service": "app",
+          "port": 8080,
+          "health": "/health",
+          "upload_mb": 100
+        },
+        "networks": [
+          "panel-ai"
+        ],
+        "services": {
+          "app": {
+            "image": "ghcr.io/open-webui/open-webui:v0.13.4",
+            "digest": "sha256:d5168bfbc28609eff5bea1b438dd864cf64d185cf6582c02244865e18385b901",
+            "memory_mb": 1536,
+            "env": {
+              "ANONYMIZED_TELEMETRY": "false",
+              "CORS_ALLOW_ORIGIN": "${url}",
+              "ENABLE_SIGNUP": "false",
+              "ENABLE_VERSION_UPDATE_CHECK": "false",
+              "FORWARDED_ALLOW_IPS": "172.16.0.0/12",
+              "HF_HUB_OFFLINE": "1",
+              "OLLAMA_BASE_URL": "http://ollama:11434",
+              "RAG_EMBEDDING_ENGINE": "ollama",
+              "WEBUI_SECRET_KEY": "${secret.secret_key}",
+              "WEBUI_URL": "${url}"
+            },
+            "env_bootstrap": {
+              "WEBUI_ADMIN_EMAIL": "${admin_email}",
+              "WEBUI_ADMIN_PASSWORD": "${secret.admin_password}"
+            },
+            "volumes": [
+              {
+                "source": "data",
+                "target": "/app/backend/data",
+                "owner": "0:0",
+                "mode": "0700"
+              }
+            ],
+            "health": [
+              "curl",
+              "--silent",
+              "--fail",
+              "--max-time",
+              "4",
+              "http://127.0.0.1:8080/health"
+            ]
+          }
+        },
+        "secrets": {
+          "admin_password": {
+            "gen": "random",
+            "length": 20,
+            "show": true,
+            "label": {
+              "en": "Administrator password",
+              "vi": "Mật khẩu quản trị"
+            }
+          },
+          "secret_key": {
+            "gen": "random",
+            "length": 48
+          }
+        },
+        "backup": {
+          "consistency": "pause"
+        }
+      }
+    },
+    {
+      "id": "ollama",
+      "name": "Ollama",
+      "category": "ai",
+      "kind": "service",
+      "version": "0.40.18",
+      "description": {
+        "en": "Runs open language models (Llama, Qwen, Gemma…) on this server's CPU, for Open WebUI and your own code.",
+        "vi": "Chạy các mô hình ngôn ngữ mở (Llama, Qwen, Gemma…) bằng CPU của máy chủ, cho Open WebUI và mã của bạn."
+      },
+      "notes": {
+        "en": "Listens on 127.0.0.1 only and has no password. Download models from Open WebUI (Admin → Models) or with \"docker exec panel-ollama ollama pull <model>\". A model needs about its file size in memory.",
+        "vi": "Chỉ nghe trên 127.0.0.1 và không có mật khẩu. Tải mô hình trong Open WebUI (Quản trị → Mô hình) hoặc bằng \"docker exec panel-ollama ollama pull <mô hình>\". Mỗi mô hình cần bộ nhớ khoảng bằng dung lượng tệp của nó."
+      },
+      "license": "MIT",
+      "homepage": "https://ollama.com",
+      "source": "https://github.com/ollama/ollama",
+      "logo": "ollama",
+      "resources": {
+        "memory_auto": true,
+        "min_ram_mb": 3584,
+        "recommended_ram_mb": 7600,
+        "disk_mb": 6144,
+        "image_mb": 5089,
+        "idle_ram_mb": 12,
+        "min_free_disk_mb": 12288
+      },
+      "requires": {
+        "arch": [
+          "amd64",
+          "arm64"
+        ]
+      },
+      "admin": {
+        "method": "none",
+        "connection": "http://127.0.0.1:${port}"
+      },
+      "updates": {
+        "strategy": "recreate"
+      },
+      "docker": {
+        "service": {
+          "service": "app",
+          "port": 11434,
+          "prefer_port": 11434,
+          "alias": "ollama",
+          "health": "/api/version"
+        },
+        "networks": [
+          "panel-ai"
+        ],
+        "services": {
+          "app": {
+            "image": "ollama/ollama:0.40.18",
+            "digest": "sha256:1cabd20e1762a7a8444bf4a7110b346d923cd77ab6c97c984434140638c913ec",
+            "memory_mb": 4096,
+            "env": {
+              "OLLAMA_KEEP_ALIVE": "5m",
+              "OLLAMA_MAX_LOADED_MODELS": "1",
+              "OLLAMA_NUM_PARALLEL": "1"
+            },
+            "volumes": [
+              {
+                "source": "data",
+                "target": "/root/.ollama",
+                "owner": "0:0",
+                "mode": "0700"
+              }
+            ]
+          }
+        },
+        "backup": {
+          "consistency": "none"
+        }
+      }
+    },
+    {
+      "id": "vaultwarden",
+      "name": "Vaultwarden",
+      "category": "security",
+      "kind": "docker",
+      "version": "1.37.5",
+      "description": {
+        "en": "A light password manager server that works with the official Bitwarden apps and browser extensions.",
+        "vi": "Máy chủ quản lý mật khẩu nhẹ, dùng được với ứng dụng và tiện ích trình duyệt Bitwarden."
+      },
+      "notes": {
+        "en": "Needs HTTPS: issue a certificate for the site. Sign-ups are closed; the panel invites your e-mail address, then create your account with it at /#/signup.",
+        "vi": "Cần HTTPS: hãy cấp chứng chỉ cho website. Đăng ký tự do bị tắt; panel mời e-mail của bạn, sau đó tạo tài khoản bằng e-mail đó tại /#/signup."
+      },
+      "license": "AGPL-3.0-only",
+      "homepage": "https://github.com/dani-garcia/vaultwarden",
+      "source": "https://github.com/dani-garcia/vaultwarden",
+      "logo": "vaultwarden",
+      "resources": {
+        "memory_limit_mb": 256,
+        "min_ram_mb": 450,
+        "recommended_ram_mb": 900,
+        "disk_mb": 512,
+        "image_mb": 236,
+        "idle_ram_mb": 41
+      },
+      "requires": {
+        "https": true,
+        "arch": [
+          "amd64",
+          "arm64"
+        ]
+      },
+      "admin": {
+        "method": "invite",
+        "password_secret": "admin_token",
+        "url_path": "/admin"
+      },
+      "updates": {
+        "strategy": "recreate"
+      },
+      "docker": {
+        "web": {
+          "service": "app",
+          "port": 80,
+          "health": "/alive",
+          "upload_mb": 525
+        },
+        "services": {
+          "app": {
+            "image": "vaultwarden/server:1.37.5-alpine",
+            "digest": "sha256:bbe684a02d6b0db54256ff88eac9754f4519284a7b26314afc241fd7d0918191",
+            "user": "site",
+            "memory_mb": 256,
+            "env": {
+              "ADMIN_TOKEN": "${secret.admin_token_hash}",
+              "DOMAIN": "${url}",
+              "INVITATIONS_ALLOWED": "true",
+              "IP_HEADER": "X-Real-IP",
+              "SHOW_PASSWORD_HINT": "false",
+              "SIGNUPS_ALLOWED": "false"
+            },
+            "volumes": [
+              {
+                "source": "data",
+                "target": "/data",
+                "owner": "site"
+              }
+            ]
+          }
+        },
+        "secrets": {
+          "admin_token": {
+            "gen": "random",
+            "length": 48,
+            "show": true,
+            "label": {
+              "en": "Admin page token",
+              "vi": "Token trang quản trị"
+            }
+          },
+          "admin_token_hash": {
+            "gen": "argon2id",
+            "from": "admin_token"
+          }
+        },
+        "after_start": [
+          {
+            "http": {
+              "method": "POST",
+              "path": "/admin",
+              "form": {
+                "token": "${secret.admin_token}"
+              },
+              "keep_cookies": true,
+              "expect": [
+                200,
+                303
+              ]
+            }
+          },
+          {
+            "http": {
+              "method": "POST",
+              "path": "/admin/invite",
+              "json": {
+                "email": "${admin_email}"
+              },
+              "expect": [
+                200
+              ]
+            }
+          }
+        ],
+        "backup": {
+          "consistency": "pause"
+        }
+      }
+    },
+    {
+      "id": "rustfs",
+      "name": "RustFS",
+      "category": "storage",
+      "kind": "docker",
+      "version": "1.0.6",
+      "description": {
+        "en": "S3-compatible object storage with a web console, in place of MinIO. Use it as a backup target or for app uploads.",
+        "vi": "Lưu trữ đối tượng tương thích S3 có giao diện web, thay cho MinIO. Dùng làm nơi sao lưu hoặc lưu tệp của ứng dụng."
+      },
+      "notes": {
+        "en": "The website shows the console; the S3 API listens on 127.0.0.1 (port in the credentials).",
+        "vi": "Website hiển thị bảng điều khiển; API S3 nghe trên 127.0.0.1 (cổng xem trong thông tin đăng nhập)."
+      },
+      "license": "Apache-2.0",
+      "homepage": "https://rustfs.com",
+      "source": "https://github.com/rustfs/rustfs",
+      "logo": "rustfs",
+      "replaces": "MinIO",
+      "resources": {
+        "memory_limit_mb": 384,
+        "min_ram_mb": 900,
+        "recommended_ram_mb": 1800,
+        "disk_mb": 1024,
+        "image_mb": 348,
+        "idle_ram_mb": 141
+      },
+      "requires": {
+        "https": true,
+        "arch": [
+          "amd64",
+          "arm64"
+        ]
+      },
+      "admin": {
+        "method": "generated",
+        "user_secret": "access_key",
+        "password_secret": "secret_key",
+        "url_path": "/rustfs/console/"
+      },
+      "updates": {
+        "strategy": "recreate"
+      },
+      "docker": {
+        "web": {
+          "service": "app",
+          "port": 9001,
+          "health": "/rustfs/console/",
+          "upload_mb": 1024
+        },
+        "extra_ports": [
+          {
+            "service": "app",
+            "port": 9000,
+            "label": "S3 API"
+          }
+        ],
+        "services": {
+          "app": {
+            "image": "rustfs/rustfs:1.0.6",
+            "digest": "sha256:ee717072290bec9b11abfc0365f8310b00df1cd9b3639943edae47bdef05044a",
+            "user": "site",
+            "memory_mb": 384,
+            "env": {
+              "RUSTFS_ACCESS_KEY": "${secret.access_key}",
+              "RUSTFS_CONSOLE_CORS_ALLOWED_ORIGINS": "${url}",
+              "RUSTFS_CONSOLE_ENABLE": "true",
+              "RUSTFS_SECRET_KEY": "${secret.secret_key}"
+            },
+            "volumes": [
+              {
+                "source": "data",
+                "target": "/data",
+                "owner": "site"
+              },
+              {
+                "source": "logs",
+                "target": "/logs",
+                "owner": "site"
+              }
+            ]
+          }
+        },
+        "secrets": {
+          "access_key": {
+            "gen": "random",
+            "chars": "lower-alnum",
+            "length": 20,
+            "show": true,
+            "label": {
+              "en": "Access key",
+              "vi": "Access key"
+            }
+          },
+          "secret_key": {
+            "gen": "random",
+            "length": 40,
+            "show": true,
+            "label": {
+              "en": "Secret key",
+              "vi": "Secret key"
+            }
+          }
+        },
+        "backup": {
+          "consistency": "pause"
+        }
+      }
+    },
+    {
+      "id": "filebrowser",
+      "name": "FileBrowser Quantum",
+      "category": "storage",
+      "kind": "docker",
+      "version": "2.1.0",
+      "description": {
+        "en": "Upload, share, preview and edit files in a folder from the browser.",
+        "vi": "Tải lên, chia sẻ, xem và sửa tệp trong một thư mục ngay trên trình duyệt."
+      },
+      "notes": {
+        "en": "The password shown is used once: FileBrowser asks for a new one at the first sign-in.",
+        "vi": "Mật khẩu hiển thị chỉ dùng một lần: FileBrowser yêu cầu đổi ở lần đăng nhập đầu."
+      },
+      "license": "Apache-2.0",
+      "homepage": "https://filebrowserquantum.com",
+      "source": "https://github.com/gtsteffaniak/filebrowser",
+      "logo": "filebrowser",
+      "replaces": "File Browser",
+      "resources": {
+        "memory_limit_mb": 256,
+        "min_ram_mb": 450,
+        "recommended_ram_mb": 900,
+        "disk_mb": 256,
+        "image_mb": 63,
+        "idle_ram_mb": 89
+      },
+      "requires": {
+        "https": true,
+        "arch": [
+          "amd64",
+          "arm64"
+        ]
+      },
+      "admin": {
+        "method": "logs",
+        "user": "admin",
+        "log_regex": "Generated initial admin password for user \"admin\" .*: (\\S+)\\s*$"
+      },
+      "updates": {
+        "strategy": "recreate"
+      },
+      "docker": {
+        "web": {
+          "service": "app",
+          "port": 80,
+          "health": "/health",
+          "upload_mb": 4096
+        },
+        "services": {
+          "app": {
+            "image": "gtstef/filebrowser:2.1.0-stable-slim",
+            "digest": "sha256:1396300152b59316f30edb468115acd3b8eaa3fc442dee1b5d8194b7be9b2fae",
+            "user": "site",
+            "memory_mb": 256,
+            "volumes": [
+              {
+                "source": "data",
+                "target": "/home/filebrowser/data",
+                "owner": "site"
+              },
+              {
+                "source": "files",
+                "target": "/folder",
+                "owner": "site"
+              }
+            ],
+            "files": [
+              {
+                "volume": "data",
+                "path": "config.yaml",
+                "mode": "0600",
+                "owner": "site",
+                "text": "http:\n  port: 80\n  baseURL: \"/\"\nserver:\n  cacheDir: /home/filebrowser/data/tmp\n  sources:\n    - path: /folder\n      name: files\nauth:\n  methods:\n    password:\n      enabled: true\n      minLength: 12\n      signup: false\n"
+              }
+            ]
+          }
+        },
+        "backup": {
+          "consistency": "pause"
+        }
+      }
+    },
+    {
+      "id": "postgresql",
+      "name": "PostgreSQL",
+      "category": "database",
+      "kind": "service",
+      "version": "18.7",
+      "description": {
+        "en": "The PostgreSQL database server for your own sites and apps, on 127.0.0.1 only.",
+        "vi": "Máy chủ cơ sở dữ liệu PostgreSQL cho website và ứng dụng của bạn, chỉ trên 127.0.0.1."
+      },
+      "license": "PostgreSQL",
+      "homepage": "https://www.postgresql.org",
+      "source": "https://github.com/docker-library/postgres",
+      "logo": "postgresql",
+      "resources": {
+        "memory_limit_mb": 512,
+        "min_ram_mb": 900,
+        "recommended_ram_mb": 1800,
+        "disk_mb": 1024,
+        "image_mb": 280,
+        "idle_ram_mb": 62
+      },
+      "requires": {
+        "arch": [
+          "amd64",
+          "arm64"
+        ]
+      },
+      "admin": {
+        "method": "generated",
+        "user": "postgres",
+        "password_secret": "password",
+        "connection": "postgresql://postgres:${secret.password}@127.0.0.1:${port}/postgres"
+      },
+      "updates": {
+        "strategy": "recreate",
+        "breaking": "major"
+      },
+      "docker": {
+        "service": {
+          "service": "app",
+          "port": 5432,
+          "prefer_port": 5432,
+          "alias": "postgres"
+        },
+        "networks": [
+          "panel-services"
+        ],
+        "services": {
+          "app": {
+            "image": "postgres:18.7-alpine",
+            "digest": "sha256:0115267ab5a509022df9319c77be365cef335adb71556c75f60f5360ee247e71",
+            "memory_mb": 512,
+            "shm_mb": 128,
+            "env": {
+              "POSTGRES_PASSWORD_FILE": "/run/secrets/password"
+            },
+            "secret_files": {
+              "/run/secrets/password": "password"
+            },
+            "volumes": [
+              {
+                "source": "data",
+                "target": "/var/lib/postgresql",
+                "owner": "70:70",
+                "mode": "0700"
+              }
+            ],
+            "health": [
+              "sh",
+              "-c",
+              "[ \"$(cat /proc/1/comm)\" = postgres ] && pg_isready -U postgres"
+            ]
+          }
+        },
+        "secrets": {
+          "password": {
+            "gen": "random",
+            "length": 32,
+            "show": true,
+            "label": {
+              "en": "Password of postgres",
+              "vi": "Mật khẩu của postgres"
+            }
+          }
+        },
+        "backup": {
+          "consistency": "dump",
+          "dumps": [
+            {
+              "service": "app",
+              "argv": [
+                "pg_dumpall",
+                "-U",
+                "postgres",
+                "--clean",
+                "--if-exists"
+              ],
+              "file": "postgresql.sql",
+              "restore_argv": [
+                "psql",
+                "-U",
+                "postgres",
+                "-d",
+                "postgres"
+              ]
+            }
+          ],
+          "exclude": [
+            "data"
+          ]
+        }
+      }
+    },
+    {
+      "id": "mongodb",
+      "name": "MongoDB",
+      "category": "database",
+      "kind": "service",
+      "version": "8.0.38",
+      "description": {
+        "en": "The MongoDB document database for your own apps, on 127.0.0.1 only.",
+        "vi": "Cơ sở dữ liệu tài liệu MongoDB cho ứng dụng của bạn, chỉ trên 127.0.0.1."
+      },
+      "license": "SSPL-1.0",
+      "source_available": true,
+      "homepage": "https://www.mongodb.com",
+      "source": "https://github.com/docker-library/mongo",
+      "logo": "mongodb",
+      "resources": {
+        "memory_limit_mb": 512,
+        "min_ram_mb": 900,
+        "recommended_ram_mb": 1800,
+        "disk_mb": 1024,
+        "image_mb": 951,
+        "idle_ram_mb": 79
+      },
+      "requires": {
+        "arch": [
+          "amd64",
+          "arm64"
+        ],
+        "cpu_flags": {
+          "amd64": [
+            "avx"
+          ],
+          "arm64": [
+            "atomics"
+          ]
+        }
+      },
+      "admin": {
+        "method": "generated",
+        "user": "admin",
+        "password_secret": "password",
+        "connection": "mongodb://admin:${secret.password}@127.0.0.1:${port}/?authSource=admin"
+      },
+      "updates": {
+        "strategy": "recreate",
+        "breaking": "minor",
+        "note": {
+          "en": "Moving to another release series (8.0 to 8.2) needs featureCompatibilityVersion steps; the panel only updates within 8.0.",
+          "vi": "Chuyển sang dòng phát hành khác (8.0 lên 8.2) cần các bước featureCompatibilityVersion; panel chỉ cập nhật trong dòng 8.0."
+        }
+      },
+      "docker": {
+        "service": {
+          "service": "app",
+          "port": 27017,
+          "prefer_port": 27017,
+          "alias": "mongodb"
+        },
+        "networks": [
+          "panel-services"
+        ],
+        "services": {
+          "app": {
+            "image": "mongo:8.0.38-noble",
+            "digest": "sha256:52afee5c058069f3b4c1517eaf65a8326d9f58ce4ef4fd076043b8eab6905112",
+            "memory_mb": 512,
+            "command": [
+              "mongod",
+              "--wiredTigerCacheSizeGB",
+              "0.25"
+            ],
+            "env": {
+              "MONGO_INITDB_ROOT_PASSWORD_FILE": "/run/secrets/password",
+              "MONGO_INITDB_ROOT_USERNAME": "admin"
+            },
+            "secret_files": {
+              "/run/secrets/password": "password"
+            },
+            "volumes": [
+              {
+                "source": "data",
+                "target": "/data/db",
+                "owner": "999:999",
+                "mode": "0700"
+              },
+              {
+                "source": "conf",
+                "target": "/run/panel",
+                "owner": "0:0",
+                "mode": "0700",
+                "read_only": true
+              }
+            ],
+            "files": [
+              {
+                "volume": "conf",
+                "path": "dump.yaml",
+                "mode": "0400",
+                "owner": "0:0",
+                "text": "password: ${secret.password}\n"
+              }
+            ],
+            "health": [
+              "sh",
+              "-c",
+              "[ \"$(cat /proc/1/comm)\" = mongod ] && mongosh --quiet --norc --eval 'db.adminCommand({ping: 1}).ok'"
+            ]
+          }
+        },
+        "secrets": {
+          "password": {
+            "gen": "random",
+            "length": 32,
+            "show": true,
+            "label": {
+              "en": "Password of admin",
+              "vi": "Mật khẩu của admin"
+            }
+          }
+        },
+        "backup": {
+          "consistency": "dump",
+          "dumps": [
+            {
+              "service": "app",
+              "argv": [
+                "mongodump",
+                "--config=/run/panel/dump.yaml",
+                "--username=admin",
+                "--authenticationDatabase=admin",
+                "--archive",
+                "--gzip",
+                "--quiet"
+              ],
+              "file": "mongodb.archive.gz",
+              "restore_argv": [
+                "mongorestore",
+                "--config=/run/panel/dump.yaml",
+                "--username=admin",
+                "--authenticationDatabase=admin",
+                "--archive",
+                "--gzip",
+                "--drop",
+                "--quiet"
+              ]
+            }
+          ],
+          "exclude": [
+            "data"
+          ]
+        }
+      }
+    },
+    {
+      "id": "code-server",
+      "name": "code-server",
+      "category": "devtools",
+      "kind": "docker",
+      "version": "4.146.0",
+      "description": {
+        "en": "VS Code in the browser, with a terminal, in its own container.",
+        "vi": "VS Code trên trình duyệt, có terminal, trong container riêng."
+      },
+      "notes": {
+        "en": "Whoever has the password gets a shell in the container (not on the server).",
+        "vi": "Ai có mật khẩu sẽ có shell trong container (không phải trên máy chủ)."
+      },
+      "license": "MIT",
+      "homepage": "https://coder.com/docs/code-server",
+      "source": "https://github.com/coder/code-server",
+      "logo": "code-server",
+      "resources": {
+        "memory_limit_mb": 1024,
+        "min_ram_mb": 900,
+        "recommended_ram_mb": 1800,
+        "disk_mb": 2048,
+        "image_mb": 1097,
+        "idle_ram_mb": 110
+      },
+      "requires": {
+        "https": true,
+        "arch": [
+          "amd64",
+          "arm64"
+        ]
+      },
+      "admin": {
+        "method": "generated",
+        "password_secret": "password"
+      },
+      "updates": {
+        "strategy": "recreate"
+      },
+      "docker": {
+        "web": {
+          "service": "app",
+          "port": 8080,
+          "health": "/healthz",
+          "upload_mb": 256
+        },
+        "services": {
+          "app": {
+            "image": "codercom/code-server:4.146.0",
+            "digest": "sha256:fc708b18f6c613b5a9d00f1d1801e58376d3df9c5b5de77f5c02d67b711f99c9",
+            "user": "site",
+            "memory_mb": 1024,
+            "command": [
+              "--disable-telemetry",
+              "--disable-update-check",
+              "--auth",
+              "password"
+            ],
+            "env": {
+              "HASHED_PASSWORD": "${secret.password_hash}",
+              "HOME": "/home/coder"
+            },
+            "volumes": [
+              {
+                "source": "home",
+                "target": "/home/coder",
+                "owner": "site"
+              }
+            ]
+          }
+        },
+        "secrets": {
+          "password": {
+            "gen": "random",
+            "length": 20,
+            "show": true,
+            "label": {
+              "en": "Administrator password",
+              "vi": "Mật khẩu quản trị"
+            }
+          },
+          "password_hash": {
+            "gen": "argon2id",
+            "from": "password"
+          }
+        },
+        "backup": {
+          "consistency": "none"
+        }
+      }
+    },
+    {
+      "id": "stirling-pdf",
+      "name": "Stirling-PDF",
+      "category": "productivity",
+      "kind": "docker",
+      "version": "3.5.0",
+      "description": {
+        "en": "Merge, split, compress, convert and sign PDF files on your own server.",
+        "vi": "Gộp, tách, nén, chuyển đổi và ký tệp PDF trên máy chủ của bạn."
+      },
+      "notes": {
+        "en": "The ultra-lite build: no OCR or Office conversion, and no accounts, so the panel protects the site with a password.",
+        "vi": "Bản ultra-lite: không có OCR và chuyển đổi Office, không có tài khoản, nên panel bảo vệ website bằng mật khẩu."
+      },
+      "license": "MIT",
+      "homepage": "https://www.stirlingpdf.com",
+      "source": "https://github.com/Stirling-Tools/Stirling-PDF",
+      "logo": "stirling-pdf",
+      "resources": {
+        "memory_limit_mb": 768,
+        "min_ram_mb": 1800,
+        "recommended_ram_mb": 1800,
+        "disk_mb": 512,
+        "image_mb": 618,
+        "idle_ram_mb": 283
+      },
+      "requires": {
+        "https": true,
+        "arch": [
+          "amd64",
+          "arm64"
+        ]
+      },
+      "admin": {
+        "method": "site_password",
+        "user": "admin",
+        "password_secret": "site_password"
+      },
+      "updates": {
+        "strategy": "recreate"
+      },
+      "docker": {
+        "web": {
+          "service": "app",
+          "port": 8080,
+          "health": "/api/v1/info/status",
+          "upload_mb": 200,
+          "basic_auth": true
+        },
+        "services": {
+          "app": {
+            "image": "stirlingtools/stirling-pdf:3.5.0-ultra-lite",
+            "digest": "sha256:352d0e8cbaca82ac59989875456935a33a554882f15466b5d6f93142ff9b0043",
+            "memory_mb": 768,
+            "env": {
+              "DISABLE_ADDITIONAL_FEATURES": "true",
+              "PGID": "${site_gid}",
+              "PUID": "${site_uid}",
+              "SYSTEM_ENABLEANALYTICS": "false"
+            },
+            "volumes": [
+              {
+                "source": "configs",
+                "target": "/configs",
+                "owner": "site"
+              },
+              {
+                "source": "logs",
+                "target": "/logs",
+                "owner": "site"
+              },
+              {
+                "source": "storage",
+                "target": "/storage",
+                "owner": "site"
+              }
+            ]
+          }
+        },
+        "secrets": {
+          "site_password": {
+            "gen": "random",
+            "length": 20,
+            "show": true,
+            "label": {
+              "en": "Website password (user admin)",
+              "vi": "Mật khẩu website (người dùng admin)"
+            }
+          }
+        },
+        "backup": {
+          "consistency": "none"
+        }
+      }
+    },
+    {
+      "id": "it-tools",
+      "name": "IT-Tools",
+      "category": "devtools",
+      "kind": "docker",
+      "version": "2024.10.22",
+      "description": {
+        "en": "Over 80 handy developer tools (hashes, encoders, converters, generators) that run in the browser.",
+        "vi": "Hơn 80 công cụ tiện dụng cho lập trình viên (hash, mã hoá, chuyển đổi, tạo dữ liệu) chạy trên trình duyệt."
+      },
+      "notes": {
+        "en": "Static pages: every tool runs in the visitor's browser. Add a site password if you want it private.",
+        "vi": "Trang tĩnh: mọi công cụ chạy trên trình duyệt người xem. Đặt mật khẩu website nếu muốn riêng tư."
+      },
+      "license": "GPL-3.0",
+      "homepage": "https://it-tools.tech",
+      "source": "https://github.com/CorentinTh/it-tools",
+      "logo": "it-tools",
+      "resources": {
+        "memory_limit_mb": 64,
+        "min_ram_mb": 230,
+        "recommended_ram_mb": 450,
+        "disk_mb": 64,
+        "image_mb": 56,
+        "idle_ram_mb": 10
+      },
+      "requires": {
+        "arch": [
+          "amd64",
+          "arm64"
+        ]
+      },
+      "admin": {
+        "method": "none"
+      },
+      "updates": {
+        "strategy": "recreate"
+      },
+      "docker": {
+        "web": {
+          "service": "app",
+          "port": 80,
+          "health": "/"
+        },
+        "services": {
+          "app": {
+            "image": "corentinth/it-tools:2024.10.22-7ca5933",
+            "digest": "sha256:8b8128748339583ca951af03dfe02a9a4d7363f61a216226fc28030731a5a61f",
+            "memory_mb": 64
+          }
+        },
+        "backup": {
+          "consistency": "none"
+        }
+      }
+    },
+    {
+      "id": "directus",
+      "name": "Directus",
+      "category": "cms",
+      "kind": "docker",
+      "version": "12.7.0",
+      "description": {
+        "en": "A headless CMS: build content models in the browser and get REST and GraphQL APIs.",
+        "vi": "Headless CMS: tạo mô hình nội dung trên trình duyệt và có ngay API REST và GraphQL."
+      },
+      "notes": {
+        "en": "Free for organisations with less than US$5 million in total yearly finances (BUSL-1.1).",
+        "vi": "Miễn phí cho tổ chức có tổng tài chính dưới 5 triệu USD mỗi năm (BUSL-1.1)."
+      },
+      "license": "BUSL-1.1",
+      "source_available": true,
+      "homepage": "https://directus.io",
+      "source": "https://github.com/directus/directus",
+      "logo": "directus",
+      "replaces": "Strapi",
+      "resources": {
+        "memory_limit_mb": 512,
+        "min_ram_mb": 900,
+        "recommended_ram_mb": 1800,
+        "disk_mb": 1024,
+        "image_mb": 727,
+        "idle_ram_mb": 269
+      },
+      "requires": {
+        "https": true,
+        "arch": [
+          "amd64",
+          "arm64"
+        ]
+      },
+      "admin": {
+        "method": "bootstrap_env",
+        "password_secret": "admin_password",
+        "email_login": true
+      },
+      "updates": {
+        "strategy": "recreate"
+      },
+      "docker": {
+        "web": {
+          "service": "app",
+          "port": 8055,
+          "health": "/server/ping",
+          "upload_mb": 256
+        },
+        "services": {
+          "app": {
+            "image": "directus/directus:12.7.0",
+            "digest": "sha256:f197911d949a37d882f781b0381955b851c86625435014cd67bdaf3eabcff2a7",
+            "memory_mb": 512,
+            "env": {
+              "DB_CLIENT": "sqlite3",
+              "DB_FILENAME": "/directus/database/data.db",
+              "KEY": "${secret.key}",
+              "PUBLIC_URL": "${url}",
+              "SECRET": "${secret.secret}",
+              "TELEMETRY": "false"
+            },
+            "env_bootstrap": {
+              "ADMIN_EMAIL": "${admin_email}",
+              "ADMIN_PASSWORD": "${secret.admin_password}"
+            },
+            "volumes": [
+              {
+                "source": "database",
+                "target": "/directus/database",
+                "owner": "1000:1000"
+              },
+              {
+                "source": "uploads",
+                "target": "/directus/uploads",
+                "owner": "1000:1000"
+              },
+              {
+                "source": "extensions",
+                "target": "/directus/extensions",
+                "owner": "1000:1000"
+              }
+            ]
+          }
+        },
+        "secrets": {
+          "admin_password": {
+            "gen": "random",
+            "length": 20,
+            "show": true,
+            "label": {
+              "en": "Administrator password",
+              "vi": "Mật khẩu quản trị"
+            }
+          },
+          "key": {
+            "gen": "random",
+            "length": 32
+          },
+          "secret": {
+            "gen": "random",
+            "length": 48
+          }
+        },
+        "backup": {
+          "consistency": "pause"
+        }
+      }
+    },
+    {
+      "id": "wikijs",
+      "name": "Wiki.js",
+      "category": "cms",
+      "kind": "docker",
+      "version": "3.6.1",
+      "description": {
+        "en": "A modern wiki with visual and Markdown editors, search and page history.",
+        "vi": "Wiki hiện đại với trình soạn thảo trực quan và Markdown, tìm kiếm và lịch sử trang."
+      },
+      "license": "AGPL-3.0",
+      "homepage": "https://js.wiki",
+      "source": "https://github.com/requarks/wiki",
+      "logo": "wikijs",
+      "resources": {
+        "memory_limit_mb": 768,
+        "min_ram_mb": 900,
+        "recommended_ram_mb": 1800,
+        "disk_mb": 1024,
+        "image_mb": 2677,
+        "idle_ram_mb": 220
+      },
+      "requires": {
+        "https": true,
+        "arch": [
+          "amd64",
+          "arm64"
+        ]
+      },
+      "admin": {
+        "method": "bootstrap_env",
+        "password_secret": "admin_password",
+        "email_login": true
+      },
+      "updates": {
+        "strategy": "recreate",
+        "breaking": "major"
+      },
+      "docker": {
+        "web": {
+          "service": "app",
+          "port": 3000,
+          "health": "/",
+          "upload_mb": 64
+        },
+        "services": {
+          "app": {
+            "image": "ghcr.io/requarks/wiki:3.6.1",
+            "digest": "sha256:bd4819960f2f9d35ef016653b97abf5fc0cd93a941d3baf34d2e79e4c9059169",
+            "memory_mb": 512,
+            "env": {
+              "DB_HOST": "db",
+              "DB_NAME": "wiki",
+              "DB_PASS": "${secret.db_password}",
+              "DB_PORT": "5432",
+              "DB_USER": "wiki"
+            },
+            "env_bootstrap": {
+              "ADMIN_EMAIL": "${admin_email}",
+              "ADMIN_PASS": "${secret.admin_password}"
+            },
+            "volumes": [
+              {
+                "source": "content",
+                "target": "/wiki/data/content",
+                "owner": "1000:1000"
+              },
+              {
+                "source": "repo",
+                "target": "/wiki/data/repo",
+                "owner": "1000:1000"
+              }
+            ],
+            "depends_on": [
+              "db"
+            ]
+          },
+          "db": {
+            "image": "postgres:18.7-alpine",
+            "digest": "sha256:0115267ab5a509022df9319c77be365cef335adb71556c75f60f5360ee247e71",
+            "memory_mb": 256,
+            "shm_mb": 64,
+            "command": [
+              "postgres",
+              "-c",
+              "shared_buffers=32MB",
+              "-c",
+              "max_connections=40"
+            ],
+            "env": {
+              "POSTGRES_DB": "wiki",
+              "POSTGRES_PASSWORD_FILE": "/run/secrets/db_password",
+              "POSTGRES_USER": "wiki"
+            },
+            "secret_files": {
+              "/run/secrets/db_password": "db_password"
+            },
+            "volumes": [
+              {
+                "source": "db",
+                "target": "/var/lib/postgresql",
+                "owner": "70:70",
+                "mode": "0700"
+              }
+            ],
+            "health": [
+              "sh",
+              "-c",
+              "[ \"$(cat /proc/1/comm)\" = postgres ] && pg_isready -U wiki -d wiki"
+            ]
+          }
+        },
+        "secrets": {
+          "admin_password": {
+            "gen": "random",
+            "length": 20,
+            "show": true,
+            "label": {
+              "en": "Administrator password",
+              "vi": "Mật khẩu quản trị"
+            }
+          },
+          "db_password": {
+            "gen": "random",
+            "length": 32
+          }
+        },
+        "backup": {
+          "consistency": "dump",
+          "dumps": [
+            {
+              "service": "db",
+              "argv": [
+                "pg_dump",
+                "-U",
+                "wiki",
+                "--clean",
+                "--if-exists",
+                "wiki"
+              ],
+              "file": "wiki.sql",
+              "restore_argv": [
+                "psql",
+                "-U",
+                "wiki",
+                "-d",
+                "wiki"
+              ]
+            }
+          ],
+          "exclude": [
+            "db"
+          ]
+        }
+      }
+    },
+    {
+      "id": "umami",
+      "name": "Umami",
+      "category": "analytics",
+      "kind": "docker",
+      "version": "3.5.0",
+      "description": {
+        "en": "Simple, privacy-friendly website analytics without cookies, an alternative to Google Analytics.",
+        "vi": "Thống kê truy cập website đơn giản, tôn trọng quyền riêng tư, không dùng cookie; thay thế Google Analytics."
+      },
+      "license": "MIT",
+      "homepage": "https://umami.is",
+      "source": "https://github.com/umami-software/umami",
+      "logo": "umami",
+      "resources": {
+        "memory_limit_mb": 640,
+        "min_ram_mb": 900,
+        "recommended_ram_mb": 1800,
+        "disk_mb": 1024,
+        "image_mb": 1211,
+        "idle_ram_mb": 275
+      },
+      "requires": {
+        "https": true,
+        "arch": [
+          "amd64",
+          "arm64"
+        ]
+      },
+      "admin": {
+        "method": "generated",
+        "user": "admin",
+        "password_secret": "admin_password"
+      },
+      "updates": {
+        "strategy": "recreate"
+      },
+      "docker": {
+        "web": {
+          "service": "app",
+          "port": 3000,
+          "health": "/api/heartbeat"
+        },
+        "services": {
+          "app": {
+            "image": "ghcr.io/umami-software/umami:3.5.0",
+            "digest": "sha256:b64f40400d77bcadd39cf5c62a1e368c99524ca442024f96e1133355a19a5dbc",
+            "memory_mb": 384,
+            "env": {
+              "APP_SECRET": "${secret.app_secret}",
+              "DATABASE_URL": "postgresql://umami:${secret.db_password}@db:5432/umami",
+              "DISABLE_TELEMETRY": "1",
+              "DISABLE_UPDATES": "1",
+              "TRUSTED_PROXIES": "loopback,private"
+            },
+            "depends_on": [
+              "db"
+            ]
+          },
+          "db": {
+            "image": "postgres:18.7-alpine",
+            "digest": "sha256:0115267ab5a509022df9319c77be365cef335adb71556c75f60f5360ee247e71",
+            "memory_mb": 256,
+            "shm_mb": 64,
+            "command": [
+              "postgres",
+              "-c",
+              "shared_buffers=32MB",
+              "-c",
+              "max_connections=40"
+            ],
+            "env": {
+              "POSTGRES_DB": "umami",
+              "POSTGRES_PASSWORD_FILE": "/run/secrets/db_password",
+              "POSTGRES_USER": "umami"
+            },
+            "secret_files": {
+              "/run/secrets/db_password": "db_password"
+            },
+            "volumes": [
+              {
+                "source": "db",
+                "target": "/var/lib/postgresql",
+                "owner": "70:70",
+                "mode": "0700"
+              }
+            ],
+            "health": [
+              "sh",
+              "-c",
+              "[ \"$(cat /proc/1/comm)\" = postgres ] && pg_isready -U umami -d umami"
+            ]
+          }
+        },
+        "secrets": {
+          "admin_password": {
+            "gen": "random",
+            "length": 20,
+            "show": true,
+            "label": {
+              "en": "Administrator password",
+              "vi": "Mật khẩu quản trị"
+            }
+          },
+          "admin_password_bcrypt": {
+            "gen": "bcrypt",
+            "from": "admin_password",
+            "cost": 10
+          },
+          "app_secret": {
+            "gen": "hex",
+            "length": 64
+          },
+          "db_password": {
+            "gen": "random",
+            "length": 32
+          }
+        },
+        "after_start": [
+          {
+            "exec": {
+              "service": "db",
+              "argv": [
+                "psql",
+                "-U",
+                "umami",
+                "-d",
+                "umami",
+                "-v",
+                "ON_ERROR_STOP=1"
+              ],
+              "stdin": "UPDATE \"user\" SET password = '${secret.admin_password_bcrypt}' WHERE username = 'admin';\n",
+              "expect_stdout": "UPDATE 1"
+            }
+          }
+        ],
+        "backup": {
+          "consistency": "dump",
+          "dumps": [
+            {
+              "service": "db",
+              "argv": [
+                "pg_dump",
+                "-U",
+                "umami",
+                "--clean",
+                "--if-exists",
+                "umami"
+              ],
+              "file": "umami.sql",
+              "restore_argv": [
+                "psql",
+                "-U",
+                "umami",
+                "-d",
+                "umami"
+              ]
+            }
+          ],
+          "exclude": [
+            "db"
+          ]
+        }
+      }
+    },
+    {
+      "id": "adguard-home",
+      "name": "AdGuard Home",
+      "category": "network",
+      "kind": "docker",
+      "version": "1.0.0",
+      "description": {
+        "en": "Blocks ads and trackers for your devices through your own private DNS-over-HTTPS address.",
+        "vi": "Chặn quảng cáo và trình theo dõi cho thiết bị của bạn qua địa chỉ DNS-over-HTTPS riêng."
+      },
+      "notes": {
+        "en": "Only DNS-over-HTTPS, and only for the private address in the credentials: it is never an open resolver. Needs HTTPS for the site.",
+        "vi": "Chỉ DNS-over-HTTPS, và chỉ cho địa chỉ riêng trong thông tin đăng nhập: không bao giờ là resolver mở. Website cần HTTPS."
+      },
+      "license": "GPL-3.0",
+      "homepage": "https://adguard.com/adguard-home/overview.html",
+      "source": "https://github.com/AdguardTeam/AdGuardHome",
+      "logo": "adguard-home",
+      "resources": {
+        "memory_limit_mb": 256,
+        "min_ram_mb": 450,
+        "recommended_ram_mb": 900,
+        "disk_mb": 512,
+        "image_mb": 74,
+        "idle_ram_mb": 68
+      },
+      "requires": {
+        "https": true,
+        "arch": [
+          "amd64",
+          "arm64"
+        ]
+      },
+      "admin": {
+        "method": "generated",
+        "user": "admin",
+        "password_secret": "admin_password",
+        "connection": "${url}/dns-query/${secret.client_id}"
+      },
+      "updates": {
+        "strategy": "recreate"
+      },
+      "docker": {
+        "web": {
+          "service": "app",
+          "port": 3000,
+          "health": "/"
+        },
+        "services": {
+          "app": {
+            "image": "adguard/adguardhome:v1.0.0",
+            "digest": "sha256:f00a586f0d1caa74f149340bfb225014960310488ffa838406b89256900a96c2",
+            "memory_mb": 256,
+            "volumes": [
+              {
+                "source": "work",
+                "target": "/opt/adguardhome/work",
+                "owner": "0:0",
+                "mode": "0700"
+              },
+              {
+                "source": "conf",
+                "target": "/opt/adguardhome/conf",
+                "owner": "0:0",
+                "mode": "0700"
+              }
+            ],
+            "files": [
+              {
+                "volume": "conf",
+                "path": "AdGuardHome.yaml",
+                "mode": "0600",
+                "owner": "0:0",
+                "text": "http:\n  doh:\n    routes:\n      - GET /dns-query/{ClientID}\n      - POST /dns-query/{ClientID}\n    insecure_enabled: true\n  address: 0.0.0.0:3000\n  session_ttl: 720h\nusers:\n  - name: admin\n    password: ${secret.admin_password_bcrypt}\ndns:\n  bind_hosts:\n    - 127.0.0.1\n  port: 53\n  trusted_proxies:\n    - 127.0.0.0/8\n    - ::1/128\n    - 172.16.0.0/12\n  allowed_clients:\n    - ${secret.client_id}\n  upstream_dns:\n    - https://cloudflare-dns.com/dns-query\n  bootstrap_dns:\n    - 1.1.1.1\n    - 1.0.0.1\n  ratelimit: 20\n  refuse_any: true\ntls:\n  enabled: false\nschema_version: 35\n"
+              }
+            ]
+          }
+        },
+        "secrets": {
+          "admin_password": {
+            "gen": "random",
+            "length": 20,
+            "show": true,
+            "label": {
+              "en": "Administrator password",
+              "vi": "Mật khẩu quản trị"
+            }
+          },
+          "admin_password_bcrypt": {
+            "gen": "bcrypt",
+            "from": "admin_password",
+            "cost": 10
+          },
+          "client_id": {
+            "gen": "random",
+            "chars": "lower-alnum",
+            "length": 24,
+            "show": true,
+            "label": {
+              "en": "Private DoH ClientID",
+              "vi": "ClientID DoH riêng"
+            }
+          }
+        },
+        "backup": {
+          "consistency": "pause"
+        }
+      }
+    },
+    {
+      "id": "odoo",
+      "name": "Odoo",
+      "category": "business",
+      "kind": "docker",
+      "version": "19.0-20261123",
+      "description": {
+        "en": "Open-source ERP: CRM, sales, invoicing, inventory, website and more (Community edition).",
+        "vi": "ERP mã nguồn mở: CRM, bán hàng, hoá đơn, kho, website và nhiều hơn (bản Community)."
+      },
+      "notes": {
+        "en": "The database manager is turned off; the master password is in the credentials. Each business module you add needs more memory.",
+        "vi": "Trình quản lý cơ sở dữ liệu bị tắt; mật khẩu chính nằm trong thông tin đăng nhập. Mỗi phân hệ bạn thêm cần thêm bộ nhớ."
+      },
+      "license": "LGPL-3.0",
+      "homepage": "https://www.odoo.com",
+      "source": "https://github.com/odoo/odoo",
+      "logo": "odoo",
+      "resources": {
+        "memory_limit_mb": 1024,
+        "min_ram_mb": 1800,
+        "recommended_ram_mb": 3600,
+        "disk_mb": 3072,
+        "image_mb": 2511,
+        "idle_ram_mb": 203
+      },
+      "requires": {
+        "https": true,
+        "arch": [
+          "amd64",
+          "arm64"
+        ]
+      },
+      "admin": {
+        "method": "generated",
+        "password_secret": "admin_password",
+        "email_login": true
+      },
+      "updates": {
+        "strategy": "recreate",
+        "breaking": "major"
+      },
+      "docker": {
+        "web": {
+          "service": "app",
+          "port": 8069,
+          "health": "/web/login",
+          "upload_mb": 128
+        },
+        "services": {
+          "app": {
+            "image": "odoo:19.0-20261123",
+            "digest": "sha256:c30b26d599d06c2fe9ce5c215725f034ad7636326b4f9ce2469eabb5e59ea1a3",
+            "memory_mb": 768,
+            "entrypoint": [
+              "odoo"
+            ],
+            "command": [
+              "-c",
+              "/etc/odoo/odoo.conf"
+            ],
+            "volumes": [
+              {
+                "source": "data",
+                "target": "/var/lib/odoo",
+                "owner": "100:101"
+              },
+              {
+                "source": "etc",
+                "target": "/etc/odoo",
+                "owner": "0:101",
+                "mode": "0750",
+                "read_only": true
+              },
+              {
+                "source": "addons",
+                "target": "/mnt/extra-addons",
+                "owner": "100:101",
+                "read_only": true
+              }
+            ],
+            "files": [
+              {
+                "volume": "etc",
+                "path": "odoo.conf",
+                "mode": "0640",
+                "owner": "0:101",
+                "text": "[options]\naddons_path = /mnt/extra-addons\ndata_dir = /var/lib/odoo\nadmin_passwd = ${secret.master_password}\ndb_host = db\ndb_port = 5432\ndb_user = odoo\ndb_password = ${secret.db_password}\ndb_name = odoo\ndbfilter = ^odoo$\nlist_db = False\nproxy_mode = True\nworkers = 0\nmax_cron_threads = 1\nwithout_demo = all\n"
+              }
+            ],
+            "depends_on": [
+              "db"
+            ]
+          },
+          "db": {
+            "image": "postgres:18.7-alpine",
+            "digest": "sha256:0115267ab5a509022df9319c77be365cef335adb71556c75f60f5360ee247e71",
+            "memory_mb": 256,
+            "shm_mb": 64,
+            "command": [
+              "postgres",
+              "-c",
+              "shared_buffers=32MB",
+              "-c",
+              "max_connections=40"
+            ],
+            "env": {
+              "POSTGRES_DB": "postgres",
+              "POSTGRES_PASSWORD_FILE": "/run/secrets/db_password",
+              "POSTGRES_USER": "odoo"
+            },
+            "secret_files": {
+              "/run/secrets/db_password": "db_password"
+            },
+            "volumes": [
+              {
+                "source": "db",
+                "target": "/var/lib/postgresql",
+                "owner": "70:70",
+                "mode": "0700"
+              }
+            ],
+            "health": [
+              "sh",
+              "-c",
+              "[ \"$(cat /proc/1/comm)\" = postgres ] && pg_isready -U odoo -d postgres"
+            ]
+          }
+        },
+        "secrets": {
+          "admin_password": {
+            "gen": "random",
+            "length": 20,
+            "show": true,
+            "label": {
+              "en": "Administrator password",
+              "vi": "Mật khẩu quản trị"
+            }
+          },
+          "db_password": {
+            "gen": "random",
+            "length": 32
+          },
+          "master_password": {
+            "gen": "random",
+            "length": 24,
+            "show": true,
+            "label": {
+              "en": "Master password",
+              "vi": "Mật khẩu chính"
+            }
+          }
+        },
+        "before_start": [
+          {
+            "run": {
+              "service": "app",
+              "argv": [
+                "-c",
+                "/etc/odoo/odoo.conf",
+                "-d",
+                "odoo",
+                "-i",
+                "base",
+                "--without-demo=all",
+                "--stop-after-init",
+                "--load-language=en_US"
+              ],
+              "timeout_s": 1800
+            }
+          },
+          {
+            "run": {
+              "service": "app",
+              "argv": [
+                "shell",
+                "-c",
+                "/etc/odoo/odoo.conf",
+                "-d",
+                "odoo",
+                "--no-http"
+              ],
+              "stdin": "u = env.ref('base.user_admin')\nu.write({'login': '${admin_email}', 'password': '${secret.admin_password}'})\nenv.cr.commit()\nprint('panel-ok')\n",
+              "expect_stdout": "panel-ok",
+              "timeout_s": 600
+            }
+          }
+        ],
+        "backup": {
+          "consistency": "dump",
+          "dumps": [
+            {
+              "service": "db",
+              "argv": [
+                "pg_dump",
+                "-U",
+                "odoo",
+                "--clean",
+                "--if-exists",
+                "odoo"
+              ],
+              "file": "odoo.sql",
+              "restore_argv": [
+                "psql",
+                "-U",
+                "odoo",
+                "-d",
+                "odoo"
+              ]
+            }
+          ],
+          "exclude": [
+            "db"
+          ]
+        }
+      }
+    },
+    {
+      "id": "ghost",
+      "name": "Ghost",
+      "category": "cms",
+      "kind": "docker",
+      "version": "6.79.0",
+      "description": {
+        "en": "A fast publishing platform for blogs and newsletters.",
+        "vi": "Nền tảng xuất bản nhanh cho blog và bản tin."
+      },
+      "license": "MIT",
+      "homepage": "https://ghost.org",
+      "source": "https://github.com/TryGhost/Ghost",
+      "logo": "ghost",
+      "resources": {
+        "memory_limit_mb": 512,
+        "min_ram_mb": 900,
+        "recommended_ram_mb": 1800,
+        "disk_mb": 1024,
+        "image_mb": 720,
+        "idle_ram_mb": 136
+      },
+      "requires": {
+        "arch": [
+          "amd64",
+          "arm64"
+        ]
+      },
+      "admin": {
+        "method": "signup",
+        "url_path": "/ghost/",
+        "note": {
+          "en": "Create the administrator account in the app right after the install.",
+          "vi": "Tạo tài khoản quản trị trong ứng dụng ngay sau khi cài."
+        }
+      },
+      "updates": {
+        "strategy": "recreate"
+      },
+      "docker": {
+        "web": {
+          "service": "app",
+          "port": 2368,
+          "health": "/"
+        },
+        "services": {
+          "app": {
+            "image": "ghost:6.79.0-alpine",
+            "digest": "sha256:3a052ac4c0a74566700ec30283f7f702b81e65ae179e46ce18cca159c8b98702",
+            "memory_mb": 512,
+            "env": {
+              "database__client": "sqlite3",
+              "database__connection__filename": "/var/lib/ghost/content/data/ghost.db",
+              "url": "${url}"
+            },
+            "volumes": [
+              {
+                "source": "content",
+                "target": "/var/lib/ghost/content",
+                "owner": "1000:1000"
+              }
+            ]
+          }
+        },
+        "backup": {
+          "consistency": "pause"
+        },
+        "legacy": {
+          "volume": "content",
+          "images": [
+            "ghost"
+          ]
+        }
+      }
+    },
+    {
+      "id": "uptime-kuma",
+      "name": "Uptime Kuma",
+      "category": "monitoring",
+      "kind": "docker",
+      "version": "2.5.12",
+      "description": {
+        "en": "Watches your websites and services and alerts you when they go down.",
+        "vi": "Theo dõi website và dịch vụ, báo cho bạn khi chúng ngừng hoạt động."
+      },
+      "license": "MIT",
+      "homepage": "https://uptime.kuma.pet",
+      "source": "https://github.com/louislam/uptime-kuma",
+      "logo": "uptime-kuma",
+      "resources": {
+        "memory_limit_mb": 384,
+        "min_ram_mb": 450,
+        "recommended_ram_mb": 900,
+        "disk_mb": 512,
+        "image_mb": 548,
+        "idle_ram_mb": 206
+      },
+      "requires": {
+        "arch": [
+          "amd64",
+          "arm64"
+        ]
+      },
+      "admin": {
+        "method": "signup",
+        "note": {
+          "en": "Create the administrator account in the app right after the install.",
+          "vi": "Tạo tài khoản quản trị trong ứng dụng ngay sau khi cài."
+        }
+      },
+      "updates": {
+        "strategy": "recreate"
+      },
+      "docker": {
+        "web": {
+          "service": "app",
+          "port": 3001,
+          "health": "/"
+        },
+        "services": {
+          "app": {
+            "image": "louislam/uptime-kuma:2.5.12-slim",
+            "digest": "sha256:f2a9bc853deb2a6f37df229649f96d62efc3cb24e38b08eee79234f76613d063",
+            "user": "site",
+            "memory_mb": 384,
+            "volumes": [
+              {
+                "source": "data",
+                "target": "/app/data",
+                "owner": "site"
+              }
+            ]
+          }
+        },
+        "backup": {
+          "consistency": "pause"
+        },
+        "legacy": {
+          "volume": "data",
+          "images": [
+            "louislam/uptime-kuma"
+          ]
+        }
+      }
+    },
+    {
+      "id": "n8n",
+      "name": "n8n",
+      "category": "automation",
+      "kind": "docker",
+      "version": "2.49.5",
+      "description": {
+        "en": "Workflow automation: connect apps and APIs with a visual editor.",
+        "vi": "Tự động hoá quy trình: kết nối ứng dụng và API bằng trình soạn thảo trực quan."
+      },
+      "license": "Sustainable Use License",
+      "source_available": true,
+      "homepage": "https://n8n.io",
+      "source": "https://github.com/n8n-io/n8n",
+      "logo": "n8n",
+      "resources": {
+        "memory_limit_mb": 1024,
+        "min_ram_mb": 900,
+        "recommended_ram_mb": 1800,
+        "disk_mb": 1536,
+        "image_mb": 1319
+      },
+      "requires": {
+        "https": true,
+        "arch": [
+          "amd64",
+          "arm64"
+        ]
+      },
+      "admin": {
+        "method": "signup",
+        "note": {
+          "en": "Create the administrator account in the app right after the install.",
+          "vi": "Tạo tài khoản quản trị trong ứng dụng ngay sau khi cài."
+        }
+      },
+      "updates": {
+        "strategy": "recreate"
+      },
+      "docker": {
+        "web": {
+          "service": "app",
+          "port": 5678,
+          "health": "/healthz"
+        },
+        "services": {
+          "app": {
+            "image": "n8nio/n8n:2.49.5",
+            "digest": "sha256:c349b24d6e242b4ea14d75e6f1a90c50e348cf4b1c4512b4a0a50219ead6533d",
+            "memory_mb": 1024,
+            "env": {
+              "GENERIC_TIMEZONE": "${tz}",
+              "N8N_HOST": "${domain}",
+              "N8N_PORT": "5678",
+              "N8N_PROTOCOL": "${scheme}",
+              "N8N_PROXY_HOPS": "1",
+              "N8N_SECURE_COOKIE": "${https}",
+              "WEBHOOK_URL": "${url}/"
+            },
+            "volumes": [
+              {
+                "source": "data",
+                "target": "/home/node/.n8n",
+                "owner": "1000:1000"
+              }
+            ]
+          }
+        },
+        "backup": {
+          "consistency": "pause"
+        },
+        "legacy": {
+          "volume": "data",
+          "images": [
+            "n8nio/n8n"
+          ]
+        }
+      }
+    },
+    {
+      "id": "gitea",
+      "name": "Gitea",
+      "category": "devtools",
+      "kind": "docker",
+      "version": "28.4.0",
+      "description": {
+        "en": "Your own Git server with pull requests, issues and CI.",
+        "vi": "Máy chủ Git riêng có pull request, issue và CI."
+      },
+      "license": "MIT",
+      "homepage": "https://about.gitea.com",
+      "source": "https://github.com/go-gitea/gitea",
+      "logo": "gitea",
+      "resources": {
+        "memory_limit_mb": 512,
+        "min_ram_mb": 450,
+        "recommended_ram_mb": 900,
+        "disk_mb": 1024,
+        "image_mb": 186,
+        "idle_ram_mb": 158
+      },
+      "requires": {
+        "arch": [
+          "amd64",
+          "arm64"
+        ]
+      },
+      "admin": {
+        "method": "signup",
+        "note": {
+          "en": "The first account registered becomes the administrator: register it right after the install (the web installer is skipped).",
+          "vi": "Tài khoản đăng ký đầu tiên trở thành quản trị viên: hãy đăng ký ngay sau khi cài (bỏ qua trình cài đặt web)."
+        }
+      },
+      "updates": {
+        "strategy": "recreate",
+        "note": {
+          "en": "Installs made before this catalog used gitea/gitea:1, which stopped at 1.27.3; updating moves them to 28.x after a backup.",
+          "vi": "Bản cài trước catalog này dùng gitea/gitea:1, đã dừng ở 1.27.3; cập nhật sẽ chuyển lên 28.x sau khi sao lưu."
+        }
+      },
+      "docker": {
+        "web": {
+          "service": "app",
+          "port": 3000,
+          "health": "/api/healthz"
+        },
+        "services": {
+          "app": {
+            "image": "gitea/gitea:28.4.0",
+            "digest": "sha256:aa90e8f00b755b0d665214ab9c14447ea44d3190dbe6b6d0cb46cd9c4f55d309",
+            "memory_mb": 512,
+            "env": {
+              "GITEA__database__DB_TYPE": "sqlite3",
+              "GITEA__server__DISABLE_SSH": "true",
+              "GITEA__server__DOMAIN": "${domain}",
+              "GITEA__server__ROOT_URL": "${url}/",
+              "USER_GID": "1000",
+              "USER_UID": "1000"
+            },
+            "env_bootstrap": {
+              "GITEA__security__INSTALL_LOCK": "true",
+              "GITEA__security__SECRET_KEY": "${secret.secret_key}"
+            },
+            "volumes": [
+              {
+                "source": "data",
+                "target": "/data",
+                "owner": "1000:1000"
+              }
+            ]
+          }
+        },
+        "secrets": {
+          "secret_key": {
+            "gen": "random",
+            "length": 64
+          }
+        },
+        "backup": {
+          "consistency": "pause"
+        },
+        "legacy": {
+          "volume": "data",
+          "images": [
+            "gitea/gitea"
+          ]
+        }
+      }
+    },
+    {
+      "id": "wordpress",
+      "name": "WordPress",
+      "category": "cms",
+      "kind": "php",
+      "version": "7.1.5",
+      "description": {
+        "en": "The most popular website and blog builder.",
+        "vi": "Công cụ tạo website và blog phổ biến nhất."
+      },
+      "license": "GPL-2.0-or-later",
+      "homepage": "https://wordpress.org",
+      "source": "https://github.com/WordPress/WordPress",
+      "logo": "wordpress",
+      "resources": {
+        "min_ram_mb": 450,
+        "recommended_ram_mb": 900,
+        "disk_mb": 256,
+        "image_mb": 0
+      },
+      "requires": {},
+      "admin": {
+        "method": "form",
+        "url_path": "/wp-admin/"
+      },
+      "updates": {
+        "strategy": "builtin"
+      },
+      "php": {
+        "installer": "wordpress",
+        "min_php": "7.4",
+        "download": {
+          "version": "7.1.5",
+          "url": "https://wordpress.org/wordpress-7.1.5.tar.gz",
+          "sha256": "053857d980eaee8702c617c685948becb9be2523ba0dcbc98e4dbb2300367c79",
+          "format": "tgz",
+          "strip": "wordpress/"
+        },
+        "db_prefix": "wp",
+        "rewrite": "wordpress",
+        "admin": true
+      }
+    },
+    {
+      "id": "woocommerce",
+      "name": "WooCommerce",
+      "category": "ecommerce",
+      "kind": "php",
+      "version": "11.3.1",
+      "description": {
+        "en": "WordPress with WooCommerce installed and activated: a ready online shop.",
+        "vi": "WordPress kèm WooCommerce đã cài và kích hoạt: cửa hàng trực tuyến sẵn sàng."
+      },
+      "notes": {
+        "en": "Checkout needs HTTPS: issue a certificate for the site.",
+        "vi": "Thanh toán cần HTTPS: hãy cấp chứng chỉ cho website."
+      },
+      "license": "GPL-3.0-or-later",
+      "homepage": "https://woocommerce.com",
+      "source": "https://github.com/woocommerce/woocommerce",
+      "logo": "woocommerce",
+      "resources": {
+        "min_ram_mb": 900,
+        "recommended_ram_mb": 1800,
+        "disk_mb": 512,
+        "image_mb": 0
+      },
+      "requires": {
+        "https": true
+      },
+      "admin": {
+        "method": "form",
+        "url_path": "/wp-admin/"
+      },
+      "updates": {
+        "strategy": "builtin"
+      },
+      "php": {
+        "installer": "woocommerce",
+        "min_php": "8.3",
+        "download": {
+          "version": "7.1.5",
+          "url": "https://wordpress.org/wordpress-7.1.5.tar.gz",
+          "sha256": "053857d980eaee8702c617c685948becb9be2523ba0dcbc98e4dbb2300367c79",
+          "format": "tgz",
+          "strip": "wordpress/"
+        },
+        "plugin": {
+          "version": "11.3.1",
+          "url": "https://downloads.wordpress.org/plugin/woocommerce.11.3.1.zip",
+          "sha256": "1502600c738840f7f9ebfa2f11e1aaff087221a5fc5a2006c51be2d874ae2a09",
+          "format": "zip",
+          "strip": "woocommerce/"
+        },
+        "extensions": [
+          "mysqli",
+          "curl",
+          "gd",
+          "intl",
+          "mbstring",
+          "xml",
+          "zip"
+        ],
+        "memory_mb": 256,
+        "db_prefix": "wc",
+        "rewrite": "wordpress",
+        "admin": true,
+        "inputs": {
+          "country": {
+            "type": "country",
+            "default": "US",
+            "label": {
+              "en": "Store country",
+              "vi": "Quốc gia của cửa hàng"
+            }
+          },
+          "currency": {
+            "type": "currency",
+            "default": "USD",
+            "label": {
+              "en": "Currency",
+              "vi": "Đơn vị tiền tệ"
+            }
+          }
+        },
+        "cron": {
+          "schedule": "*/5 * * * *",
+          "script": "public/wp-cron.php"
+        }
+      }
+    },
+    {
+      "id": "joomla",
+      "name": "Joomla",
+      "category": "cms",
+      "kind": "php",
+      "version": "6.2.1",
+      "description": {
+        "en": "A flexible CMS for websites and portals.",
+        "vi": "CMS linh hoạt cho website và cổng thông tin."
+      },
+      "license": "GPL-2.0-or-later",
+      "homepage": "https://www.joomla.org",
+      "source": "https://github.com/joomla/joomla-cms",
+      "logo": "joomla",
+      "resources": {
+        "min_ram_mb": 450,
+        "recommended_ram_mb": 900,
+        "disk_mb": 256,
+        "image_mb": 0
+      },
+      "requires": {},
+      "admin": {
+        "method": "form",
+        "url_path": "/administrator/"
+      },
+      "updates": {
+        "strategy": "builtin"
+      },
+      "php": {
+        "installer": "joomla",
+        "min_php": "8.3",
+        "download": {
+          "version": "6.2.1",
+          "url": "https://github.com/joomla/joomla-cms/releases/download/6.2.1/Joomla_6.2.1-Stable-Full_Package.tar.gz",
+          "sha256": "b8f0c920cfe5013a46f8b386720301290eb36f531d462d75bac99d75e4948d07",
+          "format": "tgz"
+        },
+        "db_prefix": "jm",
+        "rewrite": "joomla",
+        "admin": true
+      }
+    },
+    {
+      "id": "nextcloud",
+      "name": "Nextcloud",
+      "category": "storage",
+      "kind": "php",
+      "version": "35.0.3",
+      "description": {
+        "en": "Your own cloud for files, calendars and contacts.",
+        "vi": "Đám mây riêng cho tệp, lịch và danh bạ."
+      },
+      "license": "AGPL-3.0-or-later",
+      "homepage": "https://nextcloud.com",
+      "source": "https://github.com/nextcloud/server",
+      "logo": "nextcloud",
+      "resources": {
+        "min_ram_mb": 900,
+        "recommended_ram_mb": 1800,
+        "disk_mb": 1024,
+        "image_mb": 0
+      },
+      "requires": {},
+      "admin": {
+        "method": "form",
+        "url_path": "/"
+      },
+      "updates": {
+        "strategy": "builtin"
+      },
+      "php": {
+        "installer": "nextcloud",
+        "min_php": "8.2",
+        "download": {
+          "version": "35.0.3",
+          "url": "https://download.nextcloud.com/server/releases/nextcloud-35.0.3.tar.bz2",
+          "sha256": "58401440ce81b7f8d445a8c2a8027572b616ef83592f96b121fd15ec8a1aed35",
+          "format": "tbz2",
+          "strip": "nextcloud/"
+        },
+        "memory_mb": 512,
+        "upload_mb": 512,
+        "db_prefix": "nc",
+        "rewrite": "nextcloud",
+        "admin": true
+      }
+    },
+    {
+      "id": "drupal",
+      "name": "Drupal",
+      "category": "cms",
+      "kind": "php",
+      "version": "11.4.13",
+      "description": {
+        "en": "A powerful CMS for structured content, built with Composer.",
+        "vi": "CMS mạnh cho nội dung có cấu trúc, dựng bằng Composer."
+      },
+      "license": "GPL-2.0-or-later",
+      "homepage": "https://www.drupal.org",
+      "source": "https://git.drupalcode.org/project/drupal",
+      "logo": "drupal",
+      "resources": {
+        "min_ram_mb": 900,
+        "recommended_ram_mb": 1800,
+        "disk_mb": 512,
+        "image_mb": 0
+      },
+      "requires": {},
+      "admin": {
+        "method": "form",
+        "url_path": "/user/login"
+      },
+      "updates": {
+        "strategy": "user"
+      },
+      "php": {
+        "installer": "drupal",
+        "min_php": "8.3",
+        "composer": {
+          "package": "drupal/recommended-project",
+          "constraint": "^11"
+        },
+        "db_prefix": "dp",
+        "rewrite": "drupal",
+        "admin": true
+      }
+    },
+    {
+      "id": "laravel",
+      "name": "Laravel",
+      "category": "devtools",
+      "kind": "php",
+      "version": "13.11.0",
+      "description": {
+        "en": "A fresh Laravel project with its database, ready for your code.",
+        "vi": "Dự án Laravel mới kèm cơ sở dữ liệu, sẵn sàng cho mã của bạn."
+      },
+      "notes": {
+        "en": "Laravel 13 needs PHP 8.3; on a PHP 8.2 site Composer installs Laravel 12.",
+        "vi": "Laravel 13 cần PHP 8.3; trên website PHP 8.2, Composer sẽ cài Laravel 12."
+      },
+      "license": "MIT",
+      "homepage": "https://laravel.com",
+      "source": "https://github.com/laravel/laravel",
+      "logo": "laravel",
+      "resources": {
+        "min_ram_mb": 450,
+        "recommended_ram_mb": 900,
+        "disk_mb": 256,
+        "image_mb": 0
+      },
+      "requires": {},
+      "admin": {
+        "method": "none"
+      },
+      "updates": {
+        "strategy": "user"
+      },
+      "php": {
+        "installer": "laravel",
+        "min_php": "8.2",
+        "composer": {
+          "package": "laravel/laravel"
+        },
+        "db_prefix": "lv",
+        "rewrite": "laravel",
+        "admin": false
+      }
+    },
+    {
+      "id": "opencart",
+      "name": "OpenCart",
+      "category": "ecommerce",
+      "kind": "php",
+      "version": "4.1.0.4",
+      "description": {
+        "en": "A free, light open-source shopping cart with many extensions.",
+        "vi": "Giỏ hàng mã nguồn mở miễn phí, nhẹ, nhiều tiện ích mở rộng."
+      },
+      "notes": {
+        "en": "Updates are manual: follow OpenCart's upgrade guide after a backup.",
+        "vi": "Cập nhật thủ công: làm theo hướng dẫn nâng cấp của OpenCart sau khi sao lưu."
+      },
+      "license": "GPL-3.0",
+      "homepage": "https://www.opencart.com",
+      "source": "https://github.com/opencart/opencart",
+      "logo": "opencart",
+      "resources": {
+        "min_ram_mb": 900,
+        "recommended_ram_mb": 900,
+        "disk_mb": 256,
+        "image_mb": 0
+      },
+      "requires": {
+        "https": true
+      },
+      "admin": {
+        "method": "form",
+        "url_path": "/admin/"
+      },
+      "updates": {
+        "strategy": "manual"
+      },
+      "php": {
+        "installer": "opencart",
+        "min_php": "8.0",
+        "max_php": "8.3",
+        "download": {
+          "version": "4.1.0.4",
+          "url": "https://github.com/opencart/opencart/releases/download/4.1.0.4/opencart-4.1.0.4.zip",
+          "sha256": "cdef537f5a0a7e1b4ddbe16f589dd2e80b10150a09bfbe93ce76ef2d5c3218c0",
+          "format": "zip",
+          "strip": "upload/"
+        },
+        "extensions": [
+          "mysqli",
+          "curl",
+          "gd",
+          "mbstring",
+          "zip",
+          "xml"
+        ],
+        "db_prefix": "oc",
+        "rewrite": "opencart",
+        "admin": true
+      }
+    },
+    {
+      "id": "moodle",
+      "name": "Moodle",
+      "category": "education",
+      "kind": "php",
+      "version": "5.2.5",
+      "description": {
+        "en": "The open-source learning platform for courses, quizzes and grades.",
+        "vi": "Nền tảng học tập mã nguồn mở cho khoá học, bài kiểm tra và điểm số."
+      },
+      "notes": {
+        "en": "Moodle 5.3 is installed when MariaDB is 11.4 or newer, otherwise 5.2. A cron job runs every minute. The installer takes several minutes.",
+        "vi": "Cài Moodle 5.3 khi MariaDB từ 11.4 trở lên, nếu không thì 5.2. Một tác vụ cron chạy mỗi phút. Quá trình cài mất vài phút."
+      },
+      "license": "GPL-3.0-or-later",
+      "homepage": "https://moodle.org",
+      "source": "https://github.com/moodle/moodle",
+      "logo": "moodle",
+      "resources": {
+        "min_ram_mb": 900,
+        "recommended_ram_mb": 1800,
+        "disk_mb": 1024,
+        "image_mb": 0
+      },
+      "requires": {
+        "https": true
+      },
+      "admin": {
+        "method": "form",
+        "url_path": "/login/index.php"
+      },
+      "updates": {
+        "strategy": "manual"
+      },
+      "php": {
+        "installer": "moodle",
+        "min_php": "8.3",
+        "max_php": "8.4",
+        "variants": [
+          {
+            "version": "5.3.1",
+            "min_mariadb": "11.4.0",
+            "download": {
+              "version": "5.3.1",
+              "url": "https://download.moodle.org/download.php/direct/stable503/moodle-5.3.1.tgz",
+              "sha256": "820ee2bcd89acc6b91df255b2010bbbab108f29952ab78895a79c4feabf541e7",
+              "format": "tgz",
+              "strip": "moodle/"
+            }
+          },
+          {
+            "version": "5.2.5",
+            "min_mariadb": "10.11.0",
+            "download": {
+              "version": "5.2.5",
+              "url": "https://download.moodle.org/download.php/direct/stable502/moodle-5.2.5.tgz",
+              "sha256": "a0b2bf3013a8ef149db17c508f647d18b2a7f4b2c34056010f75081c87b4bb66",
+              "format": "tgz",
+              "strip": "moodle/"
+            }
+          }
+        ],
+        "extensions": [
+          "mysqli",
+          "curl",
+          "gd",
+          "intl",
+          "mbstring",
+          "xml",
+          "zip",
+          "soap",
+          "sodium",
+          "exif"
+        ],
+        "ini": {
+          "max_input_vars": "5000"
+        },
+        "memory_mb": 256,
+        "upload_mb": 128,
+        "db_prefix": "md",
+        "rewrite": "moodle",
+        "admin": true,
+        "cron": {
+          "schedule": "* * * * *",
+          "script": "admin/cli/cron.php",
+          "php_args": [
+            "-d",
+            "max_input_vars=5000"
+          ]
+        }
+      }
+    }
+  ]
+}

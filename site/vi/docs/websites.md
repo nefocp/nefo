@@ -1,0 +1,237 @@
+---
+title: Website
+description: Chọn web server, tạo website PHP, tĩnh hoặc ứng dụng, và quản lý tên miền, cài đặt PHP, tùy chọn truy cập, SFTP, thống kê và nhật ký của website.
+---
+
+# Website
+
+Trang này nói về web server mà Nefo chạy, cách tạo website và mọi cài đặt của một website: tên miền, PHP, quy tắc rewrite, tùy chọn truy cập, SFTP, thống kê truy cập, nhật ký và cách xóa. Chứng chỉ có trang riêng: [Chứng chỉ SSL](./ssl).
+
+## Chọn web server
+
+Mỗi máy chủ chỉ chạy một web server tại một thời điểm, và Nefo cấu hình mọi website cho web server đó. Trước khi thêm website đầu tiên, trang **Website** sẽ yêu cầu bạn chọn:
+
+| Web server | Nên chọn khi | RAM khi rảnh |
+|---|---|---|
+| Nginx | Website của bạn không cần tệp `.htaccess`. Đây là lựa chọn nhẹ nhất. | khoảng 15 MB |
+| Apache | Website dựa vào tệp `.htaccess`, ví dụ plugin WordPress hoặc website chuyển từ shared hosting sang. | khoảng 40 MB |
+| OpenLiteSpeed | Bạn muốn dùng quy tắc rewrite trong `.htaccess` và plugin LiteSpeed Cache cho WordPress. Hỗ trợ cả HTTP/3. | khoảng 26 MB |
+
+Cách cài:
+
+1. Mở **Website**.
+2. Trong phần **Cài web server**, chọn Nginx, Apache hoặc OpenLiteSpeed.
+3. Bấm **Cài Nginx** (nút ghi tên web server bạn đã chọn).
+
+Nefo cài web server cùng phiên bản PHP của hệ điều hành (chạy bằng PHP-FPM), rồi mở cổng 80 và 443 trên tường lửa ufw, thêm cổng 443/udp cho HTTP/3 nếu là OpenLiteSpeed. Việc này mất khoảng một đến ba phút. OpenLiteSpeed được cài từ kho phần mềm riêng của LiteSpeed, và trang quản trị WebAdmin của nó luôn bị tắt.
+
+Cả ba web server đều chạy PHP trong một pool PHP-FPM riêng cho từng website. Chỉ Nginx giới hạn được số request của mỗi khách; các cài đặt còn lại hoạt động như nhau trên cả ba.
+
+### Đổi sang web server khác
+
+Nefo không chuyển được website đang có sang web server khác, vì cấu hình của từng website được viết riêng cho web server đang cài. Muốn đổi:
+
+1. Xóa hết website (xem [Xóa website](#xoa-website)). Nếu còn cần, hãy sao lưu trước: xem [Sao lưu](./backups).
+2. Mở **Phần mềm** và tìm thẻ **Nginx, Apache hoặc OpenLiteSpeed**.
+3. Bấm **Gỡ cài đặt** ở web server hiện tại, gõ tên của nó (`nginx`, `apache` hoặc `openlitespeed`) rồi xác nhận.
+4. Bấm **Cài** ở web server bạn muốn dùng.
+
+Khi gỡ, các thư mục website trong `/var/www`, chứng chỉ và tài khoản Let's Encrypt vẫn được giữ. PHP vẫn còn. Adminer bị gỡ theo vì cần web server, và các luật tường lửa Nefo đã thêm cho website được đóng lại.
+
+Nefo cũng từ chối cài web server khi máy chủ đang có một web server khác, kể cả web server bạn tự cài: cả hai đều cần cổng 80 và 443. Trang **Phần mềm** khi đó ghi nó là "đã cài, panel không dùng". Hãy gỡ nó trước.
+
+## Tạo website
+
+1. Trỏ bản ghi A của tên miền về IP của máy chủ, ví dụ `203.0.113.10`.
+2. Mở **Website** và bấm **Thêm website**.
+3. Ở ô **Tên miền**, gõ tên không kèm `http://` hay `www.`, ví dụ `example.com`.
+4. Giữ dấu chọn **Nhận cả www.example.com** nếu website cũng cần mở được bằng `www`. Nefo tự chọn ô này khi tên miền có hai phần, như `example.com`.
+5. Chọn **Loại** (xem bảng dưới).
+6. Bấm **Tạo website**.
+
+Nefo báo "Đã tạo xong example.com. Hãy tải file của bạn lên /var/www/example.com/public." Một trang chờ sẽ hiện cho tới khi bạn thay bằng website của mình.
+
+| Loại | Website làm gì |
+|---|---|
+| **PHP 8.3** (mỗi phiên bản PHP đã cài là một lựa chọn) | Phục vụ file của bạn và chạy file `.php` bằng phiên bản PHP đó. |
+| **Tĩnh (chỉ HTML)** | Phục vụ HTML, CSS, JavaScript và các file khác. Không có PHP. |
+| **Ứng dụng (Node.js, Python…) qua proxy** | Chuyển mọi request tới một chương trình đang nghe ở một cổng của máy chủ này. |
+
+Sau khi tạo, website không đổi loại được: website tĩnh không thành website PHP, website ứng dụng không thành website PHP hay tĩnh, và ngược lại. Khi cần, hãy tạo website mới. Muốn cài WordPress hay ứng dụng khác, xem [Kho ứng dụng](./apps). Ứng dụng Docker cũng có website riêng được tạo từ đó.
+
+Nefo từ chối tên miền không hợp lệ (tên miền tiếng Việt có dấu phải viết dạng punycode, `xn--…`), tên đã có website khác dùng, và tên miền mà thư mục của nó đã có sẵn trong `/var/www`.
+
+### Website ứng dụng (Node.js, Python)
+
+Với loại **Ứng dụng (Node.js, Python…) qua proxy**, form hỏi thêm hai mục:
+
+- **Cổng ứng dụng lắng nghe (127.0.0.1)**: một cổng từ 1024 đến 65535. Nefo không nhận cổng của chính panel, 3306 (MariaDB), 6379 (Redis), 7809 (bộ nhận webhook Git) và cổng mà một website ứng dụng khác đang dùng.
+- **Lệnh khởi động (không bắt buộc)**: một dòng, tối đa 1000 ký tự, ví dụ `node server.js`. Nefo chạy lệnh trong thư mục `app` của website bằng user Linux của website, với các biến `PORT`, `HOST=127.0.0.1` và `NODE_ENV=production`. Lệnh chạy dưới dạng service systemd `panel-app-<user>.service` và tự chạy lại sau 3 giây nếu bị dừng. Để trống nếu chương trình được chạy bằng cách khác, ví dụ trong Docker.
+
+Đặt mã nguồn vào `/var/www/example.com/app`, qua [SFTP](#sftp) hoặc bằng [Triển khai từ Git](./git-deploy), tính năng triển khai website ứng dụng vào đúng thư mục này. Sau đó, trong cài đặt của website:
+
+1. Ở tab **Runtime**, chọn **Runtime**: **Mặc định của server (node trong /usr/local/bin)**, một phiên bản Node.js bạn đã cài ở trang **Phần mềm**, hoặc **Python (app/.venv)** (cần cài Python ở trang **Phần mềm**). Cũng trong tab này, bạn đổi được **Lệnh khởi động (không bắt buộc)**. Bấm **Lưu**.
+2. Ở tab **Tổng quan**, trong thẻ **Chương trình ứng dụng**, bấm **Cài phụ thuộc**. Với `package.json`, Nefo chạy `npm ci` (hoặc `npm install` nếu không có `package-lock.json`). Với Python, Nefo tạo môi trường ảo `app/.venv` và cài `requirements.txt` bằng pip. Việc này chạy bằng user của website, tối đa 20 phút.
+3. Bấm **Khởi động lại** (hoặc **Bật**) để chạy ứng dụng với các phụ thuộc vừa cài.
+
+Thẻ **Chương trình ứng dụng** hiện khi website có lệnh khởi động. Thẻ này còn có **Dừng** và **Log ứng dụng**. Ở tab **Reverse proxy** bạn đổi được cổng. Web server chuyển request tới `127.0.0.1` ở cổng đó, kèm địa chỉ của khách trong `X-Real-IP` và `X-Forwarded-For`, và kết nối WebSocket vẫn hoạt động. Nefo chỉ chuyển tới một cổng trên chính máy chủ này, không làm proxy tới máy chủ khác.
+
+## Mở cài đặt của website
+
+Bấm vào tên miền trong danh sách, hoặc nút **Cài đặt** ở cuối dòng. Cài đặt mở ra trong một khung với các tab chia thành bốn nhóm:
+
+| Nhóm | Các tab |
+|---|---|
+| **Cơ bản** | **Tổng quan**, **Tên miền**, **PHP** (website PHP), **Runtime** (website ứng dụng) |
+| **Bảo mật** | **SSL / HTTPS**, **Tường lửa WAF**, **Chặn truy cập**, **Chống hotlink**, **Quét mã độc** |
+| **Cấu hình** | **Rewrite** (website PHP và tĩnh), **Cấu hình Nginx** (theo tên web server của bạn), **Chuyển hướng**, **Reverse proxy** (website ứng dụng), **Trang 404** |
+| **Vận hành** | **WordPress** (website WordPress), **Triển khai Git**, **SFTP**, **Sao lưu**, **Thống kê**, **Nhật ký**, **Hạn dùng & tạm ngưng** |
+
+Tab **Tổng quan** cho biết **Thư mục** của website (kèm **Mở trong trình quản lý tệp**), **Người dùng Linux**, tên miền, phiên bản PHP hoặc runtime, web server, tình trạng HTTPS và tường lửa. Bấm **Thêm ghi chú** để viết một dòng (tối đa 200 ký tự) hiện dưới tên miền trong danh sách, ví dụ tên khách hàng.
+
+## User Linux và thư mục của website
+
+Mỗi website có một user Linux riêng, nên một website bị hack không đọc hay sửa được các website khác. Tên user lấy từ tên miền: `example.com` thành `example_com`, `blog.example.com` thành `blog_example_com` (thêm `_2`, `_3`… nếu tên đã có). User này không có mật khẩu, không có shell và không đăng nhập SSH được, trừ khi bạn bật [SFTP](#sftp). PHP và ứng dụng của website chạy bằng user này, và PHP chỉ mở được file bên trong thư mục của website.
+
+| Đường dẫn | Chứa gì |
+|---|---|
+| `/var/www/example.com/public` | Thư mục web (document root). File website của bạn đặt ở đây. |
+| `/var/www/example.com/logs` | `php-error.log`, lỗi PHP của website. |
+| `/var/www/example.com/tmp` | File tạm của PHP, file đang tải lên và session. |
+| `/var/www/example.com/app` | Chỉ có ở website ứng dụng: mã nguồn của chương trình. |
+| `/var/log/nginx/example.com.access.log` và `.error.log` | Log của web server cho website (`/var/log/apache2` với Apache, `/var/log/openlitespeed` với OpenLiteSpeed). |
+| `/var/lib/nefo/certs/example.com` | Chứng chỉ của website. |
+
+Các file cấu hình web server và PHP-FPM do Nefo viết đều mở đầu bằng "Managed by Nefo. Do not edit". Nefo sẽ ghi đè chúng, nên hãy thay đổi trong panel.
+
+## Tên miền và tên miền phụ
+
+Ở tab **Tên miền**, ô **Tên miền phụ** liệt kê các tên khác cùng mở website này, mỗi dòng một tên, ví dụ `www.example.com`. Mỗi website có tối đa 20 tên. Mỗi tên phải trỏ về máy chủ này và chỉ thuộc về một website.
+
+Tên wildcard như `*.example.com` nhận mọi tên miền con. Chứng chỉ cho nó cần xác thực DNS qua Cloudflare: xem [Chứng chỉ SSL](./ssl).
+
+Nếu website đã có HTTPS mà bạn đổi tên miền, Nefo báo "Tên miền đã thay đổi. Hãy xin chứng chỉ mới để HTTPS bao phủ tất cả tên miền." Hãy bấm **Xin lại chứng chỉ**.
+
+## Phiên bản và cài đặt PHP
+
+Tab **PHP** của website PHP có các cài đặt sau:
+
+| Cài đặt | Mặc định | Cho phép |
+|---|---|---|
+| **Phiên bản PHP** | phiên bản chọn lúc tạo | mọi phiên bản PHP đã cài |
+| **Giới hạn bộ nhớ (MB)** | 256 | 32 đến 4096 |
+| **Dung lượng tải lên tối đa (MB)** | 64 | 1 đến 4096 (giới hạn kích thước request của web server theo giá trị này) |
+| **Thời gian chạy tối đa (giây)** | 300 | 10 đến 3600 |
+| **Số worker PHP** | 5 | 1 đến 200 |
+| **Chế độ worker** | **Khởi động khi cần (tiết kiệm RAM)** | hoặc **Giữ sẵn vài worker (nhanh hơn cho site đông)** |
+
+**Số worker PHP** là số request PHP mà website xử lý cùng lúc. Mỗi worker có thể dùng tới giới hạn bộ nhớ, nên số worker × bộ nhớ phải vừa với RAM của máy chủ.
+
+Để an toàn, Nefo tắt `exec`, `passthru`, `shell_exec`, `system`, `proc_open`, `popen` và `pcntl_exec` trên mọi website, vì chúng cho phép website bị hack chạy chương trình trên máy chủ. Trong mục **Cho phép các hàm đang bị tắt vì an toàn**, chỉ chọn hàm nào ứng dụng thật sự cần.
+
+Bấm **Lưu**. Nếu PHP-FPM hoặc web server từ chối cấu hình mới, Nefo đặt lại cài đặt cũ. Muốn cài thêm phiên bản PHP, extension hay sửa `php.ini`, xem [Phần mềm](./software).
+
+## Quy tắc rewrite và chỉ thị riêng
+
+Ở tab **Rewrite**, ô **Quy tắc rewrite** có sẵn quy tắc cho các ứng dụng phổ biến: **Mặc định (front controller: index.php hoặc index.html)**, WordPress, Laravel, Symfony, CodeIgniter 4, Drupal, Joomla, OpenCart, Nextcloud và Moodle cho website PHP, và Ứng dụng một trang (SPA) cùng Website tĩnh (URL không có .html) cho mọi website. Tab hiện nội dung quy tắc bạn chọn. Trên Nginx, quy tắc này thay cho khối `location /` mặc định. Trên Apache, tệp `.htaccess` của website có thể thay front controller của quy tắc có sẵn; trên OpenLiteSpeed, front controller chạy sau các quy tắc `.htaccess` của website. Trên cả hai, tệp `.htaccess` không gỡ bỏ được các quy tắc bảo vệ của quy tắc có sẵn.
+
+**Website tĩnh (URL không có .html)** trả về trang mà không cần đuôi `.html`, đúng như cách các trình tạo website tĩnh như VitePress (với `cleanUrls`) tạo liên kết: `/docs/install` trả về `docs/install.html`, còn `/docs/` trả về `docs/index.html`. Các tệp khác vẫn được trả về như cũ, và trang không tồn tại vẫn nhận lỗi 404.
+
+Tab kế tiếp mang tên web server của bạn, ví dụ **Cấu hình Nginx**. Trong ô **Chỉ thị Nginx** (hoặc **Chỉ thị Apache**, **Chỉ thị OpenLiteSpeed**), bạn thêm được chỉ thị riêng theo cú pháp của web server, tối đa 32 KB:
+
+- Nginx thêm chúng vào trong khối `server` của website, trước các quy tắc rewrite.
+- Apache thêm chúng vào cuối khối `VirtualHost` của website.
+- OpenLiteSpeed thêm chúng vào cuối khối `virtualHost` của website.
+
+Web server kiểm tra cấu hình mới trước khi thay đổi. Nếu bị từ chối, Nefo hiện lỗi và website vẫn chạy như cũ. Bấm **Xem toàn bộ file cấu hình** để xem file Nefo tạo ra.
+
+Về tệp `.htaccess`: Apache đọc chúng. OpenLiteSpeed chỉ dùng các quy tắc rewrite trong đó, và Nefo chép chúng vào cấu hình của website trong vài giây sau mỗi lần tệp thay đổi. Nginx bỏ qua chúng.
+
+## Tạm ngưng, chuyển hướng hoặc khóa website bằng mật khẩu
+
+**Tạm ngưng.** Tắt công tắc ở cột **Hoạt động** trong danh sách, hoặc công tắc **Website đang chạy** ở tab **Tổng quan**. Khách truy cập khi đó nhận HTTP 503 với dòng "This website is temporarily unavailable." File và cài đặt vẫn giữ nguyên, chứng chỉ vẫn tự gia hạn. Muốn tạm ngưng nhiều website, hãy chọn chúng, chọn **Tạm ngưng** trong ô **Thao tác hàng loạt** rồi bấm **Áp dụng**; **Chạy lại** bật chúng lên lại.
+
+**Chuyển hướng.** Ở tab **Chuyển hướng**, chọn **Chuyển hướng mọi truy cập sang địa chỉ khác** và nhập **Địa chỉ**, ví dụ `https://example.org`. Đây là chuyển hướng vĩnh viễn (301) và giữ nguyên đường dẫn: `/trang` sẽ chuyển tới địa chỉ mới kèm `/trang`. Chuyển hướng chỉ hoạt động khi website đang chạy.
+
+**Mật khẩu.** Ở tab **Chặn truy cập**, trong phần **Bảo vệ bằng mật khẩu**, chọn **Bảo vệ bằng mật khẩu** rồi nhập **Tên đăng nhập** và **Mật khẩu** dài 8 đến 72 ký tự. Trình duyệt sẽ hỏi hai thông tin này trước khi hiện website. Về sau, để trống mật khẩu là giữ mật khẩu hiện tại. Việc xác thực của Let's Encrypt và webhook Git vẫn tới được website.
+
+Cũng trong tab này, bạn chặn được địa chỉ IP và, trên Nginx, giới hạn số request của mỗi khách: xem [Bảo mật](./security).
+
+## Trang 404 riêng và chống hotlink
+
+**Trang 404.** Ở tab **Trang 404**, chọn **Dùng trang 404 của riêng tôi** và tải trang của bạn lên thành `public/404.html`. Các trang do ứng dụng tự xử lý, như trang của WordPress hay Laravel, vẫn dùng trang 404 riêng của chúng.
+
+**Chống hotlink.** Ở tab **Chống hotlink**, chọn **Chống hotlink ảnh và media**. Website khác nhúng file `jpg`, `jpeg`, `png`, `gif`, `webp`, `avif`, `svg`, `ico`, `bmp`, `mp4`, `webm`, `mp3`, `ogg` và `pdf` của bạn sẽ nhận HTTP 403. Chính website của bạn, các công cụ tìm kiếm (Google, Bing, DuckDuckGo và Yahoo) và người mở file trực tiếp luôn xem được. Ghi tối đa 20 website khác vào ô **Các site khác được phép hiển thị**, mỗi dòng một tên.
+
+## Ngày hết hạn
+
+Ở tab **Hạn dùng & tạm ngưng**, đặt **Ngày hết hạn** rồi bấm **Lưu**. Website chạy đến hết ngày đó (theo giờ máy chủ); sau đó Nefo tự tạm ngưng website. Nefo kiểm tra mỗi giờ một lần. Bấm **Không bao giờ** để bỏ ngày hết hạn. Trong 7 ngày cuối, danh sách hiện "hết hạn" kèm ngày dưới tên miền. Cách này tiện cho website của khách hàng trả tiền đến một ngày nhất định.
+
+Tab này còn có **Tạm ngừng website này** để tạm ngưng website ngay.
+
+## Truy cập SFTP {#sftp}
+
+SFTP cho phép bạn hoặc khách hàng tải file lên bằng FileZilla, WinSCP hay bất kỳ ứng dụng SFTP nào. File tải lên sẽ thuộc về user của website, đúng như cần. Tính năng này cần cài OpenSSH server.
+
+1. Mở tab **SFTP** của website và chọn **Cho phép đăng nhập SFTP cho website này**.
+2. Chọn cách đăng nhập:
+   - **Tạo mật khẩu mạnh mới**
+   - **Tự đặt mật khẩu (ít nhất 12 ký tự)**, tối đa 128 ký tự
+   - **Giữ mật khẩu hiện tại** (khi đã có mật khẩu)
+   - **Không dùng mật khẩu: chỉ đăng nhập bằng khóa SSH**
+3. Không bắt buộc: dán **Khóa SSH công khai (tùy chọn)**, mỗi dòng một khóa giống `authorized_keys`, tối đa 50 khóa. Các tùy chọn như `command=` sẽ bị bỏ.
+4. Bấm **Lưu**. Mật khẩu do panel tạo chỉ hiện một lần: hãy sao chép ngay.
+5. Kết nối bằng **Máy chủ**, **Cổng**, **Tên đăng nhập** và **Thư mục** được hiển thị. Máy chủ là địa chỉ bạn dùng để mở panel, cổng là cổng SSH của máy chủ. Tab cũng hiện địa chỉ đầy đủ, ví dụ `sftp://example_com@panel.example.com/var/www/example.com`.
+
+Tài khoản bị khóa trong thư mục của website. Nó chỉ thấy `/var/www/example.com`, ở đúng đường dẫn như trong panel và trong PHP, và không chạy được lệnh hay chuyển tiếp cổng. Chính sách mật khẩu của máy chủ có thể từ chối mật khẩu bạn tự đặt; khi đó Nefo cho biết lý do.
+
+Tắt SFTP sẽ xóa mật khẩu, khóa SSH và ngắt các phiên đang mở.
+
+## Thống kê truy cập
+
+Tab **Thống kê** đọc log truy cập của web server cho website. Chọn **Khoảng thời gian**: **Hôm nay**, **7 ngày**, **14 ngày** hoặc **30 ngày**. Tab hiện:
+
+- **Yêu cầu**, **Khách truy cập** (số địa chỉ IP khác nhau), **Băng thông**, **Tỷ lệ lỗi** (4xx và 5xx) và **Bot**
+- số yêu cầu và khách truy cập theo giờ hoặc theo ngày
+- **Trang được xem nhiều nhất**, **Địa chỉ IP truy cập nhiều nhất**, **Nguồn giới thiệu**, **Trình duyệt** và **Bot và script**
+
+Các yêu cầu kiểm tra chứng chỉ không được tính. Máy chủ giữ log khoảng 14 ngày, nên không có dữ liệu cũ hơn. Với log rất lớn, chỉ 5.000.000 dòng mới nhất được đọc. Cột **Truy cập 7 ngày** trong danh sách website lấy từ cùng các log này.
+
+## Nhật ký
+
+Tab **Nhật ký** hiện những dòng mới nhất của:
+
+- **Log truy cập (Nginx)** và **Log lỗi (Nginx)** (theo tên web server của bạn)
+- **Lỗi PHP**, với website PHP (`/var/www/example.com/logs/php-error.log`)
+- **Log ứng dụng**, với website ứng dụng và website Docker
+
+## Tường lửa web, quét mã độc và sao lưu
+
+- **Tường lửa WAF**: ModSecurity với bộ luật OWASP Core Rule Set cho website này: **Tắt**, **Chỉ phát hiện: ghi lại tấn công, không chặn** hoặc **Chặn tấn công**. Hãy cài tường lửa ở trang **Phần mềm** trước. Xem [Bảo mật](./security), trang này cũng nói về tab **Quét mã độc**.
+- **Sao lưu**: **Sao lưu ngay**, hoặc đặt lịch **Hằng ngày lúc 03:00**. Xem [Sao lưu](./backups).
+
+## Xóa website {#xoa-website}
+
+1. Mở tab **Tổng quan** của website.
+2. Trong phần **Xóa website này**, bấm **Xóa**.
+3. Giữ dấu chọn **Xóa luôn các database gắn với website này** nếu muốn xóa cả cơ sở dữ liệu, hoặc bỏ chọn để giữ lại.
+4. Gõ tên miền để xác nhận rồi bấm **Xóa**.
+
+::: danger
+Xóa website thì không hoàn tác được. Hãy sao lưu trước nếu bạn có thể cần lại các file.
+:::
+
+Nefo xóa:
+
+- thư mục website `/var/www/example.com` cùng toàn bộ file trong đó, kể cả kho Git và khóa triển khai
+- user và group Linux, cùng quyền truy cập SFTP
+- cấu hình web server, file mật khẩu và chỉ thị riêng của bạn
+- pool PHP-FPM, service của ứng dụng, hoặc ứng dụng Docker cùng container, dữ liệu và image không còn dùng
+- chứng chỉ và log web server của website
+- các chương trình nền của website, cron job chạy bằng user của nó, lịch sao lưu và cài đặt Git deploy
+- thùng rác của website trong **Tệp tin** và các file bị trình quét mã độc cách ly
+- các cơ sở dữ liệu gắn với website, nếu bạn giữ dấu chọn
+
+Nefo giữ lại các bản sao lưu đã có: chúng vẫn nằm ở trang **Sao lưu**. Muốn khôi phục, hãy tạo lại website với cùng tên miền trước.
+
+Khi website đang được triển khai từ Git, Nefo từ chối xóa ("Máy chủ đang chạy một tác vụ khác. Hãy chờ tác vụ đó xong."). Nếu một bước dọn dẹp bị lỗi, website vẫn bị gỡ khỏi panel và Nefo liệt kê các bước lỗi dưới dòng "Một vài bước dọn dẹp bị lỗi:".

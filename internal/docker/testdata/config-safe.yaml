@@ -1,0 +1,22 @@
+services:
+  web:
+    image: traefik/whoami
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:18081:80"
+      - "[::1]:18082:80"
+    volumes:
+      - data:/data
+      - ./html:/usr/share/html:ro
+      - /etc/localtime:/etc/localtime:ro
+      - type: tmpfs
+        target: /cache
+    environment:
+      TZ: UTC
+  worker:
+    image: alpine
+    command: ["sleep", "infinity"]
+    expose: ["9000"]
+    network_mode: "service:web"
+volumes:
+  data:

@@ -1,0 +1,1 @@
+[/etc/nginx/conf.d/panel.conf /etc/nginx/panel/acme.conf /etc/nginx/panel/ssl.conf]

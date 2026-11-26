@@ -1,0 +1,1 @@
+[/etc/nginx/panel/sites/a.example.com.conf /etc/nginx/panel/custom/a.example.com.conf /etc/nginx/panel/auth/a.example.com.htpasswd /etc/nginx/conf.d/panel.conf /8.3/fpm/pool.d/panel-u.conf /run/php/panel-u.sock /etc/nginx/panel/waf]
