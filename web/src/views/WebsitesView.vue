@@ -57,6 +57,7 @@ async function load() {
   }
   loadCached('api/backups', { ttl: 30000 }).catch(() => {})
   loadCached('api/databases', { ttl: 60000 }).catch(() => {})
+  loadCached('api/uptime', { ttl: 30000 }).catch(() => {})
   loadStats()
 }
 
@@ -397,6 +398,8 @@ const siteURL = (s) => `${s.ssl ? 'https' : 'http'}://${s.domain}/`
 const palette = ['#2F6BDB', '#C2410C', '#7454E0', '#0D9488', '#B45309', '#BE185D', '#4D7C0F', '#475569']
 const favColor = (s) => (s.disabled ? '#94A3B8' : palette[[...s.domain].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7) % palette.length])
 const hasService = (s) => !!s.app_command || (s.app || '').startsWith('docker:')
+// Monitored websites that are down get a red mark; nothing more when they are up.
+const downIDs = computed(() => new Set(list(store['api/uptime']?.sites).filter((x) => x.state === 'down').map((x) => x.site_id)))
 const fmtDate = (v) => new Date(v).toLocaleDateString(locale.value, { year: 'numeric', month: 'short', day: 'numeric' })
 function subLine(s) {
   if (s.expires_at && daysLeft(s.expires_at) !== null && daysLeft(s.expires_at) <= 7) return { text: t('access.expires_on', { date: fmtDate(new Date(new Date(s.expires_at).getTime() - 86400000)) }), cls: 'text-crit' }
@@ -618,7 +621,8 @@ onBeforeUnmount(() => {
                         :disabled="switching === s.id"
                         @click="setRunning(s, s.disabled)"
                       ></button>
-                      <span :class="s.disabled ? 'muted' : 'text-ok'" class="run-text">{{ s.disabled ? t('access.suspended') : hasService(s) && s.app_status && s.app_status !== 'active' ? t('ws.app_down') : t('ws.running') }}</span>
+                      <button v-if="!s.disabled && downIDs.has(s.id)" type="button" class="run-text run-down text-crit" @click="openDrawer(s, 'monitor')"><span class="dot dot-crit" aria-hidden="true"></span>{{ t('ws.down') }}</button>
+                      <span v-else :class="s.disabled ? 'muted' : 'text-ok'" class="run-text">{{ s.disabled ? t('access.suspended') : hasService(s) && s.app_status && s.app_status !== 'active' ? t('ws.app_down') : t('ws.running') }}</span>
                     </div>
                   </td>
                   <td class="ws-wrap">
@@ -810,6 +814,8 @@ onBeforeUnmount(() => {
 .app-cell .pill { min-height: 22px; margin-left: 2px; }
 .run-cell { display: flex; align-items: center; gap: 8px; }
 .run-text { font-size: 13px; font-weight: 600; }
+.run-down { display: inline-flex; align-items: center; padding: 0; border: 0; background: none; font: 600 13px var(--font); cursor: pointer; }
+.run-down:hover { text-decoration: underline; }
 .ssl-cell { display: inline-flex; align-items: center; gap: 6px; padding: 0; border: 0; background: none; font: 600 13px var(--font); cursor: pointer; }
 .ssl-cell:hover { text-decoration: underline; }
 .ssl-own { font-weight: 500; }

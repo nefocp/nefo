@@ -1,5 +1,6 @@
 // Package monitor records the server's load every minute and sends alerts
-// by Telegram or e-mail when something needs attention.
+// by Telegram, e-mail, Discord, Slack or a webhook when something needs
+// attention.
 package monitor
 
 import (
@@ -41,6 +42,14 @@ type Settings struct {
 	DiskPercent   int    `json:"disk_percent"` // 0 = off
 	Services      bool   `json:"services"`     // the web server, PHP-FPM, MariaDB… stopped
 	Events        bool   `json:"events"`       // failed backups and certificate renewals
+
+	// Webhook channels (channels.go). The addresses hold their token, so
+	// they are secrets like the Telegram token.
+	DiscordURL    string `json:"discord_url"`
+	SlackURL      string `json:"slack_url"`
+	WebhookURL    string `json:"webhook_url"`
+	WebhookSecret string `json:"webhook_secret"` // signs the webhook's body; optional
+	WebhookHTTP   bool   `json:"webhook_http"`   // allow an http:// webhook
 }
 
 // HasTelegram and HasEmail report which channels are configured.
@@ -68,6 +77,9 @@ func (s *Settings) Validate() error {
 			return usererr.New("invalid_smtp")
 		}
 	}
+	if err := s.validateHooks(); err != nil {
+		return err
+	}
 	for _, p := range []int{s.CPUPercent, s.MemPercent, s.DiskPercent} {
 		if p != 0 && (p < 10 || p > 100) {
 			return usererr.New("invalid_threshold")
@@ -85,6 +97,7 @@ type Monitor struct {
 	log      *slog.Logger
 	services func(ctx context.Context) map[string]string // unit -> ActiveState
 	http     *http.Client
+	hooks    *http.Client // Discord, Slack and the webhook; see newHookClient
 
 	mu     sync.Mutex
 	active map[string]time.Time // alert key -> last sent
@@ -93,13 +106,14 @@ type Monitor struct {
 // New returns a Monitor. services reports the state of the units to watch.
 func New(st *store.Store, sys *system.Collector, log *slog.Logger, services func(context.Context) map[string]string) *Monitor {
 	return &Monitor{store: st, sys: sys, log: log, services: services,
-		http: &http.Client{Timeout: 20 * time.Second}, active: map[string]time.Time{}}
+		http: &http.Client{Timeout: 20 * time.Second}, hooks: newHookClient(defaultHookNet()), active: map[string]time.Time{}}
 }
 
 // Settings returns the alert settings without secrets.
 func (m *Monitor) Settings(ctx context.Context) (Settings, error) {
 	s, err := m.settings(ctx)
 	s.TelegramToken, s.SMTPPassword = mask(s.TelegramToken), mask(s.SMTPPassword)
+	maskHooks(&s)
 	return s, err
 }
 
@@ -135,6 +149,7 @@ func (m *Monitor) Save(ctx context.Context, s Settings) error {
 	if s.TelegramChat == "" {
 		s.TelegramToken = ""
 	}
+	keepHooks(&s, old)
 	if err := s.Validate(); err != nil {
 		return err
 	}
@@ -192,7 +207,7 @@ func pct(used, total uint64) float64 {
 // six hours if it lasts), and its end is reported too.
 func (m *Monitor) check(ctx context.Context, mt store.Metric) {
 	s, err := m.settings(ctx)
-	if err != nil || (!s.HasTelegram() && !s.HasEmail()) {
+	if err != nil || !s.HasChannel() {
 		return
 	}
 	problems := map[string]string{}
@@ -258,10 +273,19 @@ func describe(key string) string {
 // Event reports a one-off problem, such as a failed backup.
 func (m *Monitor) Event(ctx context.Context, text string) {
 	s, err := m.settings(ctx)
-	if err != nil || !s.Events || (!s.HasTelegram() && !s.HasEmail()) {
+	if err != nil || !s.Events || !s.HasChannel() {
 		return
 	}
 	go m.send(context.WithoutCancel(ctx), s, "⚠️ "+text)
+}
+
+// Notify sends text through every configured channel and returns when it is
+// sent. Its caller decided that it is worth an alert (a monitored website is
+// down, for example), so the Events switch does not apply.
+func (m *Monitor) Notify(ctx context.Context, text string) {
+	if s, err := m.settings(ctx); err == nil {
+		m.send(ctx, s, text)
+	}
 }
 
 // ---- sending ----
@@ -271,16 +295,12 @@ func hostname() string {
 	return h
 }
 
+// send delivers an alert to every configured channel at once (see
+// deliver). A failing channel is logged by name and does not stop the others.
 func (m *Monitor) send(ctx context.Context, s Settings, text string) {
-	msg := fmt.Sprintf("[%s] %s", hostname(), text)
-	if s.HasTelegram() {
-		if err := m.telegram(ctx, s, msg); err != nil {
-			m.log.Warn("telegram alert", "err", err)
-		}
-	}
-	if s.HasEmail() {
-		if err := sendMail(s, "Server alert: "+hostname(), msg); err != nil {
-			m.log.Warn("e-mail alert", "err", err)
+	for ch, r := range m.deliver(ctx, s, message{kind: "alert", subject: "Server alert: " + hostname(), text: text}) {
+		if !r.OK {
+			m.log.Warn("alert not sent", "channel", ch, "err", r.Error, "detail", r.Detail)
 		}
 	}
 }
@@ -297,15 +317,8 @@ type TestResult struct {
 // one result per channel.
 func (m *Monitor) Test(ctx context.Context) map[string]TestResult {
 	s, _ := m.settings(ctx)
-	res := map[string]TestResult{}
-	msg := fmt.Sprintf("[%s] Test message from %s. Alerts work.", hostname(), version.AppName)
-	if s.HasTelegram() {
-		res["telegram"] = testResult(m.telegram(ctx, s, msg), "telegram_failed")
-	}
-	if s.HasEmail() {
-		res["email"] = testResult(sendMail(s, "Test from "+version.AppName, msg), "smtp_failed")
-	}
-	return res
+	return m.deliver(ctx, s, message{kind: "test", subject: "Test from " + version.AppName,
+		text: "Test message from " + version.AppName + ". Alerts work."})
 }
 
 // testResult turns a send error into a result. Errors without a code of

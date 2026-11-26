@@ -30,6 +30,7 @@ const groups = [
       { name: 'apps', label: 'nav.apps', icon: 'package' },
       { name: 'wordpress', label: 'nav.wordpress', icon: 'wordpress', feature: 'wordpress_sites' },
       { name: 'databases', label: 'nav.databases', icon: 'database', count: 'databases' },
+      { name: 'dns', label: 'nav.dns', icon: 'cloud' },
       { name: 'files', label: 'nav.files', icon: 'folder' },
       { name: 'backups', label: 'nav.backups', icon: 'archive' },
     ],

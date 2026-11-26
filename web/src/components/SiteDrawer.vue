@@ -25,6 +25,9 @@ import SiteWordPress from './SiteWordPress.vue'
 import SiteBackups from './SiteBackups.vue'
 import SiteHTTPS from './SiteHTTPS.vue'
 import SitePageCache from './SitePageCache.vue'
+import SitePointDNS from './SitePointDNS.vue'
+import SiteMonitor from './SiteMonitor.vue'
+import { store as cache, list as asList } from '../data.js'
 
 // SiteDrawer holds every setting of one website, in grouped tabs. Each tab
 // reuses the per-feature form (SiteSSL, SiteFirewall…). Saved sites go up
@@ -50,6 +53,8 @@ const serverName = computed(() => SERVER_NAMES[props.server] || 'Nginx')
 const url = computed(() => `${s.value.ssl ? 'https' : 'http'}://${s.value.domain}/`)
 const runtimeLogo = computed(() => (s.value.app_runtime === 'python' ? 'python' : 'nodejs'))
 const days = computed(() => daysLeft(s.value.cert_expires))
+// Website monitoring (api/uptime, loaded by the website list and the bell).
+const monitorDown = computed(() => asList(cache['api/uptime']?.sites).some((x) => x.site_id === s.value.id && x.state === 'down'))
 const sslState = computed(() => {
   if (!s.value.ssl) return 'off'
   if (s.value.ssl_error || (days.value !== null && days.value < 0)) return 'crit'
@@ -97,6 +102,7 @@ const groups = computed(() =>
         !isDocker.value ? { id: 'git', logo: 'git' } : null,
         { id: 'sftp', icon: 'upload' },
         { id: 'backups', icon: 'archive' },
+        { id: 'monitor', icon: 'activity', dot: monitorDown.value ? 'crit' : '' },
         { id: 'stats', icon: 'bars' },
         { id: 'logs', icon: 'logs' },
         { id: 'expiry', icon: 'calendar' },
@@ -291,6 +297,7 @@ const appLabel = computed(() => (s.value.app ? appName(s.value.app) : ''))
           <p v-if="current === 'php'" class="muted small note">
             {{ t('drawer.php_more') }} <RouterLink :to="{ name: 'software' }">{{ t('nav.software') }}</RouterLink>
           </p>
+          <SitePointDNS v-if="current === 'domains'" :key="'dns-' + paneKey" :site="s" />
         </section>
 
         <template v-else-if="current === 'ssl'">
@@ -373,6 +380,8 @@ const appLabel = computed(() => (s.value.app ? appName(s.value.app) : ''))
         </section>
 
         <SiteBackups v-else-if="current === 'backups'" :key="paneKey" :site="s" :busy="busy" @job="(j) => emit('job', j)" />
+
+        <SiteMonitor v-else-if="current === 'monitor'" :key="paneKey" :site="s" />
 
         <SiteStats v-else-if="current === 'stats'" :key="paneKey" :site="s" :server="server" />
 

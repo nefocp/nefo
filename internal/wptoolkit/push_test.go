@@ -8,6 +8,7 @@ import (
 	"slices"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/nefocp/nefo/internal/store"
 	"github.com/nefocp/nefo/internal/usererr"
@@ -42,6 +43,17 @@ func newPushFixture(t *testing.T) *pushFixture {
 	writeFile(t, filepath.Join(live, "wp-content", "uploads", "2026", "only-live.jpg"), "JPEG")
 	writeFile(t, filepath.Join(live, "wp-content", "object-cache.php"), "<?php // live redis")
 	writeFile(t, filepath.Join(live, ".user.ini"), "auto_prepend_file = '"+liveRoot+"/public/wordfence-waf.php'\n")
+	// The live files are older: a file of the same size and time counts as
+	// unchanged, and files written within one clock tick share their time.
+	hourAgo := time.Now().Add(-time.Hour)
+	if err := filepath.Walk(live, func(p string, _ os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		return os.Chtimes(p, hourAgo, hourAgo)
+	}); err != nil {
+		t.Fatal(err)
+	}
 
 	writeFile(t, filepath.Join(staging, "wp-config.php"), strings.ReplaceAll(panelConfig, "wp_example_com", "wp_staging_example_com"))
 	writeFile(t, filepath.Join(staging, "index.php"), "<?php // index")

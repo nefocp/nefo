@@ -1,11 +1,11 @@
 ---
 title: Thư và cảnh báo
-description: Cho website gửi email qua nhà cung cấp SMTP, và nhận cảnh báo qua Telegram hoặc email khi máy chủ cần bạn chú ý.
+description: Cho website gửi email qua nhà cung cấp SMTP, và nhận cảnh báo qua Telegram, email, Discord, Slack hoặc webhook khi máy chủ cần bạn chú ý.
 ---
 
 # Thư và cảnh báo
 
-Trang này nói về hai việc: cách website của bạn gửi email qua một nhà cung cấp SMTP, và cách Nefo báo cho bạn qua Telegram hoặc email khi máy chủ có chuyện cần xử lý.
+Trang này nói về hai việc: cách website của bạn gửi email qua một nhà cung cấp SMTP, và cách Nefo báo cho bạn qua Telegram, email, Discord, Slack hoặc webhook khi máy chủ có chuyện cần xử lý.
 
 ## Không có mail server, và đó là chủ ý
 
@@ -75,7 +75,7 @@ Chọn **Gỡ** và xác nhận. Panel gỡ Postfix và xóa cài đặt. Websit
 
 ## Cảnh báo
 
-Cảnh báo gửi tin cho bạn qua Telegram, qua email, hoặc cả hai, khi máy chủ cần bạn chú ý. Vào **Cài đặt** → **Cảnh báo**.
+Cảnh báo gửi tin cho bạn qua Telegram, email, Discord, Slack hoặc webhook của riêng bạn, khi máy chủ cần bạn chú ý. Vào **Cài đặt** → **Cảnh báo**. Kênh nào cũng là tùy chọn: bạn cấu hình bao nhiêu kênh cũng được, và mỗi cảnh báo được gửi tới tất cả các kênh cùng lúc. Một kênh bị lỗi không làm các kênh khác dừng lại.
 
 Panel kiểm tra máy chủ mỗi phút. Mỗi sự cố được báo một lần, báo lại mỗi 6 giờ nếu vẫn còn, và báo thêm một lần khi đã được khắc phục. Mỗi tin bắt đầu bằng tên máy chủ trong ngoặc vuông. Email cảnh báo có tiêu đề "Server alert:" kèm tên máy chủ.
 
@@ -88,10 +88,12 @@ Panel kiểm tra máy chủ mỗi phút. Mỗi sự cố được báo một l�
 | **Ổ đĩa trên (%)** | ổ đĩa (`/`) đầy tới mức đó | 90 |
 | **Một dịch vụ bị dừng (Nginx, PHP, MariaDB…)** | một dịch vụ có tự chạy khi khởi động nhưng đang không chạy | bật |
 | **Sao lưu, khôi phục hoặc gia hạn chứng chỉ thất bại** | một lần sao lưu, khôi phục, gia hạn chứng chỉ website hoặc gia hạn chứng chỉ của panel bị lỗi | bật |
+| **Theo dõi website** (tab **Theo dõi** của từng website) | một website được theo dõi không phản hồi (2 lần kiểm tra lỗi liên tiếp), hoạt động trở lại, hoặc dùng chứng chỉ còn hạn dưới 14 ngày | tắt |
 
 - Đặt ngưỡng là 0 để tắt. Các ngưỡng khác phải từ 10 đến 100.
 - Các dịch vụ được theo dõi là web server (Nginx, Apache hoặc OpenLiteSpeed), PHP-FPM, MariaDB, Redis và fail2ban, nếu đã cài.
 - Panel chỉ bắt đầu kiểm tra khi có ít nhất một kênh nhận tin.
+- Theo dõi website được bật riêng cho từng website, và vẫn chạy khi chưa có kênh nào: tab **Theo dõi** hiện kết quả. Cảnh báo website không phản hồi cũng được báo lại mỗi 6 giờ như các cảnh báo khác. Xem [Website](./websites#monitoring).
 
 ### Nhận cảnh báo qua Telegram
 
@@ -116,9 +118,80 @@ Email cảnh báo được panel gửi thẳng qua một máy chủ SMTP, với 
 
 Với cổng 465, kết nối được mã hóa ngay từ đầu. Với các cổng khác, panel dùng STARTTLS khi máy chủ SMTP hỗ trợ. Nếu máy chủ không hỗ trợ mà có tên đăng nhập, panel sẽ không gửi, để mật khẩu không bao giờ đi ở dạng rõ. Mật khẩu đã lưu cũng hiện dưới dạng các dấu chấm, giống token Telegram.
 
+### Nhận cảnh báo qua Discord {#get-alerts-in-discord}
+
+1. Trong Discord, mở cài đặt của kênh sẽ nhận cảnh báo, rồi chọn **Tích hợp** (Integrations) → **Webhook** → **Webhook mới**.
+2. Đặt tên cho webhook nếu muốn, rồi chọn **Sao chép URL webhook**.
+3. Ở **Cài đặt** → **Cảnh báo**, dán URL vào ô **URL webhook** trong mục **Discord**.
+4. Chọn **Lưu**, rồi chọn **Gửi thử**.
+
+URL có dạng `https://discord.com/api/webhooks/<id>/<token>`. Địa chỉ trên `discordapp.com` và các bản `ptb.`, `canary.` cũng dùng được, và có thể thêm `?thread_id=` để gửi vào một thread. Cảnh báo dài hơn 2000 ký tự, giới hạn của Discord, sẽ bị cắt bớt. Các lượt nhắc trong cảnh báo, như `@everyone`, không gửi thông báo cho ai.
+
+### Nhận cảnh báo qua Slack {#get-alerts-in-slack}
+
+1. Vào [api.slack.com/apps](https://api.slack.com/apps), chọn **Create New App** → **From scratch**, rồi chọn workspace của bạn.
+2. Mở **Incoming Webhooks**, bật lên, rồi chọn **Add New Webhook to Workspace** và chọn kênh.
+3. Sao chép **Webhook URL**. URL bắt đầu bằng `https://hooks.slack.com/services/`.
+4. Ở **Cài đặt** → **Cảnh báo**, dán URL vào ô **URL webhook** trong mục **Slack**, chọn **Lưu**, rồi chọn **Gửi thử**.
+
+Panel chỉ nhận incoming webhook: workflow webhook của Slack cần các trường dữ liệu khác.
+
+### Gửi cảnh báo tới webhook {#send-alerts-to-a-webhook}
+
+Webhook gửi mỗi cảnh báo dưới dạng JSON tới địa chỉ bạn chọn: script của riêng bạn, n8n, Home Assistant, hay một ứng dụng chat không có trong danh sách này. Trong mục **Webhook**, nhập **URL webhook** và, nếu bên nhận có kiểm tra chữ ký, một **Khóa bí mật để ký (tùy chọn)** dài từ 16 đến 200 ký tự, không có khoảng trắng. Sau đó chọn **Lưu** và **Gửi thử**.
+
+Mỗi cảnh báo là một request `POST` với `Content-Type: application/json` và nội dung như sau:
+
+```json
+{"server":"vps-1","text":"⚠️ The disk is 93% full.","time":"2026-11-26T08:15:00Z","kind":"alert"}
+```
+
+| Trường | Giá trị |
+|---|---|
+| `server` | Tên máy chủ (host name) |
+| `text` | Nội dung cảnh báo, không kèm tên máy chủ. Sự cố đã được khắc phục bắt đầu bằng "✅ Resolved:" |
+| `time` | Thời điểm gửi, theo giờ UTC, định dạng RFC 3339 |
+| `kind` | `alert`, hoặc `test` khi bấm **Gửi thử** |
+
+Mọi câu trả lời 2xx đều được tính là đã gửi. Panel chờ tối đa 10 giây, không đi theo chuyển hướng, và không hiện nội dung bên nhận trả về, chỉ hiện mã trạng thái.
+
+#### Kiểm tra chữ ký {#verify-the-signature}
+
+Khi có khóa bí mật, mỗi request có header `X-Nefo-Signature: sha256=` theo sau là HMAC-SHA256 của nội dung, ở dạng hex, với khóa bí mật làm key. Hãy tính trên đúng nội dung nhận được, trước khi đọc JSON, và so sánh theo thời gian không đổi (constant time). Với Python:
+
+```python
+import hashlib, hmac
+
+def verify(secret: bytes, body: bytes, signature: str) -> bool:
+    expected = "sha256=" + hmac.new(secret, body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, signature)
+```
+
+Với Node.js, so sánh `'sha256=' + crypto.createHmac('sha256', secret).update(rawBody).digest('hex')` với header bằng `crypto.timingSafeEqual`, sau khi kiểm tra hai chuỗi dài bằng nhau. Nội dung được ký có cả `time`: hãy từ chối request cũ hơn vài phút để chống gửi lại (replay).
+
+#### Địa chỉ webhook không được dùng {#webhook-addresses}
+
+- URL bắt đầu bằng `https://`. Địa chỉ `http://` thường chỉ dùng được sau khi bạn đánh dấu **Cho phép địa chỉ http:// (không mã hóa, cho máy nhận trong mạng riêng của bạn)**: khi không mã hóa, cảnh báo và chữ ký có thể bị đọc trên đường đi.
+- URL không chứa tên đăng nhập hay mật khẩu, không có `#`, và dài tối đa 2048 ký tự.
+- Để webhook không chạm được tới các dịch vụ của chính máy chủ, panel không bao giờ kết nối tới địa chỉ loopback (`127.0.0.0/8`, `::1`, `localhost`), địa chỉ link-local (`169.254.0.0/16`, `fe80::/10`), dịch vụ metadata của cloud (`169.254.169.254`, `100.100.100.200`, `168.63.129.16`, `fd00:ec2::254`), `0.0.0.0/8` hay địa chỉ multicast. Tên máy chủ được kiểm tra lại mỗi lần gửi cảnh báo, trên các địa chỉ mà tên đó phân giải ra, nên một tên trỏ về `127.0.0.1` cũng bị từ chối.
+- Mạng riêng (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fd00::/8`) được phép, cho máy nhận ở nhà hoặc trong một container.
+
+### URL webhook đã lưu {#saved-webhook-urls}
+
+URL của Discord, Slack và webhook chứa token của chúng, nên sau khi lưu chúng hiện dưới dạng các dấu chấm, giống token Telegram, và khóa bí mật cũng vậy. Cứ để nguyên các dấu chấm để giữ giá trị đã lưu. Xóa một URL rồi lưu để ngừng dùng kênh đó. Xóa URL của webhook cũng xóa luôn khóa bí mật và quyền dùng http://.
+
 ### Gửi cảnh báo thử
 
-**Gửi thử** gửi một tin thử qua mọi kênh đã lưu. Nút này dùng cài đặt đã lưu, nên hãy chọn **Lưu** trước. Kết quả hiện mỗi kênh một dòng, **Telegram** hoặc **Email**, kèm **đã gửi** hoặc nội dung lỗi. Nếu chưa có kênh nào, panel báo "Hãy cấu hình Telegram hoặc email rồi lưu trước."
+**Gửi thử** gửi một tin thử qua mọi kênh đã lưu. Nút này dùng cài đặt đã lưu, nên hãy chọn **Lưu** trước. Kết quả hiện mỗi kênh một dòng, **Telegram**, **Email**, **Discord**, **Slack** hoặc **Webhook**, kèm **đã gửi** hoặc nội dung lỗi. Nếu chưa có kênh nào, panel báo "Hãy cấu hình một kênh nhận tin rồi lưu trước."
+
+Với Discord, Slack và webhook, lỗi sẽ là một trong các trường hợp sau:
+
+- **Không kết nối được tới webhook** kèm lý do, ví dụ `no such host` hoặc `connection refused`.
+- **Webhook từ chối tin nhắn (HTTP 404…)**: bên nhận trả về mã trạng thái không thuộc nhóm 2xx. Discord và Slack có kèm lý do, như `Unknown Webhook` hoặc `invalid_token`. Chuyển hướng (3xx) cũng bị tính là từ chối.
+- **Webhook không trả lời trong 10 giây.**
+- **… là địa chỉ loopback, link-local hoặc dịch vụ metadata của cloud**: xem [Địa chỉ webhook không được dùng](#webhook-addresses).
+
+Khi một cảnh báo thật không gửi được, log của panel sẽ ghi lại kèm tên kênh, không bao giờ kèm URL của kênh.
 
 ### Cảnh báo và trang chủ
 

@@ -283,6 +283,27 @@ var migrations = []string{
 	`ALTER TABLE sites ADD COLUMN hsts            INTEGER NOT NULL DEFAULT 0;
 	ALTER TABLE sites ADD COLUMN hsts_subdomains INTEGER NOT NULL DEFAULT 0;
 	ALTER TABLE sites ADD COLUMN page_cache      INTEGER NOT NULL DEFAULT 0;`,
+	// 22: website monitoring: the settings of each monitored website, the
+	// served certificate's expiry, and one row per check (kept 7 days)
+	`CREATE TABLE site_monitors (
+		site_id        INTEGER PRIMARY KEY REFERENCES sites(id) ON DELETE CASCADE,
+		enabled        INTEGER NOT NULL DEFAULT 0,
+		interval_min   INTEGER NOT NULL DEFAULT 5,
+		path           TEXT    NOT NULL DEFAULT '/',
+		keyword        TEXT    NOT NULL DEFAULT '',
+		strict_4xx     INTEGER NOT NULL DEFAULT 0,
+		cert_not_after INTEGER NOT NULL DEFAULT 0,
+		cert_warned_at INTEGER NOT NULL DEFAULT 0
+	);
+	CREATE TABLE uptime_checks (
+		site_id INTEGER NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+		ts      INTEGER NOT NULL,
+		ok      INTEGER NOT NULL,
+		code    INTEGER NOT NULL DEFAULT 0,
+		ms      INTEGER NOT NULL DEFAULT 0,
+		error   TEXT    NOT NULL DEFAULT '',
+		PRIMARY KEY (site_id, ts)
+	) WITHOUT ROWID;`,
 }
 
 // Open opens (and creates or upgrades) the database in dataDir.

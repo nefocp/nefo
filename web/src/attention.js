@@ -20,6 +20,8 @@ export function refreshAttention(force = false) {
     load('api/backups', { ttl: 60000, force }),
     // The last update check: the panel refreshes it every few hours, so asking is cheap.
     load('api/system/updates', { ttl: 10 * 60000, force }),
+    // Monitored websites that are down (internal/uptime): kept in memory, cheap.
+    load('api/uptime', { ttl: 60000, force }),
   ])
 }
 
@@ -44,7 +46,13 @@ export const attention = computed(() => {
   if (upd?.reboot?.required) {
     out.push({ id: 'reboot', sev: 'warn', icon: 'power', title: ['attention.reboot_required'], sub: ['attention.reboot_required_sub'], to: { name: 'settings' }, action: 'attention.view' })
   }
+  const down = new Map(list(store['api/uptime']?.sites).filter((x) => x.state === 'down').map((x) => [x.site_id, x]))
   for (const s of list(store['api/sites']?.sites)) {
+    const dn = down.get(s.id)
+    if (dn) {
+      const why = dn.last?.error || (dn.last?.code ? 'HTTP ' + dn.last.code : '')
+      out.push({ id: 'down' + s.id, sev: 'crit', icon: 'activity', title: ['attention.site_down', { domain: s.domain }], sub: why ? ['attention.raw', { text: firstLine(why) }] : ['attention.site_down_sub'], to: { name: 'websites', query: { site: String(s.id), tab: 'monitor' } }, action: 'attention.view' })
+    }
     const to = { name: 'websites', query: { site: String(s.id), tab: 'ssl' } }
     const d = daysLeft(s.cert_expires)
     if (s.ssl && s.ssl_error) {

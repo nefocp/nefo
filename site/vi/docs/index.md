@@ -46,7 +46,9 @@ Mỗi máy chủ có một tài khoản panel duy nhất là `admin`. Nefo khôn
 - Chạy container Docker và dự án Compose. Nefo kiểm tra tệp Compose để chặn các thiết lập không an toàn, như container đặc quyền (privileged) hay cổng mở ra Internet. Xem [Docker](./docker).
 - Quản lý tường lửa (ufw), fail2ban, cài đặt SSH, tường lửa ứng dụng web cho từng website và trình quét mã độc. Xem [Bảo mật](./security).
 - Dùng terminal ngay trên trình duyệt, quản lý dịch vụ, tiến trình, chương trình nền và cron job. Xem [Công cụ hệ thống](./system).
-- Cho website gửi email qua SMTP relay, và nhận cảnh báo qua Telegram hoặc email. Xem [Thư và cảnh báo](./mail-alerts).
+- Theo dõi để biết từng website còn trả lời, kèm thời gian hoạt động và thời gian phản hồi. Xem [Theo dõi](./websites#monitoring).
+- Cho website gửi email qua SMTP relay, và nhận cảnh báo qua Telegram, email, Discord, Slack hoặc webhook. Xem [Thư và cảnh báo](./mail-alerts).
+- Quản lý bản ghi DNS của các zone Cloudflare, và trỏ tên miền của website về máy chủ này. Xem [DNS (Cloudflare)](./dns).
 
 ## Bảo mật của chính panel
 
@@ -92,7 +94,7 @@ Panel chỉ tự kết nối ra ngoài cho những việc sau:
 Mọi kết nối khác chỉ diễn ra khi bạn yêu cầu:
 
 - **Cập nhật:** Nefo chỉ kiểm tra phiên bản mới khi bạn bấm **Kiểm tra cập nhật** hoặc chạy `nefo update`. Nefo không bao giờ tự cập nhật. Xem [Cập nhật](./update).
-- **Những gì bạn thiết lập:** cảnh báo (Telegram hoặc máy chủ SMTP của bạn), sao lưu từ xa (kho S3 hoặc SFTP của bạn), xác thực DNS (API của Cloudflare) và chuyển tiếp mail (nhà cung cấp mail của bạn).
+- **Những gì bạn thiết lập:** cảnh báo (Telegram, máy chủ SMTP của bạn, Discord, Slack hoặc webhook của bạn), theo dõi website (chính các website của bạn, qua tên miền, như một người truy cập), sao lưu từ xa (kho S3 hoặc SFTP của bạn), xác thực DNS và trang DNS (API của Cloudflare) và chuyển tiếp mail (nhà cung cấp mail của bạn).
 - **Phần mềm bạn cài:** các gói lấy từ kho của hệ điều hành qua apt, một số thành phần lấy từ chính dự án của chúng, như Node.js từ nodejs.org, các phiên bản PHP khác từ kho ondrej/php, OpenLiteSpeed từ kho của LiteSpeed. Một số phần mềm đã cài tự kết nối ra ngoài, ví dụ ClamAV tự tải cơ sở dữ liệu virus.
 
 Phần lớn yêu cầu từ panel tự giới thiệu là `Nefo/<phiên bản>`. Chúng không chứa thông tin về máy chủ hay website của bạn, ngoài những gì công việc cần, như tên miền trong yêu cầu xin chứng chỉ.

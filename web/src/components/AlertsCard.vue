@@ -50,7 +50,9 @@ async function test() {
 
 // Each channel answers { ok } or { error, detail }, error being a code
 // translated like the API's own errors.
-const channelName = (ch) => (ch === 'email' ? t('alerts.email') : ch === 'telegram' ? 'Telegram' : ch)
+const names = { telegram: 'Telegram', discord: 'Discord', slack: 'Slack' }
+const channelName = (ch) =>
+  ch === 'email' ? t('alerts.email') : ch === 'webhook' ? t('alerts.webhook') : names[ch] || ch
 function resultText(r) {
   if (r.ok) return t('alerts.sent')
   const key = `errors.${r.error}`
@@ -113,6 +115,33 @@ function resultText(r) {
           <input v-model="s.email_to" class="input" type="email" />
         </label>
       </div>
+
+      <h3 class="subhead">Discord</h3>
+      <label class="field">
+        <span>{{ t('alerts.webhook_url') }}</span>
+        <input v-model="s.discord_url" class="input mono" type="password" autocomplete="new-password" placeholder="https://discord.com/api/webhooks/…" />
+      </label>
+      <small class="muted">{{ t('alerts.discord_hint') }}</small>
+
+      <h3 class="subhead">Slack</h3>
+      <label class="field">
+        <span>{{ t('alerts.webhook_url') }}</span>
+        <input v-model="s.slack_url" class="input mono" type="password" autocomplete="new-password" placeholder="https://hooks.slack.com/services/…" />
+      </label>
+      <small class="muted">{{ t('alerts.slack_hint') }}</small>
+
+      <h3 class="subhead">{{ t('alerts.webhook') }}</h3>
+      <label class="field">
+        <span>{{ t('alerts.webhook_url') }}</span>
+        <input v-model="s.webhook_url" class="input mono" type="password" autocomplete="new-password" placeholder="https://hooks.example.com/nefo" />
+      </label>
+      <label class="field">
+        <span>{{ t('alerts.webhook_secret') }}</span>
+        <input v-model="s.webhook_secret" class="input mono" type="password" autocomplete="new-password" />
+      </label>
+      <label class="check"><input v-model="s.webhook_http" type="checkbox" /><span>{{ t('alerts.webhook_http') }}</span></label>
+      <small class="muted">{{ t('alerts.webhook_hint') }}</small>
+      <small class="muted">{{ t('alerts.hooks_kept') }}</small>
 
       <h3 class="subhead">{{ t('alerts.when') }}</h3>
       <div class="row">

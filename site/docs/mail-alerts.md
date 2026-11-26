@@ -1,11 +1,11 @@
 ---
 title: Mail and alerts
-description: Let your websites send e-mail through an SMTP provider, and get alerts by Telegram or e-mail when the server needs attention.
+description: Let your websites send e-mail through an SMTP provider, and get alerts by Telegram, e-mail, Discord, Slack or a webhook when the server needs attention.
 ---
 
 # Mail and alerts
 
-This page covers two things: how your websites send e-mail through an SMTP provider, and how Nefo alerts you by Telegram or e-mail when something on the server needs attention.
+This page covers two things: how your websites send e-mail through an SMTP provider, and how Nefo alerts you by Telegram, e-mail, Discord, Slack or a webhook when something on the server needs attention.
 
 ## No mail server, by design
 
@@ -75,7 +75,7 @@ Select **Remove** and confirm. The panel uninstalls Postfix and forgets the sett
 
 ## Alerts
 
-Alerts send you a message by Telegram, by e-mail, or both, when the server needs attention. Go to **Settings** → **Alerts**.
+Alerts send you a message by Telegram, e-mail, Discord, Slack or your own webhook, when the server needs attention. Go to **Settings** → **Alerts**. Every channel is optional: set up as many as you like, and each alert goes to all of them at once. A channel that fails doesn't stop the others.
 
 The panel checks the server every minute. Each problem is reported once, again every 6 hours while it lasts, and once more when it is solved. Each message starts with the server's name in brackets. E-mail alerts have the subject "Server alert:" followed by the server's name.
 
@@ -88,10 +88,12 @@ The panel checks the server every minute. Each problem is reported once, again e
 | **Disk above (%)** | the disk (`/`) is that full | 90 |
 | **A service stops (Nginx, PHP, MariaDB…)** | a service that starts at boot is not running | on |
 | **A backup, restore or certificate renewal fails** | a backup, a restore, a website certificate renewal or the panel certificate renewal fails | on |
+| **Website monitoring** (each website's **Monitoring** tab) | a monitored website is down (2 failed checks in a row), is up again, or serves a certificate that ends in less than 14 days | off |
 
 - Set a limit to 0 to turn it off. Other limits must be between 10 and 100.
 - The services watched are the web server (Nginx, Apache or OpenLiteSpeed), PHP-FPM, MariaDB, Redis and fail2ban, when installed.
 - Nothing is checked until at least one channel is set up.
+- Website monitoring is turned on for each website, and its checks run even without a channel: the **Monitoring** tab shows the results. Down alerts repeat every 6 hours, like the others. See [Websites](./websites#monitoring).
 
 ### Get alerts by Telegram
 
@@ -116,9 +118,80 @@ Alert e-mails are sent directly from the panel through an SMTP server, with thei
 
 On port 465 the connection is encrypted from the start. On other ports, the panel uses STARTTLS when the server offers it. If the server doesn't offer it and a user name is set, the panel refuses to send, so the password never travels in clear. The saved password is shown as dots, like the Telegram token.
 
+### Get alerts in Discord {#get-alerts-in-discord}
+
+1. In Discord, open the settings of the channel that should receive the alerts, then **Integrations** → **Webhooks** → **New Webhook**.
+2. Give the webhook a name if you like, then select **Copy Webhook URL**.
+3. In **Settings** → **Alerts**, paste it into **Webhook URL** under **Discord**.
+4. Select **Save**, then **Send a test**.
+
+The URL looks like `https://discord.com/api/webhooks/<id>/<token>`. Addresses on `discordapp.com` and the `ptb.` and `canary.` versions work too, and so does `?thread_id=` to post into a thread. Alerts longer than 2000 characters, Discord's limit, are cut. Mentions in an alert, such as `@everyone`, don't notify anyone.
+
+### Get alerts in Slack {#get-alerts-in-slack}
+
+1. Go to [api.slack.com/apps](https://api.slack.com/apps), select **Create New App** → **From scratch**, and choose your workspace.
+2. Open **Incoming Webhooks**, turn it on, then select **Add New Webhook to Workspace** and choose the channel.
+3. Copy the **Webhook URL**. It starts with `https://hooks.slack.com/services/`.
+4. In **Settings** → **Alerts**, paste it into **Webhook URL** under **Slack**, select **Save**, then **Send a test**.
+
+Only incoming webhooks are accepted: Slack's workflow webhooks expect other fields.
+
+### Send alerts to a webhook {#send-alerts-to-a-webhook}
+
+The webhook posts each alert as JSON to an address of your choice: your own script, n8n, Home Assistant, a chat that isn't listed here. Under **Webhook**, enter its **Webhook URL** and, if the receiver checks signatures, a **Secret for signing (optional)** of 16 to 200 characters without spaces. Then select **Save** and **Send a test**.
+
+Each alert is a `POST` with `Content-Type: application/json` and this body:
+
+```json
+{"server":"vps-1","text":"⚠️ The disk is 93% full.","time":"2026-11-26T08:15:00Z","kind":"alert"}
+```
+
+| Field | Value |
+|---|---|
+| `server` | The server's host name |
+| `text` | The alert, without the server's name. Solved problems start with "✅ Resolved:" |
+| `time` | When it was sent, in UTC, RFC 3339 |
+| `kind` | `alert`, or `test` for **Send a test** |
+
+Any 2xx answer counts as delivered. The panel waits 10 seconds at most, doesn't follow redirects, and doesn't show the receiver's answer, only its status code.
+
+#### Verify the signature {#verify-the-signature}
+
+With a secret, each request has the header `X-Nefo-Signature: sha256=` followed by the HMAC-SHA256 of the body, in hexadecimal, with the secret as key. Compute it over the body exactly as received, before parsing the JSON, and compare in constant time. In Python:
+
+```python
+import hashlib, hmac
+
+def verify(secret: bytes, body: bytes, signature: str) -> bool:
+    expected = "sha256=" + hmac.new(secret, body, hashlib.sha256).hexdigest()
+    return hmac.compare_digest(expected, signature)
+```
+
+In Node.js, compare `'sha256=' + crypto.createHmac('sha256', secret).update(rawBody).digest('hex')` with the header using `crypto.timingSafeEqual`, after checking that both have the same length. The signed body includes `time`: refuse requests that are more than a few minutes old to stop replays.
+
+#### Addresses a webhook can't use {#webhook-addresses}
+
+- The URL starts with `https://`. A plain `http://` address works only after you tick **Allow an http:// address (not encrypted, for a receiver on your own network)**: without encryption, the alert and its signature can be read on the way.
+- No user name or password in the URL, no `#`, and at most 2048 characters.
+- So that the webhook can't reach the server's own services, the panel never connects to loopback addresses (`127.0.0.0/8`, `::1`, `localhost`), link-local addresses (`169.254.0.0/16`, `fe80::/10`), cloud metadata services (`169.254.169.254`, `100.100.100.200`, `168.63.129.16`, `fd00:ec2::254`), `0.0.0.0/8` or multicast addresses. A host name is checked again each time an alert is sent, on the addresses it resolves to, so a name that points to `127.0.0.1` is refused too.
+- Private networks (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fd00::/8`) are allowed, for a receiver at home or in a container.
+
+### Saved webhook URLs {#saved-webhook-urls}
+
+The Discord, Slack and webhook URLs contain their token, so after you save they're shown as dots, like the Telegram token, and so is the secret. Leave the dots as they are to keep the saved value. Clear a URL and save to stop using that channel. Clearing the webhook's URL also removes its secret and the http:// permission.
+
 ### Send a test alert
 
-**Send a test** sends a test message through every channel that is saved. It uses the saved settings, so select **Save** first. The result shows one line per channel, **Telegram** or **E-mail**, with **sent** or the error. If no channel is set up, the panel says "Set up Telegram or e-mail first, and save."
+**Send a test** sends a test message through every channel that is saved. It uses the saved settings, so select **Save** first. The result shows one line per channel, **Telegram**, **E-mail**, **Discord**, **Slack** or **Webhook**, with **sent** or the error. If no channel is set up, the panel says "Set up a channel first, and save."
+
+For Discord, Slack and the webhook, the error is one of these:
+
+- **Cannot reach the webhook** followed by the reason, for example `no such host` or `connection refused`.
+- **The webhook refused the message (HTTP 404…)**: the receiver answered with something other than a 2xx status. Discord and Slack add their reason, such as `Unknown Webhook` or `invalid_token`. A redirect (3xx) counts as a refusal too.
+- **The webhook did not answer within 10 seconds.**
+- **… is a loopback, link-local or cloud metadata address**: see [Addresses a webhook can't use](#webhook-addresses).
+
+When a real alert can't be sent, the panel log says so with the channel's name, never its URL.
 
 ### Alerts and the dashboard
 

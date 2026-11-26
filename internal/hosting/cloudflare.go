@@ -10,8 +10,10 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/nefocp/nefo/internal/usererr"
 	"github.com/nefocp/nefo/internal/version"
@@ -20,6 +22,7 @@ import (
 // DNS-01 validation through Cloudflare's API: needed for wildcard names, and
 // useful for sites that are not reachable over HTTP yet. The API token needs
 // the "Edit zone DNS" permission (Zone → DNS → Edit) for the zones in use.
+// The DNS page uses the same client and token (cloudflare_dns.go).
 
 // CloudflareTokenKey is the setting that holds the API token.
 const CloudflareTokenKey = "cloudflare_token"
@@ -48,53 +51,129 @@ func newCloudflare(token string) *cloudflare {
 	return &cloudflare{token: token, http: &http.Client{Timeout: 30 * time.Second}}
 }
 
+// cfError is an error answer from Cloudflare's API. Its text holds
+// Cloudflare's messages and codes, never the token.
+type cfError struct {
+	Status int
+	Codes  []int
+	Text   string
+}
+
+func (e *cfError) Error() string { return "Cloudflare API: " + e.Text }
+
+// denied reports whether Cloudflare refused the request for the token's
+// permissions: 10000 "Authentication error" or 9109 "Unauthorized to
+// access requested resource", usually with HTTP 403.
+func (e *cfError) denied() bool {
+	return e.has(10000, 9109) || (e.Status == http.StatusForbidden && !e.has(1000, 6003, 6111))
+}
+
+// badToken reports whether Cloudflare does not know the token at all:
+// 1000 "Invalid API Token", or 6003/6111 for a malformed one.
+func (e *cfError) badToken() bool {
+	return e.has(1000, 6003, 6111) || (e.Status == http.StatusUnauthorized && !e.has(10000, 9109))
+}
+
+func (e *cfError) has(codes ...int) bool {
+	for _, c := range e.Codes {
+		if slices.Contains(codes, c) {
+			return true
+		}
+	}
+	return false
+}
+
+// cfPage is the paging information of a list answer.
+type cfPage struct {
+	Page       int `json:"page"`
+	PerPage    int `json:"per_page"`
+	Count      int `json:"count"`
+	TotalCount int `json:"total_count"`
+	TotalPages int `json:"total_pages"`
+}
+
 // do calls the API and decodes "result" into out.
 func (c *cloudflare) do(ctx context.Context, method, path string, in, out any) error {
+	_, err := c.call(ctx, method, path, in, out)
+	return err
+}
+
+// call is do that also returns the paging information of a list.
+func (c *cloudflare) call(ctx context.Context, method, path string, in, out any) (*cfPage, error) {
 	var body io.Reader
 	if in != nil {
 		b, err := json.Marshal(in)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		body = bytes.NewReader(b)
 	}
 	req, err := http.NewRequestWithContext(ctx, method, cloudflareAPI+path, body)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	req.Header.Set("Authorization", "Bearer "+c.token)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("User-Agent", version.AppName+"/"+version.Version)
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return fmt.Errorf("Cloudflare API: %w", err)
+		return nil, fmt.Errorf("Cloudflare API: %w", err)
 	}
 	defer resp.Body.Close()
-	var env struct {
-		Success bool `json:"success"`
-		Errors  []struct {
+	type cfMsg struct {
+		Code    int    `json:"code"`
+		Message string `json:"message"`
+		Chain   []struct {
 			Code    int    `json:"code"`
 			Message string `json:"message"`
-		} `json:"errors"`
-		Result json.RawMessage `json:"result"`
+		} `json:"error_chain"`
+	}
+	var env struct {
+		Success bool            `json:"success"`
+		Errors  []cfMsg         `json:"errors"`
+		Result  json.RawMessage `json:"result"`
+		Info    *cfPage         `json:"result_info"`
 	}
 	if err := json.NewDecoder(io.LimitReader(resp.Body, 4<<20)).Decode(&env); err != nil {
-		return fmt.Errorf("Cloudflare API: HTTP %d, unreadable answer", resp.StatusCode)
+		return nil, fmt.Errorf("Cloudflare API: HTTP %d, unreadable answer", resp.StatusCode)
 	}
 	if !env.Success {
+		e := &cfError{Status: resp.StatusCode}
 		msgs := []string{}
-		for _, e := range env.Errors {
-			msgs = append(msgs, fmt.Sprintf("%s (%d)", e.Message, e.Code))
+		for _, m := range env.Errors {
+			e.Codes = append(e.Codes, m.Code)
+			msgs = append(msgs, fmt.Sprintf("%s (%d)", truncateText(m.Message, 300), m.Code))
+			for _, c := range m.Chain {
+				e.Codes = append(e.Codes, c.Code)
+				msgs = append(msgs, fmt.Sprintf("%s (%d)", truncateText(c.Message, 300), c.Code))
+			}
+			if len(msgs) >= 10 {
+				break
+			}
 		}
 		if len(msgs) == 0 {
 			msgs = append(msgs, fmt.Sprintf("HTTP %d", resp.StatusCode))
 		}
-		return fmt.Errorf("Cloudflare API: %s", strings.Join(msgs, "; "))
+		e.Text = strings.Join(msgs, "; ")
+		return nil, e
 	}
 	if out != nil {
-		return json.Unmarshal(env.Result, out)
+		if err := json.Unmarshal(env.Result, out); err != nil {
+			return nil, fmt.Errorf("Cloudflare API: unexpected answer: %w", err)
+		}
 	}
-	return nil
+	return env.Info, nil
+}
+
+// truncateText shortens s to at most n bytes, on a character boundary.
+func truncateText(s string, n int) string {
+	if len(s) <= n {
+		return s
+	}
+	for n > 0 && !utf8.RuneStart(s[n]) {
+		n--
+	}
+	return s[:n] + "…"
 }
 
 // Verify checks that the token is valid and active.
@@ -114,7 +193,11 @@ func (c *cloudflare) Verify(ctx context.Context) error {
 type cfZone struct {
 	ID          string   `json:"id"`
 	Name        string   `json:"name"`
+	Status      string   `json:"status"`
 	NameServers []string `json:"name_servers"`
+	Plan        struct {
+		Name string `json:"name"`
+	} `json:"plan"`
 }
 
 // zoneFor finds the Cloudflare zone that holds name, trying the name and

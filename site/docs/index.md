@@ -46,7 +46,9 @@ Each server has one panel account, `admin`. Nefo has no separate logins for cust
 - Run Docker containers and Compose projects. Nefo checks Compose files for unsafe settings, such as privileged containers or ports open to the internet. See [Docker](./docker).
 - Control the firewall (ufw), fail2ban, SSH settings, a web application firewall per website and a malware scanner. See [Security](./security).
 - Use a terminal in the browser, and manage services, processes, background programs and cron jobs. See [System tools](./system).
-- Let websites send e-mail through an SMTP relay, and get alerts by Telegram or e-mail. See [Mail and alerts](./mail-alerts).
+- Watch that each website answers, with its uptime and response times. See [Monitoring](./websites#monitoring).
+- Let websites send e-mail through an SMTP relay, and get alerts by Telegram, e-mail, Discord, Slack or a webhook. See [Mail and alerts](./mail-alerts).
+- Manage the DNS records of your Cloudflare zones, and point a website's domain at this server. See [DNS (Cloudflare)](./dns).
 
 ## Security of the panel itself
 
@@ -92,7 +94,7 @@ On its own, the panel connects to other servers only for these tasks:
 Everything else happens only because you asked for it:
 
 - **Updates:** Nefo checks for a new version only when you click **Check for updates** or run `nefo update`. It never updates itself. See [Update](./update).
-- **Things you set up:** alerts (Telegram or your SMTP server), remote backups (your S3 or SFTP storage), DNS validation (the Cloudflare API) and the mail relay (your mail provider).
+- **Things you set up:** alerts (Telegram, your SMTP server, Discord, Slack or your webhook), website monitoring (your websites, by their domain, like a visitor), remote backups (your S3 or SFTP storage), DNS validation and the DNS page (the Cloudflare API) and the mail relay (your mail provider).
 - **Software you install:** packages come from your distribution through apt, and some components come from their own projects, such as Node.js from nodejs.org, extra PHP versions from the ondrej/php repository, and OpenLiteSpeed from LiteSpeed's repository. Some installed software connects out on its own: for example, ClamAV downloads its virus databases.
 
 Most requests from the panel identify themselves as `Nefo/<version>`. They don't include information about your server or your websites beyond what the task needs, such as the domain names in a certificate request.

@@ -77,9 +77,11 @@ To renew by hand, for example after you fixed a problem, click **Renew certifica
 
 ## Wildcard certificates through Cloudflare DNS
 
-A wildcard name such as `*.example.com` can only be validated through DNS. Nefo does this through Cloudflare's API, so the domain's DNS must be hosted at Cloudflare. DNS validation also works for a site that is not reachable over HTTP yet, for example behind Cloudflare's proxy. Nefo only adds and removes `_acme-challenge` TXT records.
+A wildcard name such as `*.example.com` can only be validated through DNS. Nefo does this through Cloudflare's API, so the domain's DNS must be hosted at Cloudflare. DNS validation also works for a site that is not reachable over HTTP yet, for example behind Cloudflare's proxy. For a certificate, Nefo only adds and removes `_acme-challenge` TXT records.
 
 ### Create a Cloudflare API token
+
+The same token also serves the [DNS page](./dns). Its permissions are listed in one place, under [The API token](./dns#the-api-token): certificates need only Zone → DNS → Edit; the DNS page can also use Zone → Zone → Read and Zone → Cache Purge → Purge.
 
 1. In the Cloudflare dashboard, open **My Profile → API Tokens → Create Token**.
 2. Use the **Edit zone DNS** template. It gives the permission Zone → DNS → Edit.
@@ -149,7 +151,7 @@ See [the check before the request](#the-check-before-the-request). Most failures
 
 ### Cloudflare proxy (orange cloud)
 
-With Cloudflare's proxy on, the domain resolves to Cloudflare's addresses, and requests reach Cloudflare before your server. Cloudflare settings such as a redirect to HTTPS can then stop the check from reaching the server unchanged, and Nefo reports that the name "answered HTTP …, but not from this server". You have three ways out:
+With Cloudflare's proxy on, the domain resolves to Cloudflare's addresses, and requests reach Cloudflare before your server. Cloudflare settings such as **Always Use HTTPS** (a redirect to HTTPS, under **SSL/TLS → Edge Certificates**) can then stop the check from reaching the server unchanged, and Nefo reports that the name "answered HTTP …, but not from this server". See also [Let's Encrypt behind the orange cloud](./dns#let-s-encrypt-behind-the-orange-cloud). You have three ways out:
 
 - tick **Validate through DNS (Cloudflare)** and get the certificate through DNS. The proxy can stay on, and renewals work the same way;
 - install a Cloudflare origin certificate as [your own certificate](#use-your-own-certificate);

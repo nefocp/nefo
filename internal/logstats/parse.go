@@ -21,6 +21,10 @@ type entry struct {
 // not visits and are left out of the statistics.
 var acmePrefix = []byte("/.well-known/acme-challenge/")
 
+// monitorAgent starts the User-Agent of the panel's own website checks
+// (internal/uptime), which are not visits either.
+var monitorAgent = []byte("Nefo-Monitor/")
+
 // maxPathLen shortens very long paths, which are mostly attacks, so that
 // they cannot use much memory.
 const maxPathLen = 200

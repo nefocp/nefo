@@ -34,6 +34,7 @@ import (
 	"github.com/nefocp/nefo/internal/store"
 	"github.com/nefocp/nefo/internal/system"
 	"github.com/nefocp/nefo/internal/systools"
+	"github.com/nefocp/nefo/internal/uptime"
 	"github.com/nefocp/nefo/internal/web"
 )
 
@@ -52,6 +53,7 @@ type Server struct {
 	security *security.Manager
 	software *software.Manager
 	monitor  *monitor.Monitor
+	uptime   *uptime.Service
 	docker   *docker.Manager
 	mail     *mailrelay.Manager
 	systools *systools.Manager
@@ -93,6 +95,7 @@ func New(cfg *config.Config, st *store.Store, log *slog.Logger) *Server {
 	s.mail = mailrelay.New(run.System{}, st)
 	s.hosting.SetReservedPorts(cfg.Port(), gitdeploy.HookPort)
 	s.monitor = monitor.New(st, s.sys, log, s.watchedServices)
+	s.uptime = uptime.New(st, s.monitor.Notify, log)
 	s.software = software.New(run.System{}, st, func(ctx context.Context) string { return s.hosting.Status(ctx).DefaultPHP })
 	s.systools = systools.New(run.System{}, st)
 	return s
@@ -168,6 +171,15 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/mail-relay/test", s.requireAuth(s.handleMailRelayTest))
 	mux.Handle("DELETE /api/mail-relay", s.requireAuth(s.handleMailRelayRemove))
 	mux.Handle("PUT /api/settings/cloudflare", s.requireAuth(s.handleSetCloudflare))
+	// The DNS page and "point DNS here" through the Cloudflare token (dns.go).
+	mux.Handle("GET /api/dns/zones", s.requireAuth(s.handleDNSZones))
+	mux.Handle("GET /api/dns/zones/{zone}/records", s.requireAuth(s.handleDNSRecords))
+	mux.Handle("POST /api/dns/zones/{zone}/records", s.requireAuth(s.handleCreateDNSRecord))
+	mux.Handle("PUT /api/dns/zones/{zone}/records/{id}", s.requireAuth(s.handleUpdateDNSRecord))
+	mux.Handle("DELETE /api/dns/zones/{zone}/records/{id}", s.requireAuth(s.handleDeleteDNSRecord))
+	mux.Handle("POST /api/dns/zones/{zone}/purge", s.requireAuth(s.handlePurgeDNSCache))
+	mux.Handle("POST /api/sites/{id}/dns/plan", s.requireAuth(s.handlePointDNSPlan))
+	mux.Handle("POST /api/sites/{id}/dns/apply", s.requireAuth(s.handlePointDNSApply))
 	mux.Handle("PUT /api/sites/{id}/nginx", s.requireAuth(s.handleSetNginx))
 	mux.Handle("PUT /api/sites/{id}/sftp", s.requireAuth(s.handleSetSFTP))
 	mux.Handle("GET /api/databases/{id}/export", s.requireAuth(s.handleExportDatabase))
@@ -180,6 +192,10 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/sites/{id}/git/deploy", s.requireAuth(s.handleGitDeploy))
 	mux.Handle("POST /api/sites/{id}/git/key", s.requireAuth(s.handleGitKey))
 	mux.Handle("POST /api/sites/{id}/git/secret", s.requireAuth(s.handleGitSecret))
+	// Website monitoring (uptime.go).
+	mux.Handle("GET /api/sites/{id}/monitor", s.requireAuth(s.handleGetSiteMonitor))
+	mux.Handle("PUT /api/sites/{id}/monitor", s.requireAuth(s.handleSaveSiteMonitor))
+	mux.Handle("GET /api/uptime", s.requireAuth(s.handleUptimeSummary))
 
 	mux.Handle("GET /api/wordpress", s.requireAuth(s.handleWPList))
 	mux.Handle("GET /api/wordpress/{id}", s.requireAuth(s.handleWPStatus))

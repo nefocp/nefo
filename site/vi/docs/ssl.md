@@ -75,11 +75,13 @@ Nefo đăng ký tài khoản Let's Encrypt không kèm địa chỉ email, nên 
 
 Muốn gia hạn bằng tay, ví dụ sau khi đã sửa lỗi, hãy bấm **Xin lại chứng chỉ** ở tab **SSL / HTTPS**.
 
-## Chứng chỉ wildcard qua DNS Cloudflare
+## Chứng chỉ wildcard qua DNS Cloudflare {#chung-chi-wildcard}
 
-Tên wildcard như `*.example.com` chỉ xác thực được qua DNS. Nefo làm việc này qua API của Cloudflare, nên DNS của tên miền phải đặt ở Cloudflare. Xác thực DNS cũng dùng được cho website chưa truy cập được qua HTTP, ví dụ khi đứng sau proxy của Cloudflare. Nefo chỉ thêm và xóa bản ghi TXT `_acme-challenge`.
+Tên wildcard như `*.example.com` chỉ xác thực được qua DNS. Nefo làm việc này qua API của Cloudflare, nên DNS của tên miền phải đặt ở Cloudflare. Xác thực DNS cũng dùng được cho website chưa truy cập được qua HTTP, ví dụ khi đứng sau proxy của Cloudflare. Khi xin chứng chỉ, Nefo chỉ thêm và xóa bản ghi TXT `_acme-challenge`.
 
-### Tạo API token trên Cloudflare
+### Tạo API token trên Cloudflare {#tao-api-token}
+
+Token này cũng dùng cho [trang DNS](./dns). Các quyền của token được liệt kê ở một chỗ duy nhất, mục [API token](./dns#token): xin chứng chỉ chỉ cần Zone → DNS → Edit; trang DNS còn dùng thêm Zone → Zone → Read và Zone → Cache Purge → Purge.
 
 1. Trong trang quản trị Cloudflare, mở **My Profile → API Tokens → Create Token**.
 2. Dùng mẫu **Edit zone DNS**. Mẫu này cấp quyền Zone → DNS → Edit.
@@ -149,7 +151,7 @@ Xem [Bước kiểm tra trước khi xin](#kiem-tra-truoc). Phần lớn lỗi l
 
 ### Proxy của Cloudflare (đám mây màu cam) {#cloudflare-proxy}
 
-Khi bật proxy của Cloudflare, tên miền phân giải ra địa chỉ của Cloudflare, và request tới Cloudflare trước rồi mới tới máy chủ. Các cài đặt của Cloudflare, như chuyển hướng sang HTTPS, có thể khiến bước kiểm tra không tới máy chủ nguyên vẹn, và Nefo báo tên đó "answered HTTP …, but not from this server". Bạn có ba cách:
+Khi bật proxy của Cloudflare, tên miền phân giải ra địa chỉ của Cloudflare, và request tới Cloudflare trước rồi mới tới máy chủ. Các cài đặt của Cloudflare, như **Always Use HTTPS** (chuyển hướng sang HTTPS, ở **SSL/TLS → Edge Certificates**), có thể khiến bước kiểm tra không tới máy chủ nguyên vẹn, và Nefo báo tên đó "answered HTTP …, but not from this server". Xem thêm [Let's Encrypt khi bật đám mây màu cam](./dns#lets-encrypt). Bạn có ba cách:
 
 - chọn **Xác thực qua DNS (Cloudflare)** và lấy chứng chỉ qua DNS. Proxy vẫn bật được, và việc gia hạn cũng chạy như vậy;
 - cài chứng chỉ origin của Cloudflare làm [chứng chỉ riêng](#chung-chi-rieng);

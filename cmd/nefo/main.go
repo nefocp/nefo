@@ -325,6 +325,7 @@ func cmdServe(args []string) error {
 	go srv.RunMaintenance(ctx)
 	go srv.RunScheduler(ctx)
 	go srv.RunMonitor(ctx)
+	go srv.RunUptime(ctx)
 	go srv.RunGitHooks(ctx) // push webhooks, through Nginx, on 127.0.0.1:7809
 	go srv.RunHtaccessWatch(ctx)
 

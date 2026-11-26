@@ -41,6 +41,11 @@ func TestCopyTreeMirror(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	// dst's a.txt is older and of the same size: files written within one
+	// clock tick share their time, and it would count as unchanged.
+	if err := os.Chtimes(filepath.Join(dst, "a.txt"), mtime, mtime); err != nil {
+		t.Fatal(err)
+	}
 	linked := os.Symlink("/elsewhere", filepath.Join(dst, "link")) == nil
 
 	st, err := CopyTree(context.Background(), src, dst, CopyOptions{UID: -1, SrcUID: -1, Mirror: true, Skip: []string{"keep.php"},

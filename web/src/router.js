@@ -18,6 +18,7 @@ export const router = createRouter({
         { path: 'apps', name: 'apps', component: () => import('./views/AppsView.vue') },
         { path: 'wordpress', name: 'wordpress', component: () => import('./views/WordPressView.vue') },
         { path: 'databases', name: 'databases', component: () => import('./views/DatabasesView.vue') },
+        { path: 'dns', name: 'dns', component: () => import('./views/DnsView.vue') },
         { path: 'files', name: 'files', component: () => import('./views/FilesView.vue') },
         { path: 'backups', name: 'backups', component: () => import('./views/BackupsView.vue') },
         { path: 'cron', name: 'cron', component: () => import('./views/CronView.vue') },

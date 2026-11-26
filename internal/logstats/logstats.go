@@ -426,7 +426,7 @@ func (a *aggregator) addLine(line []byte) {
 	if e.unix < a.oldest {
 		a.oldest = e.unix
 	}
-	if e.path != nil && bytes.HasPrefix(e.path, acmePrefix) {
+	if e.path != nil && bytes.HasPrefix(e.path, acmePrefix) || bytes.HasPrefix(e.agent, monitorAgent) {
 		return
 	}
 	day := bucket(a.dayStarts, e.unix)

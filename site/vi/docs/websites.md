@@ -85,7 +85,7 @@ Bấm vào tên miền trong danh sách, hoặc nút **Cài đặt** ở cuối 
 | **Cơ bản** | **Tổng quan**, **Tên miền**, **PHP** (website PHP), **Runtime** (website ứng dụng) |
 | **Bảo mật** | **SSL / HTTPS**, **Tường lửa WAF**, **Chặn truy cập**, **Chống hotlink**, **Quét mã độc** |
 | **Cấu hình** | **Rewrite** (website PHP và tĩnh), **Bộ nhớ đệm trang** (website PHP trên Nginx và OpenLiteSpeed), **Cấu hình Nginx** (theo tên web server của bạn), **Chuyển hướng**, **Reverse proxy** (website ứng dụng), **Trang 404** |
-| **Vận hành** | **WordPress** (website WordPress), **Triển khai Git**, **SFTP**, **Sao lưu**, **Thống kê**, **Nhật ký**, **Hạn dùng & tạm ngưng** |
+| **Vận hành** | **WordPress** (website WordPress), **Triển khai Git**, **SFTP**, **Sao lưu**, **Theo dõi**, **Thống kê**, **Nhật ký**, **Hạn dùng & tạm ngưng** |
 
 Tab **Tổng quan** cho biết **Thư mục** của website (kèm **Mở trong trình quản lý tệp**), **Người dùng Linux**, tên miền, phiên bản PHP hoặc runtime, web server, tình trạng HTTPS và tường lửa. Bấm **Thêm ghi chú** để viết một dòng (tối đa 200 ký tự) hiện dưới tên miền trong danh sách, ví dụ tên khách hàng.
 
@@ -110,6 +110,8 @@ Các file cấu hình web server và PHP-FPM do Nefo viết đều mở đầu b
 Ở tab **Tên miền**, ô **Tên miền phụ** liệt kê các tên khác cùng mở website này, mỗi dòng một tên, ví dụ `www.example.com`. Mỗi website có tối đa 20 tên. Mỗi tên phải trỏ về máy chủ này và chỉ thuộc về một website.
 
 Tên wildcard như `*.example.com` nhận mọi tên miền con. Chứng chỉ cho nó cần xác thực DNS qua Cloudflare: xem [Chứng chỉ SSL](./ssl).
+
+Nếu DNS của tên miền đặt ở Cloudflare, nút **Trỏ DNS về đây…** ở cùng tab sẽ tạo hoặc cập nhật bản ghi A (và AAAA) cho mọi tên này, sau khi cho bạn xem trước: xem [DNS (Cloudflare)](./dns#point).
 
 Nếu website đã có HTTPS mà bạn đổi tên miền, Nefo báo "Tên miền đã thay đổi. Hãy xin chứng chỉ mới để HTTPS bao phủ tất cả tên miền." Hãy bấm **Xin lại chứng chỉ**.
 
@@ -210,7 +212,7 @@ Tab **Thống kê** đọc log truy cập của web server cho website. Chọn *
 - số yêu cầu và khách truy cập theo giờ hoặc theo ngày
 - **Trang được xem nhiều nhất**, **Địa chỉ IP truy cập nhiều nhất**, **Nguồn giới thiệu**, **Trình duyệt** và **Bot và script**
 
-Các yêu cầu kiểm tra chứng chỉ không được tính. Máy chủ giữ log khoảng 14 ngày, nên không có dữ liệu cũ hơn. Với log rất lớn, chỉ 5.000.000 dòng mới nhất được đọc. Cột **Truy cập 7 ngày** trong danh sách website lấy từ cùng các log này.
+Các yêu cầu kiểm tra chứng chỉ và các lần [theo dõi website](#monitoring) của chính panel không được tính. Máy chủ giữ log khoảng 14 ngày, nên không có dữ liệu cũ hơn. Với log rất lớn, chỉ 5.000.000 dòng mới nhất được đọc. Cột **Truy cập 7 ngày** trong danh sách website lấy từ cùng các log này.
 
 ## Nhật ký
 
@@ -219,6 +221,38 @@ Tab **Nhật ký** hiện những dòng mới nhất của:
 - **Log truy cập (Nginx)** và **Log lỗi (Nginx)** (theo tên web server của bạn)
 - **Lỗi PHP**, với website PHP (`/var/www/example.com/logs/php-error.log`)
 - **Log ứng dụng**, với website ứng dụng và website Docker
+
+## Theo dõi website {#monitoring}
+
+Tab **Theo dõi** kiểm tra vài phút một lần xem website có phản hồi không, và gửi cảnh báo cho bạn khi website không phản hồi. Bật **Theo dõi website này**; lần kiểm tra đầu tiên chạy ngay.
+
+Panel truy cập địa chỉ công khai của website, bằng `https://` nếu website có chứng chỉ (nếu không thì `http://`), qua DNS như mọi khách truy cập. Vì vậy bản ghi DNS sai, trang lỗi của Cloudflare hay chứng chỉ hết hạn cũng hiện ra. Panel đi theo các chuyển hướng tới tên miền của chính website (như từ `http://` sang `https://`, hoặc sang `www.`). Chuyển hướng tới tên miền khác được tính là có phản hồi.
+
+| Cài đặt | Tác dụng | Mặc định |
+|---|---|---|
+| **Chu kỳ kiểm tra** | bao lâu một lần: mỗi phút, hoặc mỗi 2, 5 hay 10 phút | mỗi 5 phút |
+| **Đường dẫn** | trang cần truy cập, như `/health`; có thể kèm chuỗi truy vấn | `/` |
+| **Chữ phải có trên trang** | không bắt buộc; không phân biệt chữ hoa, chữ thường | trống |
+| **Coi mã 4xx (như 404) là không phản hồi** | câu trả lời 4xx làm lần kiểm tra bị lỗi | tắt |
+
+Một lần kiểm tra bị lỗi khi:
+
+- không có câu trả lời trong 10 giây, tên miền không phân giải được, kết nối bị từ chối, hoặc chứng chỉ đã hết hạn, không được tin cậy hay cấp cho tên miền khác
+- câu trả lời là lỗi HTTP từ 500 trở lên. Câu trả lời 4xx vẫn được tính là hoạt động, trừ khi bạn chọn coi mã 4xx là không phản hồi
+- chữ phải có trên trang không nằm trong 256 KB đầu của trang
+
+Website bị coi là **Không phản hồi** sau 2 lần kiểm tra lỗi liên tiếp, và hoạt động trở lại sau một lần kiểm tra thành công. Khi đó panel gửi cảnh báo tới mọi kênh trong **Cài đặt** → **Cảnh báo** (xem [Cảnh báo](./mail-alerts#canh-bao)):
+
+- khi website ngừng phản hồi, kèm lý do, ví dụ "example.com is down (HTTP 502, 2 checks in a row)", và báo lại mỗi 6 giờ nếu vẫn chưa phản hồi
+- khi website hoạt động trở lại, kèm thời gian đã ngừng
+- khi chứng chỉ website đang dùng còn hạn dưới 14 ngày, tối đa một lần mỗi ngày
+
+Tab hiện trạng thái và lần kiểm tra gần nhất, thời gian hoạt động trong 24 giờ và 7 ngày, thời gian phản hồi trung bình, biểu đồ thời gian phản hồi trong 24 giờ qua, và các lần lỗi gần đây kèm lý do. Thời gian phản hồi được tính tới khi nhận được phần đầu (header) của câu trả lời, gồm cả thời gian kết nối. Trong danh sách website, website được theo dõi mà không phản hồi hiện chữ **Không phản hồi** màu đỏ ở cột **Hoạt động**, và chuông thông báo cũng liệt kê nó.
+
+- Các lần kiểm tra gửi user agent `Nefo-Monitor/1.0`. Chúng không được tính trong tab **Thống kê**.
+- Kết quả được giữ 7 ngày. Xóa website thì kết quả cũng bị xóa.
+- Website đang tạm ngưng không được kiểm tra.
+- Các lần kiểm tra chạy trên chính máy chủ này. Chúng không báo được khi cả máy chủ ngừng hoạt động, hay khi có sự cố trên đường mạng giữa khách truy cập và máy chủ: với trường hợp đó, hãy dùng thêm một dịch vụ theo dõi bên ngoài.
 
 ## Tường lửa web, quét mã độc và sao lưu
 

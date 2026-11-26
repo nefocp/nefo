@@ -641,3 +641,21 @@ func BenchmarkCompute(b *testing.B) {
 		}
 	}
 }
+
+// The panel's own website checks (internal/uptime) are not visits.
+func TestComputeSkipsMonitorChecks(t *testing.T) {
+	dir := t.TempDir()
+	now := at("2026-11-25 15:30:00", utc)
+	writeLog(t, filepath.Join(dir, "example.com.access.log"), []string{
+		get("192.0.2.1", at("2026-11-25 08:00:00", utc), "/", 200, 1000, "", chrome),
+		get("203.0.113.1", at("2026-11-25 08:05:00", utc), "/", 200, 1000, "", "Nefo-Monitor/1.0"),
+		get("203.0.113.1", at("2026-11-25 08:10:00", utc), "/health", 502, 10, "", "Nefo-Monitor/1.0"),
+	}, at("2026-11-25 12:00:00", utc))
+	r, err := Compute(dir, "example.com", []string{"example.com"}, 1, now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Totals.Requests != 1 || r.Totals.Bots != 0 || r.Totals.Status5xx != 0 || findItem(r.Paths, "/health") != nil {
+		t.Fatalf("totals = %+v, paths = %+v", r.Totals, r.Paths)
+	}
+}

@@ -27,6 +27,7 @@ const DOCS: Group[] = [
     pages: [
       ['websites', 'Websites', 'Website'],
       ['ssl', 'SSL certificates', 'Chứng chỉ SSL'],
+      ['dns', 'DNS (Cloudflare)', 'DNS (Cloudflare)'],
       ['git-deploy', 'Deploy from Git', 'Triển khai từ Git'],
       ['wordpress', 'WordPress toolkit', 'Công cụ WordPress'],
       ['apps', 'App store', 'Kho ứng dụng'],

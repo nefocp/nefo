@@ -27,7 +27,7 @@ func TestBackupAppID(t *testing.T) {
 	}
 	// The later migrations run again too: undo them first.
 	if _, err := st.db.Exec(`ALTER TABLE sites DROP COLUMN hsts; ALTER TABLE sites DROP COLUMN hsts_subdomains;
-		ALTER TABLE sites DROP COLUMN page_cache;`); err != nil {
+		ALTER TABLE sites DROP COLUMN page_cache; DROP TABLE uptime_checks; DROP TABLE site_monitors;`); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := st.db.Exec(`ALTER TABLE backups DROP COLUMN app_id; PRAGMA user_version = 19;

@@ -59,7 +59,9 @@ Useful commands on the server:
 - [x] **Website security:** a web application firewall (ModSecurity with the OWASP Core Rule Set, per site: off, detect or block, with its events), per-IP rate limits and blocked addresses, and a malware scanner (web shells, backdoors, hidden PHP) with quarantine, plus optional ClamAV
 - [x] Software: **install and uninstall** every component (web server, PHP, MariaDB, Adminer, Redis, Node.js, Python, Docker, WAF, ClamAV), refused while websites, databases or containers still use it, data kept unless you confirm; the menu hides what is not installed; several PHP versions with their extensions and php.ini settings, Redis, several Node.js versions, Python, Docker: containers, **Compose projects** (checked: localhost-only ports, no privileged containers or system mounts), images, and a terminal in each container
 - [x] Outgoing mail through an SMTP relay (Gmail, SendGrid, Mailgun, Amazon SES…), so websites can send e-mail
-- [x] Alerts by Telegram and e-mail, with their own SMTP settings (load, disk, stopped services, failed backups and renewals)
+- [x] **Website monitoring:** each site checked every 1 to 10 minutes (status code, an optional keyword, the certificate's expiry), down after two failed checks, uptime over 24 hours and 7 days, response times and recent failures
+- [x] Alerts by Telegram, e-mail (with their own SMTP settings), Discord, Slack and a signed webhook (load, disk, stopped services, failed backups and renewals, websites down and up again)
+- [x] **Cloudflare DNS:** the records of your zones (add, edit, delete, proxy on or off), cache purge, and pointing a website's domain at this server with a preview first
 - [x] English and Vietnamese UI
 - [ ] Google Drive backups, multi-server management
 
@@ -123,6 +125,7 @@ internal/system/      CPU, memory, disk and load from /proc
 internal/systools/    OS updates, swap, time zone and host name, TCP BBR, disk cleanup
 internal/terminal/    PTY for the web terminal
 internal/update/      signed self-update
+internal/uptime/      website monitoring
 internal/validate/    allow-list validation of everything that reaches the system
 internal/wptoolkit/   WordPress toolkit (wp-cli)
 internal/web/         the built UI, embedded with go:embed

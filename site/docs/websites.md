@@ -85,7 +85,7 @@ Click the domain in the list, or **Settings** at the end of its row. The setting
 | **Basics** | **Overview**, **Domains**, **PHP** (PHP sites), **Runtime** (app sites) |
 | **Security** | **SSL / HTTPS**, **Web firewall (WAF)**, **Block access**, **Hotlink protection**, **Malware scan** |
 | **Configuration** | **Rewrite** (PHP and static sites), **Page cache** (PHP sites on Nginx and OpenLiteSpeed), **Nginx configuration** (named after your web server), **Redirect**, **Reverse proxy** (app sites), **404 page** |
-| **Operations** | **WordPress** (WordPress sites), **Git deploy**, **SFTP**, **Backups**, **Traffic**, **Logs**, **Expiry and suspension** |
+| **Operations** | **WordPress** (WordPress sites), **Git deploy**, **SFTP**, **Backups**, **Monitoring**, **Traffic**, **Logs**, **Expiry and suspension** |
 
 The **Overview** tab shows the website's **Folder** (with **Open in Files**), its **Linux user**, domains, PHP version or runtime, web server, HTTPS and firewall state. Click **Add a note** to write one line (up to 200 characters) that shows under the domain in the list, such as a client name.
 
@@ -110,6 +110,8 @@ The web server and PHP-FPM files that Nefo writes start with "Managed by Nefo. D
 On the **Domains** tab, **Extra domain names** lists the other names that open the same website, one per line, such as `www.example.com`. A website can have up to 20. Each name must point to this server and can belong to only one website.
 
 A wildcard such as `*.example.com` answers for every subdomain. Its certificate needs DNS validation through Cloudflare: see [SSL certificates](./ssl).
+
+If the domain's DNS is at Cloudflare, **Point DNS here…** on the same tab creates or updates the A (and AAAA) records of all these names, after a preview: see [DNS (Cloudflare)](./dns#point-a-website-to-this-server).
 
 If the website has HTTPS and you change its names, Nefo says "The domain names changed. Get a new certificate so HTTPS covers all of them." Click **Renew certificate**.
 
@@ -210,7 +212,7 @@ The **Traffic** tab reads the web server's access logs for the website. Choose t
 - requests and visitors per hour or per day
 - **Top pages**, **Top IP addresses**, **Referrers**, **Browsers** and **Bots and scripts**
 
-Certificate checks are not counted. The server keeps about 14 days of logs, so older traffic is not known. For very large logs, only the newest 5,000,000 lines are read. The **Visits, 7 days** column of the website list comes from the same logs.
+Certificate checks and the panel's own [monitoring](#monitoring) checks are not counted. The server keeps about 14 days of logs, so older traffic is not known. For very large logs, only the newest 5,000,000 lines are read. The **Visits, 7 days** column of the website list comes from the same logs.
 
 ## Logs
 
@@ -219,6 +221,38 @@ The **Logs** tab shows the newest lines of:
 - **Access log (Nginx)** and **Error log (Nginx)** (named after your web server)
 - **PHP errors**, for PHP websites (`/var/www/example.com/logs/php-error.log`)
 - **App logs**, for app and Docker websites
+
+## Monitoring
+
+The **Monitoring** tab checks every few minutes that the website answers, and sends you an alert when it doesn't. Turn on **Monitor this website**; the first check runs at once.
+
+The panel asks for the website's public address, with `https://` when it has a certificate (otherwise `http://`), through DNS like any visitor. So a wrong DNS record, a Cloudflare error page or an expired certificate shows up too. Redirects to the website's own domains (such as `http://` to `https://`, or to `www.`) are followed. A redirect to another domain counts as an answer.
+
+| Setting | What it does | Default |
+|---|---|---|
+| **Check** | how often: every minute, or every 2, 5 or 10 minutes | every 5 minutes |
+| **Path** | the page to ask for, such as `/health`; a query string is allowed | `/` |
+| **Text the page must contain** | optional; upper and lower case don't matter | empty |
+| **Count 4xx answers, such as 404, as down** | a 4xx answer fails the check | off |
+
+A check fails when:
+
+- no answer comes within 10 seconds, the domain doesn't resolve, the connection is refused, or the certificate has expired, isn't trusted or is for another domain
+- the answer is an HTTP error 500 or higher. A 4xx answer counts as up, unless you count 4xx answers as down
+- the text the page must contain isn't in the first 256 KB of the page
+
+The website is **Down** after 2 failed checks in a row, and up again after one successful check. The panel then sends an alert to every channel in **Settings** → **Alerts** (see [Alerts](./mail-alerts#alerts)):
+
+- when it goes down, with the reason, such as "example.com is down (HTTP 502, 2 checks in a row)", and again every 6 hours while it stays down
+- when it's up again, with how long it was down
+- when the certificate it serves ends in less than 14 days, at most once a day
+
+The tab shows the state and the last check, the uptime over 24 hours and 7 days, the average response time, the response times of the last 24 hours as a chart, and the last failures with their reasons. The response time runs until the answer's headers arrive, connecting included. In the website list, a monitored website that is down shows **Down** in red in its **Running** column, and the bell lists it.
+
+- The checks send the user agent `Nefo-Monitor/1.0`. They aren't counted in the **Traffic** tab.
+- The results are kept for 7 days. Deleting the website deletes them.
+- A suspended website isn't checked.
+- The checks run on this server. They can't report that the whole server is down, or a problem on the network between your visitors and the server: for that, add an outside monitoring service.
 
 ## Web firewall, malware scan and backups
 
