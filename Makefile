@@ -36,8 +36,13 @@ release-binaries:
 	fi
 	cd dist && sha256sum nefo-linux-* install.sh > checksums.txt
 	# Sign checksums.txt with the private key in $(SIGNING_KEY), if given.
+	# Signed releases also carry the App store catalog, signed on its own:
+	# panels fetch it daily from the latest release (internal/appstore/remote.go)
+	# and use it only when it is newer than the one built in.
 	if [ -n "$(SIGNING_KEY)" ]; then \
-	  openssl pkeyutl -sign -rawin -inkey "$(SIGNING_KEY)" -in dist/checksums.txt -out dist/checksums.txt.sig; \
+	  openssl pkeyutl -sign -rawin -inkey "$(SIGNING_KEY)" -in dist/checksums.txt -out dist/checksums.txt.sig && \
+	  cp internal/appstore/catalog.json dist/appstore-catalog.json && \
+	  openssl pkeyutl -sign -rawin -inkey "$(SIGNING_KEY)" -in dist/appstore-catalog.json -out dist/appstore-catalog.json.sig; \
 	fi
 
 release: web release-binaries

@@ -7,6 +7,7 @@ Releases are built by GitHub Actions when a tag such as `v1.2.0` is pushed (see 
 - `VERSION`
 - `checksums.txt` (SHA-256 of the files above)
 - `checksums.txt.sig` (Ed25519 signature of `checksums.txt`)
+- `appstore-catalog.json` and `appstore-catalog.json.sig`: the App store catalog (`internal/appstore/catalog.json`), signed on its own. Panels fetch it once a day from the latest release and use it only when its `catalog_version` is higher than the one built into them, so a catalog fix can ship without a new binary: raise `catalog_version`, then run `make release` and replace these two files on the latest release.
 
 `install.sh` and `nefo update` refuse a download whose checksum does not match, and refuse a `checksums.txt` that is not signed by the project's key. So an attacker who can change files on GitHub, or in transit, still cannot get their own binary installed.
 
