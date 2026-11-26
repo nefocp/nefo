@@ -279,6 +279,10 @@ var migrations = []string{
 	`ALTER TABLE backups ADD COLUMN app_id TEXT NOT NULL DEFAULT '';
 	UPDATE backups SET app_id = COALESCE((SELECT app_id FROM apps WHERE apps.name = backups.target), '')
 		WHERE kind = 'app';`,
+	// 21: HSTS (with includeSubDomains) and Nginx's page cache per website
+	`ALTER TABLE sites ADD COLUMN hsts            INTEGER NOT NULL DEFAULT 0;
+	ALTER TABLE sites ADD COLUMN hsts_subdomains INTEGER NOT NULL DEFAULT 0;
+	ALTER TABLE sites ADD COLUMN page_cache      INTEGER NOT NULL DEFAULT 0;`,
 }
 
 // Open opens (and creates or upgrades) the database in dataDir.

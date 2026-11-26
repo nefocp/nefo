@@ -72,6 +72,12 @@ type Site struct {
 	Hotlink      bool
 	HotlinkAllow string
 	ExpiresAt    time.Time
+	// HSTS sends Strict-Transport-Security (with includeSubDomains if
+	// HSTSSubdomains) while HTTPS and the redirect to it are on. PageCache
+	// turns on Nginx's FastCGI cache for a PHP site.
+	HSTS           bool
+	HSTSSubdomains bool
+	PageCache      bool
 	// Note is the administrator's own one-line note, shown under the domain.
 	// It changes only through SetSiteNote, never through UpdateSite.
 	Note      string
@@ -84,7 +90,7 @@ func (s *Site) Names() []string {
 }
 
 const siteCols = `id, domain, aliases, sys_user, php_version, ssl, force_https,
-	cert_not_before, cert_not_after, ssl_error, ssl_attempt_at, app, php_memory, php_upload, php_time, proxy_port, app_command, disabled, redirect_url, auth_user, auth_hash, sftp, rewrite, nginx_custom, ssl_source, ssl_dns, waf, rate_limit, blocked_ips, php_workers, php_pm, php_allow, custom_404, hotlink, hotlink_allow, expires_at, app_runtime, note, created_at`
+	cert_not_before, cert_not_after, ssl_error, ssl_attempt_at, app, php_memory, php_upload, php_time, proxy_port, app_command, disabled, redirect_url, auth_user, auth_hash, sftp, rewrite, nginx_custom, ssl_source, ssl_dns, waf, rate_limit, blocked_ips, php_workers, php_pm, php_allow, custom_404, hotlink, hotlink_allow, expires_at, app_runtime, note, hsts, hsts_subdomains, page_cache, created_at`
 
 type scanner interface{ Scan(dest ...any) error }
 
@@ -93,7 +99,7 @@ func scanSite(row scanner) (*Site, error) {
 	var aliases string
 	var notBefore, notAfter, attempt, created, expires int64
 	err := row.Scan(&s.ID, &s.Domain, &aliases, &s.SysUser, &s.PHPVersion, &s.SSL, &s.ForceHTTPS,
-		&notBefore, &notAfter, &s.SSLError, &attempt, &s.App, &s.PHPMemory, &s.PHPUpload, &s.PHPTime, &s.ProxyPort, &s.AppCommand, &s.Disabled, &s.RedirectURL, &s.AuthUser, &s.AuthHash, &s.SFTP, &s.Rewrite, &s.NginxCustom, &s.SSLSource, &s.SSLDNS, &s.WAF, &s.RateLimit, &s.BlockedIPs, &s.PHPWorkers, &s.PHPPM, &s.PHPAllow, &s.Custom404, &s.Hotlink, &s.HotlinkAllow, &expires, &s.AppRuntime, &s.Note, &created)
+		&notBefore, &notAfter, &s.SSLError, &attempt, &s.App, &s.PHPMemory, &s.PHPUpload, &s.PHPTime, &s.ProxyPort, &s.AppCommand, &s.Disabled, &s.RedirectURL, &s.AuthUser, &s.AuthHash, &s.SFTP, &s.Rewrite, &s.NginxCustom, &s.SSLSource, &s.SSLDNS, &s.WAF, &s.RateLimit, &s.BlockedIPs, &s.PHPWorkers, &s.PHPPM, &s.PHPAllow, &s.Custom404, &s.Hotlink, &s.HotlinkAllow, &expires, &s.AppRuntime, &s.Note, &s.HSTS, &s.HSTSSubdomains, &s.PageCache, &created)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -185,7 +191,8 @@ func (s *Store) UpdateSite(ctx context.Context, site *Site) error {
 			disabled = ?, redirect_url = ?, auth_user = ?, auth_hash = ?, sftp = ?,
 			rewrite = ?, nginx_custom = ?, ssl_source = ?, ssl_dns = ?,
 			waf = ?, rate_limit = ?, blocked_ips = ?, php_workers = ?, php_pm = ?, php_allow = ?,
-			custom_404 = ?, hotlink = ?, hotlink_allow = ?, expires_at = ?, app_runtime = ?
+			custom_404 = ?, hotlink = ?, hotlink_allow = ?, expires_at = ?, app_runtime = ?,
+			hsts = ?, hsts_subdomains = ?, page_cache = ?
 		 WHERE id = ?`,
 		strings.Join(site.Aliases, " "), site.PHPVersion, boolInt(site.SSL), boolInt(site.ForceHTTPS),
 		zeroOrUnix(site.CertNotBefore), zeroOrUnix(site.CertNotAfter), site.SSLError, zeroOrUnix(site.SSLAttemptAt), site.App,
@@ -193,7 +200,8 @@ func (s *Store) UpdateSite(ctx context.Context, site *Site) error {
 		boolInt(site.Disabled), site.RedirectURL, site.AuthUser, site.AuthHash, boolInt(site.SFTP),
 		site.Rewrite, site.NginxCustom, site.SSLSource, boolInt(site.SSLDNS),
 		site.WAF, site.RateLimit, site.BlockedIPs, site.PHPWorkers, site.PHPPM, site.PHPAllow,
-		boolInt(site.Custom404), boolInt(site.Hotlink), site.HotlinkAllow, zeroOrUnix(site.ExpiresAt), site.AppRuntime, site.ID)
+		boolInt(site.Custom404), boolInt(site.Hotlink), site.HotlinkAllow, zeroOrUnix(site.ExpiresAt), site.AppRuntime,
+		boolInt(site.HSTS), boolInt(site.HSTSSubdomains), boolInt(site.PageCache), site.ID)
 	if err != nil {
 		return err
 	}

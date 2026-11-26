@@ -147,6 +147,31 @@ func nginxVhostCases() map[string]vhostData {
 		"preset-default-php":       func() vhostData { d := php(base); d.RewriteRules = rewriteRules("", true); return d }(),
 		"preset-php-only-fallback": func() vhostData { d := base; d.RewriteRules = rewriteRules("wordpress", false); return d }(),
 	}
+	// HSTS (needs HTTPS and the redirect), the page cache (Nginx, PHP), and
+	// HTTPS turned off again.
+	hsts := func(d vhostData, v string) vhostData { d = force(d); d.HSTS = v; return d }
+	cache := func(d vhostData) vhostData {
+		d.CacheZone, d.CacheDir = "panel_fc_example_com", "/var/cache/nginx/nefo/example.com"
+		return d
+	}
+	for n, d := range map[string]vhostData{
+		"php-hsts":                hsts(php(base), hstsValue),
+		"php-hsts-subdomains-new": newNginxV6(hsts(php(base), hstsValueSubdomains)),
+		"app-hsts":                hsts(app(base), hstsValue),
+		"suspended-hsts":          func() vhostData { d := hsts(php(base), hstsValue); d.Disabled = true; return d }(),
+		"php-cache":               cache(php(base)),
+		"php-cache-hsts":          cache(hsts(php(base), hstsValueSubdomains)),
+		"suspended-cache":         func() vhostData { d := cache(php(base)); d.Disabled = true; return d }(),
+		"preset-wordpress-cache": func() vhostData {
+			d := cache(php(base))
+			d.RewriteRules = rewriteRules("wordpress", true)
+			d.RateLimit, d.RateBurst, d.RateZone = 10, 50, "panel_rl_example_com"
+			return d
+		}(),
+		"php-https-off": httpsOff(hsts(php(base), hstsValueSubdomains)),
+	} {
+		cases[n] = d
+	}
 	for _, p := range RewritePresets {
 		d := base
 		if p.PHP {
@@ -159,6 +184,13 @@ func nginxVhostCases() map[string]vhostData {
 		cases["preset-"+p.ID+"-options"] = h
 	}
 	return cases
+}
+
+// httpsOff is what vhostBytes renders for a site after RemoveCertificate:
+// no certificate, no redirect, no HSTS.
+func httpsOff(d vhostData) vhostData {
+	d.SSL, d.ForceHTTPS, d.HSTS, d.CertFile, d.KeyFile = false, false, "", "", ""
+	return d
 }
 
 func everythingVhost(d vhostData) vhostData {
@@ -289,15 +321,19 @@ func goldenManager(t *testing.T, nginxVersion string) *Manager {
 func goldenSites() []*store.Site {
 	return []*store.Site{
 		{ID: 1, Domain: "static.example.com", SysUser: "static_example_com"},
+		// HSTS without HTTPS (never stored) renders nothing.
 		{ID: 2, Domain: "php.example.com", Aliases: []string{"www.php.example.com"}, SysUser: "php_example_com", PHPVersion: "8.3",
-			PHPMemory: 256, PHPUpload: 64, PHPTime: 300},
+			PHPMemory: 256, PHPUpload: 64, PHPTime: 300, HSTS: true},
 		{ID: 3, Domain: "ssl.example.com", Aliases: []string{"*.ssl.example.com"}, SysUser: "ssl_example_com", PHPVersion: "8.4",
-			SSL: true, ForceHTTPS: true, PHPMemory: 512, PHPUpload: 128, PHPTime: 120, PHPWorkers: 8, PHPPM: "dynamic", PHPAllow: "exec proc_open"},
-		{ID: 4, Domain: "app.example.com", SysUser: "app_example_com", ProxyPort: 3000, AppCommand: "node server.js", SSL: true, PHPUpload: 64, PHPTime: 300},
+			SSL: true, ForceHTTPS: true, PHPMemory: 512, PHPUpload: 128, PHPTime: 120, PHPWorkers: 8, PHPPM: "dynamic", PHPAllow: "exec proc_open",
+			HSTS: true, HSTSSubdomains: true},
+		// HSTS without the redirect, and the page cache without PHP, render nothing.
+		{ID: 4, Domain: "app.example.com", SysUser: "app_example_com", ProxyPort: 3000, AppCommand: "node server.js", SSL: true, PHPUpload: 64, PHPTime: 300,
+			HSTS: true, PageCache: true},
 		{ID: 5, Domain: "wp.example.com", SysUser: "wp_example_com", PHPVersion: "8.3", App: AppWordPress, Rewrite: "wordpress",
 			PHPMemory: 256, PHPUpload: 64, PHPTime: 300, AuthUser: "guest", AuthHash: "$2a$10$abcdefghijklmnopqrstuuJ0.dV9W3cYyk1C1qQeYv0zZ7pZ0rH6",
 			BlockedIPs: "203.0.113.7 198.51.100.0/24", RateLimit: 10, Custom404: true, Hotlink: true, HotlinkAllow: "partner.example.org",
-			NginxCustom: "location /x/ {\n    return 204;\n}", WAF: WAFBlock},
+			NginxCustom: "location /x/ {\n    return 204;\n}", WAF: WAFBlock, PageCache: true},
 		{ID: 6, Domain: "off.example.com", SysUser: "off_example_com", PHPVersion: "8.3", Disabled: true, PHPUpload: 64, PHPTime: 300},
 		{ID: 7, Domain: "moved.example.com", SysUser: "moved_example_com", RedirectURL: "https://example.org/new", SSL: true},
 		{ID: 8, Domain: "drupal.example.com", SysUser: "drupal_example_com", PHPVersion: "8.3", Rewrite: "drupal", PHPUpload: 64, PHPTime: 300},

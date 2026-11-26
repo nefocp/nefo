@@ -87,6 +87,13 @@ func (n nginxServer) removeBase() error {
 		return err
 	}
 	removeEmptyDirs(n.m.paths.Nginx)
+	// The page cache's folders (the sites, and so their caches, are gone).
+	if cache := n.m.paths.NginxCache; filepath.IsAbs(cache) {
+		if err := os.RemoveAll(cache); err != nil {
+			return err
+		}
+		os.Remove(filepath.Dir(cache)) // only if empty
+	}
 	return nil
 }
 

@@ -84,7 +84,7 @@ Bấm vào tên miền trong danh sách, hoặc nút **Cài đặt** ở cuối 
 |---|---|
 | **Cơ bản** | **Tổng quan**, **Tên miền**, **PHP** (website PHP), **Runtime** (website ứng dụng) |
 | **Bảo mật** | **SSL / HTTPS**, **Tường lửa WAF**, **Chặn truy cập**, **Chống hotlink**, **Quét mã độc** |
-| **Cấu hình** | **Rewrite** (website PHP và tĩnh), **Cấu hình Nginx** (theo tên web server của bạn), **Chuyển hướng**, **Reverse proxy** (website ứng dụng), **Trang 404** |
+| **Cấu hình** | **Rewrite** (website PHP và tĩnh), **Bộ nhớ đệm trang** (website PHP trên Nginx và OpenLiteSpeed), **Cấu hình Nginx** (theo tên web server của bạn), **Chuyển hướng**, **Reverse proxy** (website ứng dụng), **Trang 404** |
 | **Vận hành** | **WordPress** (website WordPress), **Triển khai Git**, **SFTP**, **Sao lưu**, **Thống kê**, **Nhật ký**, **Hạn dùng & tạm ngưng** |
 
 Tab **Tổng quan** cho biết **Thư mục** của website (kèm **Mở trong trình quản lý tệp**), **Người dùng Linux**, tên miền, phiên bản PHP hoặc runtime, web server, tình trạng HTTPS và tường lửa. Bấm **Thêm ghi chú** để viết một dòng (tối đa 200 ký tự) hiện dưới tên miền trong danh sách, ví dụ tên khách hàng.
@@ -101,6 +101,7 @@ Mỗi website có một user Linux riêng, nên một website bị hack không �
 | `/var/www/example.com/app` | Chỉ có ở website ứng dụng: mã nguồn của chương trình. |
 | `/var/log/nginx/example.com.access.log` và `.error.log` | Log của web server cho website (`/var/log/apache2` với Apache, `/var/log/openlitespeed` với OpenLiteSpeed). |
 | `/var/lib/nefo/certs/example.com` | Chứng chỉ của website. |
+| `/var/cache/nginx/nefo/example.com` | Chỉ có trên Nginx: [bộ nhớ đệm trang](#bo-nho-dem-trang), khi được bật. |
 
 Các file cấu hình web server và PHP-FPM do Nefo viết đều mở đầu bằng "Managed by Nefo. Do not edit". Nefo sẽ ghi đè chúng, nên hãy thay đổi trong panel.
 
@@ -131,7 +132,7 @@ Tab **PHP** của website PHP có các cài đặt sau:
 
 Bấm **Lưu**. Nếu PHP-FPM hoặc web server từ chối cấu hình mới, Nefo đặt lại cài đặt cũ. Muốn cài thêm phiên bản PHP, extension hay sửa `php.ini`, xem [Phần mềm](./software).
 
-## Quy tắc rewrite và chỉ thị riêng
+## Quy tắc rewrite và chỉ thị riêng {#chi-thi-rieng}
 
 Ở tab **Rewrite**, ô **Quy tắc rewrite** có sẵn quy tắc cho các ứng dụng phổ biến: **Mặc định (front controller: index.php hoặc index.html)**, WordPress, Laravel, Symfony, CodeIgniter 4, Drupal, Joomla, OpenCart, Nextcloud và Moodle cho website PHP, và Ứng dụng một trang (SPA) cùng Website tĩnh (URL không có .html) cho mọi website. Tab hiện nội dung quy tắc bạn chọn. Trên Nginx, quy tắc này thay cho khối `location /` mặc định. Trên Apache, tệp `.htaccess` của website có thể thay front controller của quy tắc có sẵn; trên OpenLiteSpeed, front controller chạy sau các quy tắc `.htaccess` của website. Trên cả hai, tệp `.htaccess` không gỡ bỏ được các quy tắc bảo vệ của quy tắc có sẵn.
 
@@ -146,6 +147,20 @@ Tab kế tiếp mang tên web server của bạn, ví dụ **Cấu hình Nginx**
 Web server kiểm tra cấu hình mới trước khi thay đổi. Nếu bị từ chối, Nefo hiện lỗi và website vẫn chạy như cũ. Bấm **Xem toàn bộ file cấu hình** để xem file Nefo tạo ra.
 
 Về tệp `.htaccess`: Apache đọc chúng. OpenLiteSpeed chỉ dùng các quy tắc rewrite trong đó, và Nefo chép chúng vào cấu hình của website trong vài giây sau mỗi lần tệp thay đổi. Nginx bỏ qua chúng.
+
+## Bộ nhớ đệm trang {#bo-nho-dem-trang}
+
+Trên Nginx, tab **Bộ nhớ đệm trang** của website PHP bật FastCGI cache của Nginx cho website đó: Nginx giữ lại mỗi trang do PHP tạo và trả lại trang đó mà không phải chạy PHP hay hỏi database. Hãy bật công tắc **Bộ nhớ đệm trang**.
+
+- Mỗi trang được giữ 10 phút, trang không tồn tại (404) được giữ 1 phút. Nếu PHP lỗi hoặc không trả lời, Nginx trả bản sao cuối cùng mà nó còn giữ.
+- Nginx luôn hỏi PHP với các request không phải GET hay HEAD (form gửi đi), địa chỉ có dấu `?`, khách có cookie đăng nhập hoặc giỏ hàng (WordPress `wordpress_logged_in_`, `wp-postpass_`, `comment_author_`, WooCommerce `woocommerce_items_in_cart`, `wp_woocommerce_session_`, và `PHPSESSID` của PHP), cùng các trang dưới `/wp-admin/`, `/wp-login.php`, `/xmlrpc.php`, `/wp-json/`, `/wp-cron.php`, `/cart/`, `/checkout/` và `/my-account/`. Trang mà PHP đánh dấu là riêng tư hoặc gửi kèm cookie cũng không được giữ.
+- Mỗi website có bộ nhớ đệm riêng, tối đa 256 MB, trong `/var/cache/nginx/nefo/example.com`. Trang không ai mở trong một giờ sẽ bị bỏ.
+
+Sau khi sửa một trang, hãy bấm **Xóa bộ nhớ đệm**: mọi khách sẽ thấy bản mới ngay. Nếu không, khách chưa đăng nhập có thể thấy trang cũ tới 10 phút. Tắt bộ nhớ đệm hoặc xóa website thì thư mục của nó cũng bị xóa.
+
+Để kiểm tra, mở một trang hai lần trong cửa sổ ẩn danh, hoặc chạy `curl -sI https://example.com/` hai lần: header `X-Cache-Status` sẽ là `MISS`, rồi `HIT` (`BYPASS` với các request kể trên). File tĩnh không có header này: Nginx vốn đã trả chúng trực tiếp.
+
+Trên OpenLiteSpeed, tab cho biết web server này có sẵn bộ nhớ đệm trang riêng là LSCache: với WordPress hãy cài plugin LiteSpeed Cache, ứng dụng khác bật nó bằng quy tắc cache trong `.htaccess`. Trên Apache, Nefo không có bộ nhớ đệm trang và không có tab này.
 
 ## Tạm ngưng, chuyển hướng hoặc khóa website bằng mật khẩu
 
@@ -210,6 +225,30 @@ Tab **Nhật ký** hiện những dòng mới nhất của:
 - **Tường lửa WAF**: ModSecurity với bộ luật OWASP Core Rule Set cho website này: **Tắt**, **Chỉ phát hiện: ghi lại tấn công, không chặn** hoặc **Chặn tấn công**. Hãy cài tường lửa ở trang **Phần mềm** trước. Xem [Bảo mật](./security), trang này cũng nói về tab **Quét mã độc**.
 - **Sao lưu**: **Sao lưu ngay**, hoặc đặt lịch **Hằng ngày lúc 03:00**. Xem [Sao lưu](./backups).
 
+## Nhân bản website {#clone-a-website}
+
+**Nhân bản** sao chép một website PHP hoặc website tĩnh sang tên miền mới: để bắt đầu một website mới từ website có sẵn, hoặc để thử thay đổi trên một bản sao.
+
+1. Mở tab **Tổng quan** của website, bấm **Nhân bản…** ở mục **Nhân bản website này**.
+2. Gõ **Tên miền của bản sao**.
+3. Giữ dấu chọn **Sao chép các database gắn với website này** để chép cả chúng.
+4. Bấm **Nhân bản**. Website vẫn chạy trong lúc sao chép; việc sao chép chạy như một tác vụ có nhật ký.
+5. Trỏ DNS của tên miền mới về máy chủ này, rồi bật HTTPS ở tab **SSL / HTTPS** của nó. Bản sao bắt đầu bằng `http://`.
+
+Bản sao có:
+
+- một website mới cùng loại (cùng phiên bản PHP, hoặc tĩnh) với user Linux riêng, cùng ứng dụng, cài đặt PHP, quy tắc rewrite và chỉ thị riêng. Trong chỉ thị riêng của bạn, thư mục của website cũ được thay bằng thư mục mới;
+- bản sao thư mục website `/var/www/example.com`, thuộc user mới, không kèm `logs`, `tmp` và khóa triển khai Git (`.ssh`). Liên kết tượng trưng (symlink) không được chép, và trong `public/.user.ini` thư mục cũ được thay bằng thư mục mới;
+- với mỗi cơ sở dữ liệu đang gắn, một cơ sở dữ liệu và user mới chứa bản sao dữ liệu, gắn với website mới.
+
+Khi bản sao đã sẵn sàng, Nefo hiện thông tin kết nối của các cơ sở dữ liệu mới. Các file cấu hình của chính ứng dụng (như `.env` hay `config.php`) vẫn ghi cơ sở dữ liệu và user cũ: hãy đổi sang cái mới. Các file ghi thư mục cũ, như bộ nhớ đệm cấu hình của ứng dụng, cũng vẫn ghi thư mục cũ.
+
+Website WordPress được chép như một [bản staging](./wordpress#tao-ban-staging): cơ sở dữ liệu luôn được chép, `wp-config.php` trỏ tới bản sao và địa chỉ website được thay ở mọi nơi, nên bản sao chạy được ngay. Công cụ tìm kiếm được yêu cầu không lập chỉ mục bản sao; nếu bản sao là một website riêng, hãy đổi lại trong WordPress ở **Cài đặt → Đọc** (Settings → Reading). Khác với bản staging, bản nhân bản không đẩy ngược lên website gốc được.
+
+Không sao chép: tên miền phụ, chứng chỉ, khóa mật khẩu, chuyển hướng và cài đặt tường lửa, cron job, chương trình nền, cài đặt triển khai Git, truy cập SFTP và lịch sao lưu.
+
+Nefo chưa nhân bản được website ứng dụng (Node.js, Python hoặc Docker). Nếu một bước bị lỗi, Nefo xóa mọi thứ đã tạo cho bản sao.
+
 ## Xóa website {#xoa-website}
 
 1. Mở tab **Tổng quan** của website.
@@ -227,7 +266,7 @@ Nefo xóa:
 - user và group Linux, cùng quyền truy cập SFTP
 - cấu hình web server, file mật khẩu và chỉ thị riêng của bạn
 - pool PHP-FPM, service của ứng dụng, hoặc ứng dụng Docker cùng container, dữ liệu và image không còn dùng
-- chứng chỉ và log web server của website
+- chứng chỉ, bộ nhớ đệm trang và log web server của website
 - các chương trình nền của website, cron job chạy bằng user của nó, lịch sao lưu và cài đặt Git deploy
 - thùng rác của website trong **Tệp tin** và các file bị trình quét mã độc cách ly
 - các cơ sở dữ liệu gắn với website, nếu bạn giữ dấu chọn

@@ -5,7 +5,7 @@ description: Trang chủ, cron job, dịch vụ, chương trình nền, tiến t
 
 # Công cụ hệ thống
 
-Trang này giới thiệu các công cụ quản trị máy chủ trong Nefo: trang chủ, cron job, dịch vụ, chương trình nền, tiến trình và cổng đang mở, lịch sử đăng nhập SSH, terminal trên web, nơi xem log, và cách khởi động lại panel hoặc máy chủ. Phần lớn nằm trong nhóm **Máy chủ** ở menu bên trái.
+Trang này giới thiệu các công cụ quản trị máy chủ trong Nefo: trang chủ, cron job, dịch vụ, chương trình nền, tiến trình và cổng đang mở, lịch sử đăng nhập SSH, terminal trên web, nơi xem log, và cách khởi động lại panel hoặc máy chủ. Phần lớn nằm trong nhóm **Máy chủ** ở menu bên trái. Cập nhật hệ điều hành, bộ nhớ swap, múi giờ và tên máy, TCP BBR và dọn dẹp ổ đĩa nằm ở trang [Hệ thống](./os).
 
 ## Trang chủ {#dashboard}
 
@@ -29,6 +29,8 @@ Panel ghi lại tải mỗi phút và giữ lịch sử 7 ngày. Sau khi mới c
 - Một website còn dưới 7 ngày là hết hạn.
 - Một lịch sao lưu bị lỗi.
 - Ổ đĩa đã đầy từ 90% trở lên.
+- Có bản cập nhật bảo mật của hệ điều hành đang chờ (xem [Cập nhật](./os#updates)).
+- Máy chủ cần khởi động lại để hoàn tất việc cài bản cập nhật.
 
 Chuông ở góc trên bên phải (**Thông báo**) hiện cùng danh sách này. Cả hai chỉ thấy được khi bạn đang đăng nhập. Muốn nhận tin qua Telegram hoặc email, hãy thiết lập [cảnh báo](./mail-alerts).
 

@@ -5,7 +5,7 @@ description: Check and update your WordPress sites with a database backup first,
 
 # WordPress toolkit
 
-The WordPress toolkit shows the version and pending updates of each WordPress site, updates them in one click after a database backup, and switches maintenance mode, debug mode and automatic updates. It also resets administrator passwords and makes staging copies.
+The WordPress toolkit shows the version and pending updates of each WordPress site, updates them in one click after a database backup, and switches maintenance mode, debug mode and automatic updates. It also resets administrator passwords, makes staging copies and pushes them back to the live site.
 
 It works for the WordPress sites that Nefo installed: from the [App store](./apps), with the **Install WordPress** button of an empty PHP website, or as a staging copy. A WordPress that you uploaded yourself doesn't appear. The **WordPress** item of the left menu shows up once the server has a WordPress site.
 
@@ -113,8 +113,36 @@ Nefo refuses to make a copy when:
 Anyone can open the staging site once its DNS points to the server. To keep it private, protect it with a password on its **Block access** tab: see [Websites](./websites).
 :::
 
-### Push changes and delete the copy
+## Push the staging copy to the live site
 
-Nefo has no button to copy the staging site back to the live site. Make the changes you tested on the live site, or move them with your own tools.
+When the changes you tried on the staging copy are ready, copy them back over the live site. Nefo remembers which site each staging copy was made from. Copies made before Nefo had this button, and [clones](./websites#clone-a-website) of a website, aren't linked to a live site and can't be pushed.
+
+1. In the staging site's row, choose **Push to live**, or click **Push to live** on its **WordPress** tab. The site list shows "Staging copy of example.com" under the staging site.
+2. Choose what to push:
+   - **Files and database**;
+   - **Files only (themes, plugins, uploads)**: the live site keeps its posts, pages, orders and settings;
+   - **Database only (posts, pages, settings)**: the live site keeps its files.
+3. Type the live site's domain to confirm, and click **Push to live**.
+
+The push runs as a task with its own log:
+
+1. Nefo backs up the live site's files and database. The backup is on the [Backups](./backups) page. If the backup fails, nothing is pushed.
+2. The live site shows its maintenance page. If it was in maintenance mode before, it stays in it after the push.
+3. **Files**: the files of the staging site's `public` folder replace those of the live site, and belong to the live site's Linux user. Files the staging copy doesn't have are deleted from the live site; files with the same size and date are left as they are. The live site keeps its own `wp-config.php`, its cache drop-ins (`object-cache.php`, `advanced-cache.php`) and its symbolic links. In `.user.ini` and `wordfence-waf.php`, the staging folder is replaced with the live one.
+4. **Database**: the live database is emptied and gets a copy of the staging database. Nefo then reverses what the staging copy did: the staging address (with `http://` and `https://`, also as JSON) and the staging folder are replaced with the live ones everywhere, and the live site gets back its own address and its search engine setting. The object cache is emptied, and WordPress builds its rewrite rules again on the next visit.
+5. Maintenance mode is turned off, also when a step failed.
+
+::: warning
+A push replaces the live site. What was added to the live site since the staging copy was made is lost: orders, comments and new users when you push the database, uploads when you push the files. If the live site doesn't work after a push, restore the backup from step 1 on the **Backups** page.
+:::
+
+Nefo refuses to push when:
+
+- the site is not a staging copy, or its live site was deleted;
+- you push the database and MariaDB is not running, the live database is not on the **Databases** page, both sites use the same database, their table prefixes (`$table_prefix`) differ, or a reason in the list above applies to either `wp-config.php`.
+
+Settings in `wp-config.php` are never pushed: change them on the live site yourself.
+
+## Delete a staging copy
 
 To delete the staging copy, delete its website and leave **Also delete the databases linked to this website** ticked: see [Websites](./websites).

@@ -324,6 +324,9 @@ func (m *Manager) DeleteSite(ctx context.Context, id int64, confirm string) ([]s
 	warn(m.deleteUser(ctx, site.SysUser))
 	warn(os.RemoveAll(m.paths.siteRoot(site.Domain)))
 	warn(os.RemoveAll(m.paths.certDir(site.Domain)))
+	if dir := m.pageCacheDir(site.Domain); dir != "" {
+		warn(os.RemoveAll(dir))
+	}
 	logs, _ := filepath.Glob(filepath.Join(m.web().logDir(), site.Domain+".*.log*"))
 	for _, l := range logs {
 		warn(os.Remove(l))
@@ -356,6 +359,9 @@ func (m *Manager) SetForceHTTPS(ctx context.Context, id int64, on bool) (*store.
 	}
 	old := *site
 	site.ForceHTTPS = on
+	if !on { // HSTS needs the redirect
+		site.HSTS, site.HSTSSubdomains = false, false
+	}
 	if err := m.updateSite(ctx, site, &old); err != nil {
 		return nil, err
 	}
@@ -434,6 +440,10 @@ func (m *Manager) vhostBytes(ctx context.Context, site *store.Site) ([]byte, err
 	}
 	d.BlockedIPs = strings.Fields(site.BlockedIPs)
 	d.Custom404, d.Hotlink, d.HotlinkAllow = site.Custom404, site.Hotlink, strings.Fields(site.HotlinkAllow)
+	d.HSTS = siteHSTS(site)
+	if site.PageCache && site.PHPVersion != "" && ws.kind() == ServerNginx {
+		d.CacheZone, d.CacheDir = cacheZone(site.SysUser), m.pageCacheDir(site.Domain)
+	}
 	if site.NginxCustom != "" {
 		d.CustomFile = m.customFile(site.Domain)
 	}

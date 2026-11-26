@@ -212,8 +212,20 @@ module mod_security {
 var olsVhostTmpl = func() *template.Template {
 	t := mustOLSTemplate("ols-vhost", olsVhostText)
 	template.Must(t.New("auth").Parse(olsAuth))
+	template.Must(t.New("hsts").Parse(olsHSTS))
 	return t
 }()
+
+// olsHSTS sends Strict-Transport-Security from a context that serves the
+// site, in OpenLiteSpeed's "Name: value" header form. The virtual host
+// answers HTTP too, but HSTS needs the redirect to HTTPS, and browsers
+// ignore the header over plain HTTP.
+const olsHSTS = `
+{{- if .HSTS}}
+    extraHeaders          <<<END_extraHeaders
+Strict-Transport-Security: {{.HSTS}}
+END_extraHeaders
+{{- end}}`
 
 const olsAuth = `
 {{- if .AuthFile}}
@@ -359,6 +371,9 @@ virtualHost {{.Domain}} {
     # one is dropped. The app finds the client in X-Forwarded-For.
     extraHeaders          <<<END_extraHeaders
 RequestHeader unset X-Real-IP
+{{- if .HSTS}}
+Strict-Transport-Security: {{.HSTS}}
+{{- end}}
 END_extraHeaders
   }
 {{- else if .Files}}
@@ -367,6 +382,7 @@ END_extraHeaders
     location              {{.Public}}/
     allowBrowse           1
 {{- template "auth" .}}
+{{- template "hsts" .}}
 {{- with .RootRules}}
     rewrite {
       enable              1
@@ -382,6 +398,7 @@ END_rules
   context {{.URI}} {
     location              {{.Location}}
     allowBrowse           1
+{{- template "hsts" $}}
     rewrite {
       enable              1
       rules               <<<END_rules

@@ -5,7 +5,7 @@ description: Get free Let's Encrypt certificates, wildcard certificates through 
 
 # SSL certificates
 
-Nefo gets free certificates from Let's Encrypt and renews them by itself. This page covers the requirements, wildcard certificates through Cloudflare DNS, installing a certificate you already have, and what to do when a certificate fails.
+Nefo gets free certificates from Let's Encrypt and renews them by itself. This page covers the requirements, the redirect to HTTPS and HSTS, wildcard certificates through Cloudflare DNS, installing a certificate you already have, turning HTTPS off again, and what to do when a certificate fails.
 
 ## Before you start
 
@@ -43,7 +43,21 @@ The addresses in brackets are what the name resolves to. Compare them with your 
 
 Once the site has a certificate, turn on **Redirect HTTP to HTTPS** on the **SSL / HTTPS** tab or on the **Overview** tab. Every `http://` address then answers with a permanent redirect (301) to `https://`. Let's Encrypt validation and Git webhooks still work over HTTP.
 
-Nefo doesn't send an HSTS header (`Strict-Transport-Security`). If you want one, add it with your own web server directives: see [Websites](./websites).
+To make browsers use HTTPS even before the redirect, turn on [HSTS](#hsts) too.
+
+## HSTS
+
+HSTS (the `Strict-Transport-Security` header) tells browsers to open the site only over `https://`, even when someone types `http://` or follows an old link. Turn on **HSTS (Strict-Transport-Security)** on the **SSL / HTTPS** tab. It needs a certificate and **Redirect HTTP to HTTPS**; turning the redirect off turns HSTS off too.
+
+Nefo then sends `Strict-Transport-Security: max-age=15552000` (180 days, about 6 months) with the site's HTTPS answers, on Nginx, Apache and OpenLiteSpeed. Tick **Include subdomains** to add `includeSubDomains`: browsers then also use HTTPS for every subdomain of the domain, so tick it only when all of them have HTTPS. Nefo never adds `preload`: the browsers' preload list is hard to leave, so submit a domain to it yourself, if at all.
+
+::: warning
+A browser that got the header refuses plain HTTP for the site for 6 months after its last visit, even if you turn HSTS or HTTPS off later. Turn HSTS on only for a site that keeps HTTPS.
+:::
+
+On Nginx the header is set for the site's whole `server` block. If your own directives (see [Websites](./websites#rewrite-rules-and-your-own-directives)) add a `location` with an `add_header` of its own, Nginx drops the site's headers in that location: repeat `add_header Strict-Transport-Security "max-age=15552000" always;` there.
+
+To check it, run `curl -sI https://example.com/ | grep -i strict-transport`.
 
 ## Automatic renewal
 
@@ -112,15 +126,18 @@ It installs the certificate with a warning ("Installed, with warnings:") when br
 
 Nefo doesn't renew your own certificate. In its last two weeks, the **SSL / HTTPS** tab says "Nefo doesn't renew a certificate you installed. Install a new one before" and the date, and **Needs attention** on the dashboard lists the site. Nefo also reminds you once a day: the activity log records it as a failed renewal, and the alert for failed renewals goes out. Install a new certificate in time, or switch back to Let's Encrypt with **Get certificate**. The website list marks these sites with "own cert".
 
-## Remove a certificate
+## Turn off HTTPS
 
-Nefo has no button to remove a website's certificate or to turn HTTPS off once it is on. You can:
+To take a website back to plain HTTP, click **Turn off HTTPS** at the bottom of its **SSL / HTTPS** tab and confirm. Nefo then:
 
-- turn off **Redirect HTTP to HTTPS**, so the site answers on both `http://` and `https://`;
-- replace the certificate with a new Let's Encrypt certificate or your own;
-- delete the website, which deletes its certificate: see [Websites](./websites).
+- serves the website over `http://` only: the HTTPS part of its web server configuration is removed;
+- turns off **Redirect HTTP to HTTPS** and [HSTS](#hsts);
+- deletes the certificate files in `/var/lib/nefo/certs/example.com/`, from Let's Encrypt or your own, so nothing renews or reminds you about them. The Let's Encrypt account stays for the other websites;
+- switches a WordPress site it installed back to its `http://` address, and restarts a Docker app with its `http://` address.
 
-Uninstalling the web server keeps the certificates.
+Visitors who open an `https://` address of the site (from a bookmark, a search result or a link) then get a browser error, because the server no longer has a certificate for the name. If the site had HSTS, browsers that got the header keep refusing plain HTTP for up to 6 months, so for them the site doesn't open at all until it has HTTPS again. You can get a new certificate at any time with **Get certificate**.
+
+To replace a certificate you don't need to turn HTTPS off: get a new Let's Encrypt certificate or install your own over it. Deleting a website deletes its certificate too: see [Websites](./websites). Uninstalling the web server keeps the certificates.
 
 ## When a certificate fails
 

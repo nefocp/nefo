@@ -25,6 +25,11 @@ func TestBackupAppID(t *testing.T) {
 	if err := st.CreateApp(ctx, &App{Name: "ghost_example_com", AppID: "ghost", Kind: "docker", Version: "6"}); err != nil {
 		t.Fatal(err)
 	}
+	// The later migrations run again too: undo them first.
+	if _, err := st.db.Exec(`ALTER TABLE sites DROP COLUMN hsts; ALTER TABLE sites DROP COLUMN hsts_subdomains;
+		ALTER TABLE sites DROP COLUMN page_cache;`); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := st.db.Exec(`ALTER TABLE backups DROP COLUMN app_id; PRAGMA user_version = 19;
 		INSERT INTO backups (kind, target, file, size, sha256, created_at) VALUES
 			('app', 'ghost_example_com', '/x/g.tar.gz', 1, 'bb', 1),

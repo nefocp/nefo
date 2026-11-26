@@ -25,6 +25,9 @@ const olsErrorDir = "/usr/local/lsws/panel-errors"
 func olsCases() map[string]olsVhost {
 	cases := map[string]olsVhost{}
 	for n, d := range nginxVhostCases() {
+		if d.CacheZone != "" { // Nginx only
+			continue
+		}
 		d.LogDir, d.SnippetDir, d.EmptyRoot = "/var/log/openlitespeed", "/usr/local/lsws/panel", "/var/lib/panel-acme"
 		d.User = "example_com"
 		if d.AuthFile != "" {
@@ -38,7 +41,7 @@ func olsCases() map[string]olsVhost {
 	wp := sanitizeHtaccess([]byte(wordpressHtaccess))
 	sub := olsHtContext{URI: "/blog/", Location: "/var/www/example.com/public/blog/",
 		Rules: "RewriteEngine on\nRewriteBase /blog/\nRewriteRule ^old$ new.php [L]"}
-	for _, n := range []string{"php", "static", "preset-wordpress", "preset-opencart", "preset-spa", "preset-static-clean", "everything-php"} {
+	for _, n := range []string{"php", "static", "preset-wordpress", "preset-opencart", "preset-spa", "preset-static-clean", "everything-php", "php-hsts"} {
 		c := cases[n]
 		c.Htaccess = olsHtaccess{Root: wp, Contexts: []olsHtContext{sub}}
 		cases["htaccess-"+n] = c

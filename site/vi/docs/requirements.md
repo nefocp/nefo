@@ -37,6 +37,8 @@ Nefo được làm cho VPS nhỏ có 1 GB RAM. Bản thân panel chỉ là một
 
 Có một thành phần cần nhiều RAM hơn hẳn: phần mềm diệt virus ClamAV (tùy chọn) cần khoảng 1,4 GB RAM trống khi quét, nên chỉ hợp với máy chủ từ 2 GB trở lên.
 
+Với máy chủ 1 GB RAM, hãy thêm 1 đến 2 GB swap, để lúc đông khách kernel không phải dừng MariaDB hay PHP. Nhiều bản cài VPS không có sẵn swap. **Hệ thống** → **Bộ nhớ swap** tạo file swap chỉ với một cú bấm (xem [Bộ nhớ swap](./os#swap)). Trong container (OpenVZ, LXC), kernel không cho phép dùng swap: hãy hỏi nhà cung cấp.
+
 Dung lượng ổ đĩa cần bao nhiêu tùy vào website, database và bản sao lưu của bạn. Bản sao lưu giữ trên máy chủ nằm trong `/var/backups/panel`, cùng ổ đĩa với website. Trang chủ của panel hiện mức dùng ổ đĩa, và panel cảnh báo khi ổ đĩa đầy 90%.
 
 ## Nên dùng máy chủ mới cài

@@ -142,6 +142,10 @@ const apacheVhostText = `# Managed by {{app}}. Do not edit: the panel rewrites t
     SSLEngine on
     SSLCertificateFile {{.CertFile}}
     SSLCertificateKeyFile {{.KeyFile}}
+{{- if .HSTS}}
+    # Browsers use only HTTPS for this site from now on.
+    Header always set Strict-Transport-Security "{{.HSTS}}"
+{{- end}}
 {{template "body" .}}
 </VirtualHost>
 {{- end}}

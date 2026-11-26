@@ -24,6 +24,9 @@ type siteResponse struct {
 	Root         string     `json:"root"`
 	SSL          bool       `json:"ssl"`
 	ForceHTTPS   bool       `json:"force_https"`
+	HSTS         bool       `json:"hsts"`
+	HSTSSubs     bool       `json:"hsts_subdomains"`
+	PageCache    bool       `json:"page_cache"`
 	CertExpires  *time.Time `json:"cert_expires,omitempty"`
 	SSLError     string     `json:"ssl_error,omitempty"`
 	App          string     `json:"app"`
@@ -66,6 +69,9 @@ func (s *Server) siteJSON(site *store.Site) siteResponse {
 		Root:         s.hosting.Root(site.Domain),
 		SSL:          site.SSL,
 		ForceHTTPS:   site.ForceHTTPS,
+		HSTS:         site.HSTS,
+		HSTSSubs:     site.HSTSSubdomains,
+		PageCache:    site.PageCache,
 		SSLError:     site.SSLError,
 		App:          site.App,
 		PHPMemory:    site.PHPMemory,
@@ -224,6 +230,7 @@ func (s *Server) handleDeleteSite(w http.ResponseWriter, r *http.Request, a *aut
 		return
 	}
 	s.audit(r.Context(), a.user.Username, "site_deleted", clientIP(r), req.Confirm)
+	s.forgetStagingLink(r.Context(), id)
 	s.gitDeploy().SiteDeleted(r.Context(), id) // the key went with the site folder
 	if err := s.files.DropSiteTrash(site.Domain); err != nil {
 		s.log.Warn("remove the site's trash", "site", site.Domain, "err", err)

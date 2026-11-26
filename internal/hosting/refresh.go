@@ -85,6 +85,14 @@ func (m *Manager) Refresh(ctx context.Context) (changed int, err error) {
 				return 0, err
 			}
 		}
+		// The page cache's folder: Nginx does not create the folders above it.
+		if site.PageCache && site.PHPVersion != "" && ws.kind() == ServerNginx {
+			if dir := m.pageCacheDir(site.Domain); dir != "" && !fileExists(dir) {
+				if err := m.makePageCacheDir(dir); err != nil {
+					m.log.Warn("page cache folder", "domain", site.Domain, "err", err)
+				}
+			}
+		}
 		v, err := m.vhostBytes(ctx, site)
 		if err == nil {
 			err = write(m.vhostFile(site.Domain), v)

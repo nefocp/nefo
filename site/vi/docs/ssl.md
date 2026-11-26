@@ -5,7 +5,7 @@ description: Lấy chứng chỉ Let's Encrypt miễn phí, chứng chỉ wildca
 
 # Chứng chỉ SSL
 
-Nefo lấy chứng chỉ miễn phí từ Let's Encrypt và tự gia hạn. Trang này nói về các yêu cầu, chứng chỉ wildcard qua DNS Cloudflare, cách cài chứng chỉ bạn đã có, và cách xử lý khi xin chứng chỉ bị lỗi.
+Nefo lấy chứng chỉ miễn phí từ Let's Encrypt và tự gia hạn. Trang này nói về các yêu cầu, chuyển hướng sang HTTPS và HSTS, chứng chỉ wildcard qua DNS Cloudflare, cách cài chứng chỉ bạn đã có, cách tắt HTTPS, và cách xử lý khi xin chứng chỉ bị lỗi.
 
 ## Trước khi bắt đầu
 
@@ -43,7 +43,21 @@ Trước khi gửi yêu cầu tới Let's Encrypt, Nefo đặt một file thử 
 
 Khi website đã có chứng chỉ, hãy bật **Chuyển HTTP sang HTTPS** ở tab **SSL / HTTPS** hoặc tab **Tổng quan**. Mọi địa chỉ `http://` sẽ được chuyển hướng vĩnh viễn (301) sang `https://`. Việc xác thực của Let's Encrypt và webhook Git vẫn hoạt động qua HTTP.
 
-Nefo không gửi header HSTS (`Strict-Transport-Security`). Nếu cần, hãy tự thêm bằng chỉ thị web server riêng: xem [Website](./websites).
+Để trình duyệt dùng HTTPS ngay cả trước khi được chuyển hướng, hãy bật thêm [HSTS](#hsts).
+
+## HSTS {#hsts}
+
+HSTS (header `Strict-Transport-Security`) báo cho trình duyệt chỉ mở site qua `https://`, kể cả khi ai đó gõ `http://` hay bấm vào một liên kết cũ. Hãy bật **HSTS (Strict-Transport-Security)** ở tab **SSL / HTTPS**. HSTS cần có chứng chỉ và **Chuyển HTTP sang HTTPS**; tắt chuyển hướng thì HSTS cũng tắt.
+
+Khi đó Nefo gửi `Strict-Transport-Security: max-age=15552000` (180 ngày, khoảng 6 tháng) kèm các phản hồi HTTPS của site, trên Nginx, Apache và OpenLiteSpeed. Đánh dấu **Áp dụng cho cả tên miền con** để thêm `includeSubDomains`: trình duyệt sẽ dùng HTTPS cho mọi tên miền con của tên miền đó, nên chỉ đánh dấu khi tất cả chúng đều có HTTPS. Nefo không bao giờ thêm `preload`: rất khó ra khỏi danh sách preload của trình duyệt, nên nếu muốn thì bạn tự gửi tên miền vào đó.
+
+::: warning
+Trình duyệt đã nhận header sẽ từ chối HTTP thường cho site trong 6 tháng kể từ lần truy cập cuối, kể cả khi sau này bạn tắt HSTS hay HTTPS. Chỉ bật HSTS cho site sẽ giữ HTTPS lâu dài.
+:::
+
+Trên Nginx, header được đặt cho cả khối `server` của site. Nếu chỉ thị riêng của bạn (xem [Website](./websites#chi-thi-rieng)) thêm một `location` có `add_header` riêng, Nginx bỏ các header của site trong location đó: hãy lặp lại `add_header Strict-Transport-Security "max-age=15552000" always;` ở đó.
+
+Để kiểm tra, chạy `curl -sI https://example.com/ | grep -i strict-transport`.
 
 ## Tự động gia hạn
 
@@ -112,15 +126,18 @@ Nefo vẫn cài nhưng kèm cảnh báo ("Đã cài, có cảnh báo:") khi trì
 
 Nefo không gia hạn chứng chỉ riêng. Trong hai tuần cuối, tab **SSL / HTTPS** ghi "Nefo không tự gia hạn chứng chỉ do bạn cài. Hãy cài chứng chỉ mới trước ngày" kèm ngày hết hạn, và mục **Cần xử lý** trên bảng điều khiển liệt kê website đó. Nefo cũng nhắc bạn mỗi ngày một lần: nhật ký hoạt động ghi lại như một lần gia hạn lỗi, và cảnh báo cho gia hạn lỗi được gửi đi. Hãy cài chứng chỉ mới kịp thời, hoặc chuyển lại Let's Encrypt bằng nút **Lấy chứng chỉ**. Danh sách website đánh dấu các website này bằng "cert riêng".
 
-## Gỡ chứng chỉ
+## Tắt HTTPS {#tat-https}
 
-Nefo không có nút gỡ chứng chỉ của website hay tắt HTTPS sau khi đã bật. Bạn có thể:
+Để đưa website về HTTP thường, bấm **Tắt HTTPS** ở cuối tab **SSL / HTTPS** của website rồi xác nhận. Khi đó Nefo:
 
-- tắt **Chuyển HTTP sang HTTPS**, để website mở được bằng cả `http://` và `https://`;
-- thay chứng chỉ bằng một chứng chỉ Let's Encrypt mới hoặc chứng chỉ riêng;
-- xóa website, khi đó chứng chỉ bị xóa theo: xem [Website](./websites).
+- chỉ phục vụ website qua `http://`: phần HTTPS trong cấu hình web server của nó bị bỏ;
+- tắt **Chuyển HTTP sang HTTPS** và [HSTS](#hsts);
+- xóa các file chứng chỉ trong `/var/lib/nefo/certs/example.com/`, dù từ Let's Encrypt hay của riêng bạn, nên không còn gì gia hạn hay nhắc bạn về chúng nữa. Tài khoản Let's Encrypt vẫn được giữ cho các website khác;
+- chuyển website WordPress do Nefo cài về địa chỉ `http://`, và khởi động lại ứng dụng Docker với địa chỉ `http://`.
 
-Gỡ web server thì chứng chỉ vẫn được giữ.
+Khách mở một địa chỉ `https://` của site (từ bookmark, kết quả tìm kiếm hay một liên kết) sẽ gặp lỗi trình duyệt, vì máy chủ không còn chứng chỉ cho tên miền đó. Nếu site từng bật HSTS, trình duyệt đã nhận header sẽ tiếp tục từ chối HTTP thường tới 6 tháng, nên với họ site hoàn toàn không mở được cho đến khi có lại HTTPS. Bạn có thể lấy lại chứng chỉ bất cứ lúc nào bằng **Lấy chứng chỉ**.
+
+Muốn thay chứng chỉ thì không cần tắt HTTPS: hãy lấy chứng chỉ Let's Encrypt mới hoặc cài chứng chỉ riêng đè lên. Xóa website thì chứng chỉ cũng bị xóa theo: xem [Website](./websites). Gỡ web server thì chứng chỉ vẫn được giữ.
 
 ## Khi xin chứng chỉ bị lỗi
 

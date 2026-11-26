@@ -39,6 +39,10 @@ type Manager struct {
 	// webPorts lists the ports the installed web server needs ("80/tcp",
 	// "443/tcp"…), or nothing when there is none. See SetWebPorts.
 	webPorts func() []string
+
+	// chown gives a file or folder inside root to an account, without
+	// following a symbolic link; replaceable in tests.
+	chown func(root *os.Root, name string, uid, gid int) error
 }
 
 // New returns a Manager. panelPort is the panel's own port, which is
@@ -48,7 +52,8 @@ func New(r run.Runner, panelPort int) *Manager {
 		sshDropIn: "/etc/ssh/sshd_config.d/00-panel.conf",
 		f2bJail:   "/etc/fail2ban/jail.d/panel.conf", f2bFilter: "/etc/fail2ban/filter.d/panel.conf",
 		rootKeys: "/root/.ssh/authorized_keys",
-		passwd:   "/etc/passwd", shadow: "/etc/shadow", group: "/etc/group"}
+		passwd:   "/etc/passwd", shadow: "/etc/shadow", group: "/etc/group",
+		chown: (*os.Root).Lchown}
 }
 
 // SetWebPorts tells the manager which ports the websites need, so that
@@ -471,7 +476,11 @@ func (m *Manager) sshPort(ctx context.Context) int {
 
 // SSHSettings reads the current SSH settings.
 func (m *Manager) SSHSettings(ctx context.Context) SSH {
-	vals := m.sshdValues(ctx)
+	return m.sshSettings(ctx, m.sshdValues(ctx))
+}
+
+// sshSettings is SSHSettings from sshd's settings vals (sshd -T).
+func (m *Manager) sshSettings(ctx context.Context, vals map[string][]string) SSH {
 	first := func(k string) string {
 		if v := vals[k]; len(v) > 0 {
 			return v[0]
@@ -502,6 +511,13 @@ type account struct {
 // AllowGroups and DenyGroups are taken into account; Match blocks are not.
 // vals are sshd's other settings (sshd -T), which the panel does not change.
 func (m *Manager) sshLogins(vals map[string][]string, s SSH) []Login {
+	return m.loginsWith(vals, s, nil)
+}
+
+// loginsWith is sshLogins with the authorized_keys files in override (by
+// path) holding the given text instead of what they hold now: who could
+// sign in after a change to them.
+func (m *Manager) loginsWith(vals map[string][]string, s SSH, override map[string]string) []Login {
 	logins := []Login{}
 	accounts := m.accounts()
 	if accounts == nil {
@@ -509,20 +525,17 @@ func (m *Manager) sshLogins(vals map[string][]string, s SSH) []Login {
 	}
 	pw := m.passwords()
 	groups := m.groupsOf(accounts)
-	keyCmd := len(vals["authorizedkeyscommand"]) > 0 && vals["authorizedkeyscommand"][0] != "none"
-	keyFiles := []string{".ssh/authorized_keys", ".ssh/authorized_keys2"}
-	if v := vals["authorizedkeysfile"]; len(v) > 0 {
-		keyFiles = strings.Fields(strings.Join(v, " "))
-	}
+	keyCmd := keyCommand(vals)
+	keyFiles := authorizedKeysFiles(vals)
 	for _, a := range accounts {
 		root := a.uid == 0
-		if !root && (a.uid < 1000 || a.uid == 65534 || !loginShell(a.shell)) {
+		if !keyAccount(a) {
 			continue
 		}
 		if !sshAllowed(vals, a.name, groups[a.name]) {
 			continue
 		}
-		key := keyCmd || m.hasKeys(a, keyFiles)
+		key := keyCmd || m.hasKeys(a, keyFiles, override)
 		password := s.PasswordAuth && pw(a.name)
 		if root {
 			switch s.PermitRootLogin {
@@ -657,12 +670,29 @@ func sshAllowed(vals map[string][]string, name string, groups []string) bool {
 }
 
 // hasKeys reports whether an account has an SSH public key in one of its
-// AuthorizedKeysFile files (%h is the home folder, %u the user name, and a
-// relative path is in the home folder). root's keys file is always read.
-func (m *Manager) hasKeys(a account, files []string) bool {
+// AuthorizedKeysFile files (see keyPaths). A file in override is counted
+// with the text given there instead of what it holds, and more strictly:
+// only keys that parse and are not weak (see usableKeys).
+func (m *Manager) hasKeys(a account, files []string, override map[string]string) bool {
+	for _, p := range m.keyPaths(a, files) {
+		if text, ok := override[p]; ok {
+			if usableKeys(text) {
+				return true
+			}
+		} else if keysIn(p) {
+			return true
+		}
+	}
+	return false
+}
+
+// keyPaths lists an account's authorized_keys files, from sshd's
+// AuthorizedKeysFile: %h is the home folder, %u the user name, and a
+// relative path is in the home folder. root's keys file always comes first.
+func (m *Manager) keyPaths(a account, files []string) []string {
 	var paths []string
 	if a.uid == 0 {
-		paths = append(paths, m.rootKeys)
+		paths = append(paths, filepath.Clean(m.rootKeys))
 	}
 	for _, f := range files {
 		f = strings.NewReplacer("%h", a.home, "%u", a.name, "%%", "%").Replace(f)
@@ -672,14 +702,31 @@ func (m *Manager) hasKeys(a account, files []string) bool {
 		if !filepath.IsAbs(f) {
 			f = filepath.Join(a.home, f)
 		}
-		paths = append(paths, f)
-	}
-	for _, p := range paths {
-		if keysIn(p) {
-			return true
+		if f = filepath.Clean(f); !slices.Contains(paths, f) {
+			paths = append(paths, f)
 		}
 	}
-	return false
+	return paths
+}
+
+// authorizedKeysFiles is sshd's AuthorizedKeysFile, or its default.
+func authorizedKeysFiles(vals map[string][]string) []string {
+	if v := vals["authorizedkeysfile"]; len(v) > 0 {
+		return strings.Fields(strings.Join(v, " "))
+	}
+	return []string{".ssh/authorized_keys", ".ssh/authorized_keys2"}
+}
+
+// keyCommand reports whether sshd also asks a program for keys
+// (AuthorizedKeysCommand), which the panel can't see.
+func keyCommand(vals map[string][]string) bool {
+	return len(vals["authorizedkeyscommand"]) > 0 && vals["authorizedkeyscommand"][0] != "none"
+}
+
+// keyAccount reports whether the guard counts an account: root, and the
+// people's accounts (UID 1000 and up) with a login shell.
+func keyAccount(a account) bool {
+	return a.uid == 0 || (a.uid >= 1000 && a.uid != 65534 && loginShell(a.shell))
 }
 
 // keysIn reports whether an authorized_keys file holds a public key.
@@ -688,9 +735,15 @@ func keysIn(path string) bool {
 	if err != nil {
 		return false
 	}
-	for _, line := range strings.Split(string(b), "\n") {
+	return keysInText(string(b))
+}
+
+// keysInText reports whether authorized_keys text holds a public key.
+func keysInText(text string) bool {
+	for _, line := range strings.Split(text, "\n") {
 		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "#") {
+		// OpenSSH refuses DSA keys (ssh-dss) since version 7.0.
+		if line == "" || strings.HasPrefix(line, "#") || slices.Contains(strings.Fields(line), "ssh-dss") {
 			continue
 		}
 		if strings.Contains(line, "ssh-") || strings.Contains(line, "ecdsa-sha2-") || strings.Contains(line, "sk-") {
@@ -725,6 +778,10 @@ func (m *Manager) SetSSH(ctx context.Context, s SSH) error {
 	if s.Port < 1 || s.Port > 65535 || s.Port == m.panelPort || s.Port == 80 || s.Port == 443 {
 		return usererr.New("invalid_port", strconv.Itoa(s.Port))
 	}
+	// Locked from the check on, so that removing an SSH key meanwhile
+	// (RemoveSSHKey) can't combine with these settings into a lock-out.
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	cur := m.SSHSettings(ctx)
 	// Refuse only what makes things worse: if nobody can sign in now (a
 	// server used from its provider's console), other changes stay possible.
@@ -747,8 +804,6 @@ func (m *Manager) SetSSH(ctx context.Context, s SSH) error {
 	if s.Port != cur.Port && m.listening(s.Port) {
 		return usererr.New("port_in_use", strconv.Itoa(s.Port))
 	}
-	m.mu.Lock()
-	defer m.mu.Unlock()
 	if s.Port != cur.Port {
 		// Open the new port before SSH moves to it.
 		if out, err := m.run.Output(ctx, "ufw", "status"); err == nil && strings.Contains(out, "Status: active") {

@@ -9,6 +9,7 @@ import JobLog from '../components/JobLog.vue'
 import RowActions from '../components/RowActions.vue'
 import WpPasswordModal from '../components/WpPasswordModal.vue'
 import WpStagingModal from '../components/WpStagingModal.vue'
+import WpPushModal from '../components/WpPushModal.vue'
 import AppLogo from '../components/AppLogo.vue'
 import { usePageMeta } from '../page.js'
 
@@ -26,6 +27,7 @@ const notice = ref('')
 const statuses = reactive({}) // site id → { loading, data, error }
 const pwSite = ref(null)
 const stagingSite = ref(null)
+const pushSite = ref(null) // a staging copy, pushed to pushSite.staging_of
 const { job, running: jobRunning, watch: watchJob, resume, clear: clearJob } = useJob(onJobDone)
 
 // load shows the list at once, then checks the sites.
@@ -69,14 +71,14 @@ async function loadStatus(s) {
 
 function onJobDone(j) {
   if (j.status === 'succeeded') {
-    notice.value = j.kind === 'wp_staging' ? t('wp.staging_done', { domain: j.target }) : t('wp.update_done', { domain: j.target })
+    notice.value = t({ wp_staging: 'wp.staging_done', wp_push: 'wp.push_done' }[j.kind] || 'wp.update_done', { domain: j.target })
   }
   return load()
 }
 
 onMounted(() => {
   load()
-  resume(['wp_update', 'wp_staging'])
+  resume(['wp_update', 'wp_staging', 'wp_push'])
 })
 
 function clearMessages() {
@@ -121,6 +123,11 @@ function stagingStarted(j) {
   watchJob(j)
 }
 
+function pushStarted(j) {
+  pushSite.value = null
+  watchJob(j)
+}
+
 function actions(s) {
   const d = stat(s).data
   return [
@@ -137,8 +144,9 @@ function actions(s) {
       : { label: t('wp.auto_turn_on'), icon: 'refresh', disabled: !d, onClick: () => toggle(s, 'auto_updates', true) },
     { label: t('wp.reset_password'), icon: 'key', onClick: () => { clearMessages(); pwSite.value = s } },
     { label: t('wp.clone'), icon: 'copy', disabled: jobRunning.value, onClick: () => openStaging(s) },
+    s.staging_of ? { label: t('wp.push'), icon: 'upload', disabled: jobRunning.value, onClick: () => { clearMessages(); pushSite.value = s } } : null,
     { label: t('wp.recheck'), icon: 'refresh', disabled: stat(s).loading, onClick: () => loadStatus(s) },
-  ]
+  ].filter(Boolean)
 }
 
 const typeLabel = (u) => t(`wp.type_${u.type}`)
@@ -203,6 +211,7 @@ usePageMeta(() => ({ sub: loaded.value ? t('pg.wp_sub', { n: sites.value.length 
                         <RouterLink class="wp-domain" :to="{ name: 'websites', query: { site: String(s.id), tab: 'wordpress' } }">{{ s.domain }}</RouterLink>
                         <div class="name-ico-sub">
                           PHP {{ s.php_version }}
+                          <span v-if="s.staging_of"> · {{ t('wp.staging_of', { domain: s.staging_of.domain }) }}</span>
                           <span v-if="s.disabled" class="status-pill crit wp-off">{{ t('access.suspended') }}</span>
                         </div>
                       </div>
@@ -256,6 +265,7 @@ usePageMeta(() => ({ sub: loaded.value ? t('pg.wp_sub', { n: sites.value.length 
 
     <WpPasswordModal v-if="pwSite" :site="pwSite" @close="pwSite = null" />
     <WpStagingModal v-if="stagingSite" :site="stagingSite" @close="stagingSite = null" @started="stagingStarted" />
+    <WpPushModal v-if="pushSite" :site="pushSite" :live="pushSite.staging_of" @close="pushSite = null" @started="pushStarted" />
   </div>
 </template>
 

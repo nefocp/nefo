@@ -164,6 +164,7 @@ var vhostTmpl = func() *template.Template {
 	template.Must(t.New("custom").Parse(vhostCustom))
 	template.Must(t.New("ratelimit").Parse(vhostRateLimit))
 	template.Must(t.New("githook").Parse(vhostGitHook))
+	template.Must(t.New("pagecache").Parse(vhostPageCache))
 	return t
 }()
 
@@ -171,6 +172,10 @@ const vhostText = `# Managed by {{app}}. Do not edit: the panel rewrites this fi
 # Site: {{.Domain}}
 {{- if .RateLimit}}
 limit_req_zone $binary_remote_addr zone={{.RateZone}}:1m rate={{.RateLimit}}r/s;
+{{- end}}
+{{- if .CacheZone}}
+# Page cache of this site's PHP pages: purging empties the folder.
+fastcgi_cache_path {{.CacheDir}} levels=1:2 keys_zone={{.CacheZone}}:4m max_size=256m inactive=60m use_temp_path=off;
 {{- end}}
 server {
     listen 80;
@@ -205,6 +210,11 @@ server {
     ssl_certificate     {{.CertFile}};
     ssl_certificate_key {{.KeyFile}};
     include {{.SnippetDir}}/ssl.conf;
+{{- if .HSTS}}
+    # Browsers use only HTTPS for this site from now on. The site's
+    # locations have no add_header of their own, so they all inherit it.
+    add_header Strict-Transport-Security "{{.HSTS}}" always;
+{{- end}}
 {{template "body" .}}
 }
 {{- end}}
@@ -286,6 +296,7 @@ const vhostBody = `
     access_log {{.LogDir}}/{{.Domain}}.access.log;
     error_log {{.LogDir}}/{{.Domain}}.error.log;
     client_max_body_size {{.UploadMB}}m;
+{{- template "pagecache" .}}
 
     # Hide .git, .env and other dot files.
     location ~ /\.(?!well-known/) {
@@ -323,6 +334,17 @@ const vhostBody = `
         fastcgi_param DOCUMENT_ROOT $realpath_root;
         fastcgi_pass unix:{{.PHPSocket}};
         fastcgi_read_timeout {{.TimeoutSec}}s;
+{{- if .CacheZone}}
+        fastcgi_cache {{.CacheZone}};
+        fastcgi_cache_key $scheme$request_method$host$request_uri;
+        fastcgi_cache_valid 200 301 10m;
+        fastcgi_cache_valid 404 1m;
+        fastcgi_cache_use_stale error timeout updating invalid_header http_500 http_503;
+        fastcgi_cache_background_update on;
+        fastcgi_cache_lock on;
+        fastcgi_cache_bypass $panel_no_cache;
+        fastcgi_no_cache $panel_no_cache;
+{{- end}}
 {{- template "ratelimit" .}}
     }
 {{- end}}
@@ -336,6 +358,33 @@ const vhostRateLimit = `
 {{- if .RateLimit}}
         limit_req zone={{.RateZone}} burst={{.RateBurst}} nodelay;
         limit_req_status 429;
+{{- end}}`
+
+// vhostPageCache decides which PHP requests the page cache may answer (see
+// the PHP location). It sets X-Cache-Status for the server: no location of
+// the vhost has an add_header of its own, which would drop it.
+const vhostPageCache = `
+{{- if .CacheZone}}
+
+    # Page cache: PHP pages are kept for 10 minutes (404 pages for 1), but
+    # not for requests other than GET and HEAD, URLs with a query string,
+    # visitors who are signed in or have a cart, and the admin, login, API
+    # and shop pages.
+    set $panel_no_cache 0;
+    if ($request_method !~ "^(?:GET|HEAD)$") {
+        set $panel_no_cache 1;
+    }
+    if ($query_string != "") {
+        set $panel_no_cache 1;
+    }
+    if ($http_cookie ~* "wordpress_logged_in_|wp-postpass_|comment_author_|woocommerce_items_in_cart|wp_woocommerce_session_|PHPSESSID") {
+        set $panel_no_cache 1;
+    }
+    if ($request_uri ~* "/(?:wp-admin/|wp-login\.php|xmlrpc\.php|wp-json/|wp-cron\.php|cart/|checkout/|my-account/)") {
+        set $panel_no_cache 1;
+    }
+    # HIT, MISS, BYPASS…; static files get none.
+    add_header X-Cache-Status $upstream_cache_status always;
 {{- end}}`
 
 const vhostCustom = `
@@ -386,6 +435,13 @@ type vhostData struct {
 	// pool: OpenLiteSpeed's virtual host and FastCGI connection limit.
 	User       string
 	PHPWorkers int
+	// HSTS is the Strict-Transport-Security value of the HTTPS server, or
+	// "" (see siteHSTS).
+	HSTS string
+	// CacheZone and CacheDir turn on Nginx's page cache (FastCGI cache) for
+	// a PHP site (see sitehttps.go).
+	CacheZone string
+	CacheDir  string
 }
 
 func (d *vhostData) check() error {
@@ -417,7 +473,13 @@ func (d *vhostData) check() error {
 	if d.PHPWorkers < 0 || d.PHPWorkers > 200 {
 		return fmt.Errorf("refusing to render %d PHP workers", d.PHPWorkers)
 	}
-	for _, p := range []string{d.Public, d.LogDir, d.SnippetDir, d.EmptyRoot, d.PHPSocket, d.CertFile, d.KeyFile, d.AuthFile, d.CustomFile} {
+	if d.HSTS != "" && ((d.HSTS != hstsValue && d.HSTS != hstsValueSubdomains) || !d.SSL || !d.ForceHTTPS) {
+		return fmt.Errorf("refusing to render HSTS %q", d.HSTS)
+	}
+	if (d.CacheZone != "" || d.CacheDir != "") && (!cacheZoneRe.MatchString(d.CacheZone) || d.CacheDir == "" || d.PHPSocket == "") {
+		return fmt.Errorf("refusing to render the page cache %q in %q", d.CacheZone, d.CacheDir)
+	}
+	for _, p := range []string{d.Public, d.LogDir, d.SnippetDir, d.EmptyRoot, d.PHPSocket, d.CertFile, d.KeyFile, d.AuthFile, d.CustomFile, d.CacheDir} {
 		if !safePath(p) {
 			return fmt.Errorf("refusing to render unsafe path %q", p)
 		}

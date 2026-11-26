@@ -55,6 +55,7 @@ Useful commands on the server:
 - [x] **Files:** file manager with editor, upload, download, download from a URL, search by name or content, compress and extract, and a trash with 30-day restore; inside a website's folder it works as the site's user and can't leave the folder, elsewhere it works as root
 - [x] **Backups** of sites, databases and any folder, scheduled with retention, to this server, S3-compatible storage (S3, R2, B2, Wasabi, MinIO) and SFTP servers (host key pinned), with one-click restore
 - [x] Cron jobs, services, **background programs** (kept running by systemd as a site's user, restarted after a crash), processes and listening ports, SSH sign-in history, firewall (ufw), fail2ban (SSH and panel), SSH settings with lock-out guards (the panel refuses settings with which nobody could sign in, and never deletes your last firewall rule for SSH or the panel)
+- [x] **System:** operating system updates (security updates marked, checked every few hours, "restart required" shown) with optional automatic security updates, a swap file, time zone, clock synchronization and host name, TCP BBR, and disk cleanup (apt cache, journal, old logs, unused packages, Docker images)
 - [x] **Website security:** a web application firewall (ModSecurity with the OWASP Core Rule Set, per site: off, detect or block, with its events), per-IP rate limits and blocked addresses, and a malware scanner (web shells, backdoors, hidden PHP) with quarantine, plus optional ClamAV
 - [x] Software: **install and uninstall** every component (web server, PHP, MariaDB, Adminer, Redis, Node.js, Python, Docker, WAF, ClamAV), refused while websites, databases or containers still use it, data kept unless you confirm; the menu hides what is not installed; several PHP versions with their extensions and php.ini settings, Redis, several Node.js versions, Python, Docker: containers, **Compose projects** (checked: localhost-only ports, no privileged containers or system mounts), images, and a terminal in each container
 - [x] Outgoing mail through an SMTP relay (Gmail, SendGrid, Mailgun, Amazon SES…), so websites can send e-mail
@@ -119,6 +120,7 @@ internal/services/    systemd services
 internal/software/    PHP versions and extensions, Node.js, Python, Redis, Docker
 internal/store/       SQLite database (pure Go, no CGO) with migrations
 internal/system/      CPU, memory, disk and load from /proc
+internal/systools/    OS updates, swap, time zone and host name, TCP BBR, disk cleanup
 internal/terminal/    PTY for the web terminal
 internal/update/      signed self-update
 internal/validate/    allow-list validation of everything that reaches the system

@@ -5,14 +5,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
-	"io/fs"
 	"net/url"
 	"os"
 	"regexp"
 	"slices"
 	"strings"
 
+	"github.com/nefocp/nefo/internal/fsutil"
 	"github.com/nefocp/nefo/internal/store"
 	"github.com/nefocp/nefo/internal/usererr"
 	"github.com/nefocp/nefo/internal/validate"
@@ -179,139 +178,6 @@ func rewriteConfig(cfg string, db *store.Database, replacements []string) (strin
 	return replaceDefines(cfg, defineRawRe("FORCE_SSL_ADMIN"), "FORCE_SSL_ADMIN", "false", false)
 }
 
-// ---- copying files ----
-
-type copyOptions struct {
-	uid, gid  int // owner of the copy; -1 leaves it to the panel
-	srcUID    int // the live site's user; -1 when unknown
-	skip      []string
-	transform map[string]func([]byte) ([]byte, error) // files rewritten on the way
-	lg        Logger
-}
-
-type copyStats struct {
-	files   int
-	bytes   int64
-	skipped []string
-}
-
-// copyTree copies a site's folder into another one, as root, inside two
-// os.Roots: no symlink can lead the copy out of either folder. Symlinks,
-// devices and FIFOs are left out, and so are files of other users that the
-// live site's user could not read (a hard link to a file of root, say),
-// because the copy belongs to another user.
-func copyTree(ctx context.Context, srcDir, dstDir string, o copyOptions) (*copyStats, error) {
-	src, err := os.OpenRoot(srcDir)
-	if err != nil {
-		return nil, err
-	}
-	defer src.Close()
-	dst, err := os.OpenRoot(dstDir)
-	if err != nil {
-		return nil, err
-	}
-	defer dst.Close()
-	st := &copyStats{}
-	err = fs.WalkDir(src.FS(), ".", func(p string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-		if p == "." {
-			return nil
-		}
-		if slices.Contains(o.skip, p) {
-			st.skipped = append(st.skipped, p)
-			if d.IsDir() {
-				return fs.SkipDir
-			}
-			return nil
-		}
-		switch {
-		case d.IsDir():
-			info, err := d.Info()
-			if err != nil {
-				return err
-			}
-			if err := dst.Mkdir(p, 0o700); err != nil && !errors.Is(err, fs.ErrExist) {
-				return err
-			}
-			return setOwner(dst, p, info.Mode().Perm(), o.uid, o.gid)
-		case d.Type().IsRegular():
-			return copyFile(src, dst, p, o, st)
-		default:
-			st.skipped = append(st.skipped, p)
-			return nil
-		}
-	})
-	return st, err
-}
-
-func copyFile(src, dst *os.Root, p string, o copyOptions, st *copyStats) error {
-	in, err := src.OpenFile(p, os.O_RDONLY|openNonBlock, 0)
-	if err != nil {
-		return err
-	}
-	defer in.Close()
-	fi, err := in.Stat()
-	if err != nil {
-		return err
-	}
-	if !fi.Mode().IsRegular() {
-		st.skipped = append(st.skipped, p)
-		return nil
-	}
-	if owner, _ := fileOwner(fi); o.srcUID >= 0 && owner != o.srcUID && fi.Mode().Perm()&0o004 == 0 {
-		st.skipped = append(st.skipped, p)
-		return nil
-	}
-	var r io.Reader = in
-	if f, ok := o.transform[p]; ok {
-		b, err := io.ReadAll(io.LimitReader(in, 1<<20+1))
-		if err != nil {
-			return err
-		}
-		if len(b) > 1<<20 {
-			return fmt.Errorf("%s is larger than expected", p)
-		}
-		if b, err = f(b); err != nil {
-			return err
-		}
-		r = bytes.NewReader(b)
-	}
-	out, err := dst.OpenFile(p, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
-	if err != nil {
-		return err
-	}
-	n, err := io.Copy(out, r)
-	if cerr := out.Close(); err == nil {
-		err = cerr
-	}
-	if err != nil {
-		return err
-	}
-	st.files++
-	st.bytes += n
-	if o.lg != nil && st.files%5000 == 0 {
-		o.lg.Logf("Copied %d files", st.files)
-	}
-	return setOwner(dst, p, fi.Mode().Perm(), o.uid, o.gid)
-}
-
-// setOwner sets a mode (permission bits only: never setuid) and, unless
-// uid is -1, the owner.
-func setOwner(root *os.Root, name string, mode os.FileMode, uid, gid int) error {
-	if err := root.Chmod(name, mode.Perm()); err != nil {
-		return err
-	}
-	if uid < 0 {
-		return nil
-	}
-	return root.Lchown(name, uid, gid)
-}
-
 // ---- the clone ----
 
 // origin returns scheme://host of an address.
@@ -428,9 +294,9 @@ func (t *Toolkit) Clone(ctx context.Context, from *store.Site, domain string, ho
 		return nil, err
 	}
 	removePlaceholder(t.public(site))
-	stats, err := copyTree(ctx, t.public(from), t.public(site), copyOptions{
-		uid: uid, gid: gid, srcUID: srcUID, skip: leftOut, lg: lg,
-		transform: map[string]func([]byte) ([]byte, error){
+	stats, err := fsutil.CopyTree(ctx, t.public(from), t.public(site), fsutil.CopyOptions{
+		UID: uid, GID: gid, SrcUID: srcUID, Skip: leftOut, Log: lg,
+		Transform: map[string]func([]byte) ([]byte, error){
 			"wp-config.php": func(b []byte) ([]byte, error) {
 				s, err := rewriteConfig(string(b), db, replacements)
 				return []byte(s), err
@@ -442,11 +308,8 @@ func (t *Toolkit) Clone(ctx context.Context, from *store.Site, domain string, ho
 	if err != nil {
 		return nil, fmt.Errorf("copy the files: %w", err)
 	}
-	lg.Logf("Copied %d files (%d MB)", stats.files, stats.bytes>>20)
-	if len(stats.skipped) > 0 {
-		lg.Logf("Left out %d items (cache drop-ins, links and files the site cannot read): %s",
-			len(stats.skipped), strings.Join(stats.skipped[:min(10, len(stats.skipped))], ", "))
-	}
+	lg.Logf("Copied %d files (%d MB)", stats.Files, stats.Bytes>>20)
+	logLeftOut(lg, stats.Skipped)
 
 	for _, o := range origins {
 		for _, pair := range [][2]string{
@@ -470,6 +333,14 @@ func (t *Toolkit) Clone(ctx context.Context, from *store.Site, domain string, ho
 	}
 	lg.Logf("The staging site is ready at %s/ once its domain points at this server", newOrigin)
 	return site, nil
+}
+
+// logLeftOut lists the first of the items a copy left out.
+func logLeftOut(lg Logger, skipped []string) {
+	if len(skipped) > 0 {
+		lg.Logf("Left out %d items (cache drop-ins, links and files the site cannot read): %s",
+			len(skipped), strings.Join(skipped[:min(10, len(skipped))], ", "))
+	}
 }
 
 // removePlaceholder removes the welcome page of a new site, so it does not

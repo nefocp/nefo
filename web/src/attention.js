@@ -6,7 +6,8 @@ import { server } from './server.js'
 // Things that need the administrator, worked out in the browser from
 // answers the panel already gives: the account (2FA), SSH and firewall
 // settings, certificates and expiry dates of websites, failed scheduled
-// backups and a nearly full disk. Each item: { id, sev: crit|warn, icon,
+// backups, a nearly full disk, pending security updates and a restart that
+// an update needs. Each item: { id, sev: crit|warn, icon,
 // title: [key, params, plural count], sub: [key, params], to, action }.
 // The texts are i18n keys, so a change of language needs no new request.
 
@@ -17,6 +18,8 @@ export function refreshAttention(force = false) {
     load('api/sites', { force }),
     load('api/security', { ttl: 5 * 60000, force }),
     load('api/backups', { ttl: 60000, force }),
+    // The last update check: the panel refreshes it every few hours, so asking is cheap.
+    load('api/system/updates', { ttl: 10 * 60000, force }),
   ])
 }
 
@@ -33,6 +36,13 @@ export const attention = computed(() => {
   }
   if (sec?.firewall?.installed && !sec.firewall.active) {
     out.push({ id: 'fw', sev: 'warn', icon: 'shield', title: ['attention.firewall_off'], sub: ['attention.firewall_off_sub'], to: { name: 'firewall' }, action: 'attention.fix' })
+  }
+  const upd = store['api/system/updates']
+  if (upd?.security > 0) {
+    out.push({ id: 'secupd', sev: 'warn', icon: 'download', title: ['attention.security_updates', { n: upd.security }, upd.security], sub: ['attention.security_updates_sub'], to: { name: 'system' }, action: 'attention.view' })
+  }
+  if (upd?.reboot?.required) {
+    out.push({ id: 'reboot', sev: 'warn', icon: 'power', title: ['attention.reboot_required'], sub: ['attention.reboot_required_sub'], to: { name: 'settings' }, action: 'attention.view' })
   }
   for (const s of list(store['api/sites']?.sites)) {
     const to = { name: 'websites', query: { site: String(s.id), tab: 'ssl' } }

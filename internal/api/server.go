@@ -33,6 +33,7 @@ import (
 	"github.com/nefocp/nefo/internal/software"
 	"github.com/nefocp/nefo/internal/store"
 	"github.com/nefocp/nefo/internal/system"
+	"github.com/nefocp/nefo/internal/systools"
 	"github.com/nefocp/nefo/internal/web"
 )
 
@@ -53,9 +54,11 @@ type Server struct {
 	monitor  *monitor.Monitor
 	docker   *docker.Manager
 	mail     *mailrelay.Manager
+	systools *systools.Manager
 	jobs     *jobs.Manager
 	log      *slog.Logger
 	now      func() time.Time // replaceable in tests
+	started  time.Time        // when the panel started
 
 	totpMu   sync.Mutex
 	totpUsed map[int64]uint64 // last accepted TOTP time step per user, to stop replays
@@ -75,6 +78,7 @@ func New(cfg *config.Config, st *store.Store, log *slog.Logger) *Server {
 		jobs:     jobs.NewManager(log),
 		log:      log,
 		now:      time.Now,
+		started:  time.Now(),
 		totpUsed: map[int64]uint64{},
 	}
 	s.files = files.New(s.fileScope)
@@ -90,6 +94,7 @@ func New(cfg *config.Config, st *store.Store, log *slog.Logger) *Server {
 	s.hosting.SetReservedPorts(cfg.Port(), gitdeploy.HookPort)
 	s.monitor = monitor.New(st, s.sys, log, s.watchedServices)
 	s.software = software.New(run.System{}, st, func(ctx context.Context) string { return s.hosting.Status(ctx).DefaultPHP })
+	s.systools = systools.New(run.System{}, st)
 	return s
 }
 
@@ -117,6 +122,10 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("DELETE /api/sites/{id}", s.requireAuth(s.handleDeleteSite))
 	mux.Handle("POST /api/sites/{id}/ssl", s.requireAuth(s.handleIssueSSL))
 	mux.Handle("POST /api/sites/{id}/force-https", s.requireAuth(s.handleForceHTTPS))
+	mux.Handle("DELETE /api/sites/{id}/ssl", s.requireAuth(s.handleRemoveSSL))
+	mux.Handle("PUT /api/sites/{id}/hsts", s.requireAuth(s.handleSetHSTS))
+	mux.Handle("PUT /api/sites/{id}/page-cache", s.requireAuth(s.handleSetPageCache))
+	mux.Handle("POST /api/sites/{id}/page-cache/purge", s.requireAuth(s.handlePurgePageCache))
 	mux.Handle("POST /api/sites/{id}/wordpress", s.requireAuth(s.handleInstallApp))
 	mux.Handle("POST /api/sites/{id}/apps/{app}", s.requireAuth(s.handleInstallApp))
 	mux.Handle("GET /api/apps", s.requireAuth(s.handleAppCatalog))
@@ -134,6 +143,7 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("PUT /api/sites/{id}/access", s.requireAuth(s.handleSiteAccess))
 	mux.Handle("PUT /api/sites/{id}/options", s.requireAuth(s.handleSiteOptions))
 	mux.Handle("PUT /api/sites/{id}/note", s.requireAuth(s.handleSiteNote))
+	mux.Handle("POST /api/sites/{id}/clone", s.requireAuth(s.handleSiteClone))
 	mux.Handle("GET /api/sites/{id}/sftp", s.requireAuth(s.handleGetSFTP))
 	mux.Handle("GET /api/sites/{id}/nginx", s.requireAuth(s.handleGetNginx))
 	mux.Handle("GET /api/sites/{id}/firewall", s.requireAuth(s.handleGetFirewall))
@@ -180,6 +190,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/wordpress/{id}/admins", s.requireAuth(s.handleWPAdmins))
 	mux.Handle("POST /api/wordpress/{id}/password", s.requireAuth(s.handleWPPassword))
 	mux.Handle("POST /api/wordpress/{id}/staging", s.requireAuth(s.handleWPStaging))
+	mux.Handle("GET /api/wordpress/{id}/push", s.requireAuth(s.handleWPPushInfo))
+	mux.Handle("POST /api/wordpress/{id}/push", s.requireAuth(s.handleWPPush))
 
 	mux.Handle("GET /api/db/status", s.requireAuth(s.handleDBStatus))
 	mux.Handle("POST /api/db/install", s.requireAuth(s.handleDBInstall))
@@ -261,6 +273,9 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/security/firewall/rules/delete", s.requireAuth(s.handleDeleteRule))
 	mux.Handle("POST /api/security/firewall/enable", s.requireAuth(s.handleEnableFirewall))
 	mux.Handle("PUT /api/security/ssh", s.requireAuth(s.handleSetSSH))
+	mux.Handle("GET /api/security/ssh/keys", s.requireAuth(s.handleSSHKeys))
+	mux.Handle("POST /api/security/ssh/keys", s.requireAuth(s.handleAddSSHKey))
+	mux.Handle("POST /api/security/ssh/keys/delete", s.requireAuth(s.handleRemoveSSHKey))
 	mux.Handle("POST /api/security/fail2ban/install", s.requireAuth(s.handleInstallFail2ban))
 	mux.Handle("POST /api/security/fail2ban/unban", s.requireAuth(s.handleUnban))
 
@@ -308,6 +323,24 @@ func (s *Server) Handler() http.Handler {
 	// Reboot the server, restart the panel (power.go).
 	mux.Handle("POST /api/system/reboot", s.requireAuth(s.handleReboot))
 	mux.Handle("POST /api/panel/restart", s.requireAuth(s.handlePanelRestart))
+	// The System page: OS updates, swap, time and name, BBR, cleanup (ostools.go).
+	mux.Handle("GET /api/system/updates", s.requireAuth(s.handleOSUpdates))
+	mux.Handle("POST /api/system/updates/check", s.requireAuth(s.handleOSUpdatesCheck))
+	mux.Handle("POST /api/system/updates/install", s.requireAuth(s.handleOSUpgrade))
+	mux.Handle("PUT /api/system/updates/auto", s.requireAuth(s.handleOSAutoUpdates))
+	mux.Handle("GET /api/system/swap", s.requireAuth(s.handleSwap))
+	mux.Handle("POST /api/system/swap", s.requireAuth(s.handleCreateSwap))
+	mux.Handle("DELETE /api/system/swap", s.requireAuth(s.handleRemoveSwap))
+	mux.Handle("PUT /api/system/swap/swappiness", s.requireAuth(s.handleSwappiness))
+	mux.Handle("GET /api/system/time", s.requireAuth(s.handleSystemTime))
+	mux.Handle("GET /api/system/timezones", s.requireAuth(s.handleTimezones))
+	mux.Handle("PUT /api/system/timezone", s.requireAuth(s.handleSetTimezone))
+	mux.Handle("PUT /api/system/ntp", s.requireAuth(s.handleSetNTP))
+	mux.Handle("PUT /api/system/hostname", s.requireAuth(s.handleSetHostname))
+	mux.Handle("GET /api/system/network", s.requireAuth(s.handleNetwork))
+	mux.Handle("PUT /api/system/network/bbr", s.requireAuth(s.handleSetBBR))
+	mux.Handle("GET /api/system/cleanup", s.requireAuth(s.handleCleanup))
+	mux.Handle("POST /api/system/cleanup/{item}", s.requireAuth(s.handleClean))
 
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found")
@@ -374,6 +407,7 @@ func (s *Server) RunMaintenance(ctx context.Context) {
 		}
 		s.renewPanelCertificate(ctx)
 		s.refreshCatalog(ctx, false)
+		s.checkOSUpdates(ctx) // apt-get update at most every few hours (ostools.go)
 		select {
 		case <-ctx.Done():
 			return

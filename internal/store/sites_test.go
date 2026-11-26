@@ -47,6 +47,16 @@ func TestSites(t *testing.T) {
 	if len(got.Aliases) != 1 || got.Aliases[0] != "www.example.com" {
 		t.Fatalf("aliases = %q", got.Aliases)
 	}
+	if got.HSTS || got.HSTSSubdomains || got.PageCache {
+		t.Fatalf("new site has HSTS or page cache: %+v", got)
+	}
+	got.HSTS, got.HSTSSubdomains, got.PageCache = true, true, true
+	if err := st.UpdateSite(ctx, got); err != nil {
+		t.Fatal(err)
+	}
+	if again, _ := st.SiteByID(ctx, site.ID); !again.HSTS || !again.HSTSSubdomains || !again.PageCache {
+		t.Fatalf("HSTS and page cache not saved: %+v", again)
+	}
 	if names := got.Names(); len(names) != 2 || names[0] != "example.com" {
 		t.Fatalf("Names() = %q", names)
 	}

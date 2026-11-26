@@ -23,6 +23,8 @@ import SiteStats from './SiteStats.vue'
 import SiteGit from './SiteGit.vue'
 import SiteWordPress from './SiteWordPress.vue'
 import SiteBackups from './SiteBackups.vue'
+import SiteHTTPS from './SiteHTTPS.vue'
+import SitePageCache from './SitePageCache.vue'
 
 // SiteDrawer holds every setting of one website, in grouped tabs. Each tab
 // reuses the per-feature form (SiteSSL, SiteFirewall…). Saved sites go up
@@ -80,6 +82,8 @@ const groups = computed(() =>
       id: 'config',
       items: [
         !isApp.value ? { id: 'rewrite', icon: 'code' } : null,
+        // Nginx's page cache; OpenLiteSpeed has LSCache built in (the tab says so).
+        s.value.php_version && props.server !== 'apache' ? { id: 'cache', icon: 'zap' } : null,
         { id: 'webconf', logo: props.server, label: t('drawer.tab_webconf', { server: serverName.value }) },
         { id: 'redirect', icon: 'arrowRight' },
         isApp.value ? { id: 'proxy', icon: 'swap' } : null,
@@ -271,6 +275,7 @@ const appLabel = computed(() => (s.value.app ? appName(s.value.app) : ''))
           @delete="emit('delete', s)"
           @install-wp="emit('install-wp', s)"
           @note="saveNote"
+          @job="(j) => emit('job', j)"
         />
 
         <section v-else-if="['domains', 'php', 'runtime', 'proxy'].includes(current)" class="card">
@@ -321,10 +326,14 @@ const appLabel = computed(() => (s.value.app ? appName(s.value.app) : ''))
             </div>
             <button type="button" class="switch" role="switch" :aria-checked="!!s.force_https" :aria-label="t('websites.force_https')" :disabled="!s.ssl" @click="forceHTTPS"></button>
           </div>
+          <SiteHTTPS v-if="s.ssl" :site="s" part="hsts" :busy="busy" @saved="saved" />
           <section class="card">
             <SiteSSL :key="paneKey" :site="s" :busy="busy" hide-status @issue="(o) => startJob('POST', `api/sites/${s.id}/ssl`, o)" @saved="saved" @close="reset" />
           </section>
+          <SiteHTTPS v-if="s.ssl" :site="s" part="off" :busy="busy" @saved="saved" />
         </template>
+
+        <SitePageCache v-else-if="current === 'cache'" :key="paneKey" :site="s" :server="server" :busy="busy" @saved="saved" />
 
         <section v-else-if="current === 'waf'" class="card">
           <SiteFirewall :key="paneKey" :site="s" :server="server" section="waf" @saved="saved" @close="reset" />

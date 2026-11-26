@@ -46,6 +46,13 @@ type wpSiteResponse struct {
 	SSL        bool   `json:"ssl"`
 	Disabled   bool   `json:"disabled"`
 	URL        string `json:"url"`
+	// StagingOf is the live site of a staging copy.
+	StagingOf *wpSiteRef `json:"staging_of,omitempty"`
+}
+
+type wpSiteRef struct {
+	ID     int64  `json:"id"`
+	Domain string `json:"domain"`
 }
 
 func siteBaseURL(site *store.Site) string {
@@ -66,8 +73,11 @@ func (s *Server) handleWPList(w http.ResponseWriter, r *http.Request, a *authed)
 	out := []wpSiteResponse{}
 	for _, site := range sites {
 		if site.App == hosting.AppWordPress && site.PHPVersion != "" {
-			out = append(out, wpSiteResponse{ID: site.ID, Domain: site.Domain, PHPVersion: site.PHPVersion,
-				SSL: site.SSL, Disabled: site.Disabled, URL: siteBaseURL(site)})
+			ws := wpSiteJSON(site)
+			if live, err := s.stagingLive(r.Context(), site); err == nil && live != nil && live.App == hosting.AppWordPress {
+				ws.StagingOf = &wpSiteRef{ID: live.ID, Domain: live.Domain}
+			}
+			out = append(out, ws)
 		}
 	}
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -264,11 +274,16 @@ func (s *Server) handleWPStaging(w http.ResponseWriter, r *http.Request, a *auth
 	}
 	user, ip := a.user.Username, clientIP(r)
 	job, err := s.jobs.Start("wp_staging", domain, 3*time.Hour, func(ctx context.Context, j *jobs.Job) error {
-		if _, err := kit.Clone(ctx, site, domain, s.wpCloneHost(user, ip), j); err != nil {
+		to, err := kit.Clone(ctx, site, domain, s.wpCloneHost(user, ip), j)
+		if err != nil {
 			s.audit(ctx, user, "wp_staging_failed", ip, site.Domain+" to "+domain)
 			return err
 		}
 		s.audit(ctx, user, "wp_staging_created", ip, site.Domain+" to "+domain)
+		// Remembered so the copy can be pushed back (see wppush.go).
+		if err := s.saveStagingLink(ctx, site, to.ID); err != nil {
+			j.Logf("Warning: the panel could not remember that %s is a copy of %s, so it cannot be pushed back: %v", domain, site.Domain, err)
+		}
 		return nil
 	})
 	if err != nil {

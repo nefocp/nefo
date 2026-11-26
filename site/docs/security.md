@@ -114,7 +114,7 @@ The log records:
 
 - sign-ins, sign-outs and failed sign-ins, with the reason (wrong username or password, or wrong 2FA code);
 - password changes, password resets from the command line, and 2FA turned on or off;
-- changes made in the panel: websites, certificates, databases, files, backups, cron jobs, services, firewall rules, SSH settings, software and Docker;
+- changes made in the panel: websites, certificates, databases, files, backups, cron jobs, services, firewall rules, SSH settings and keys, software and Docker;
 - opening and closing the terminal, with how long it was open;
 - panel restarts and server reboots.
 
@@ -227,7 +227,7 @@ Keep your current SSH session open after you save. Open a new connection and che
 - Settings with which nobody could sign in over SSH any more. For example: turning off password sign-in while no account has an SSH key; root sign-in **With an SSH key only** while root has no key; or root **Not allowed** while no other account can sign in.
 - A port that is already taken: the panel's own port, 80, 443, or any port another program listens on.
 
-To decide, the panel looks at root and at the people's accounts (UID 1000 and up) with a login shell: their keys in `~/.ssh/authorized_keys` (or the files set by `AuthorizedKeysFile`), their passwords, and `AllowUsers`, `DenyUsers`, `AllowGroups` and `DenyGroups`. It doesn't read `Match` blocks. The page lists who can sign in now, and how (key or password). When root has no key, it also shows a warning.
+To decide, the panel looks at root and at the people's accounts (UID 1000 and up) with a login shell: their keys in `~/.ssh/authorized_keys` (or the files set by `AuthorizedKeysFile`), their passwords, and `AllowUsers`, `DenyUsers`, `AllowGroups` and `DenyGroups`. It doesn't read `Match` blocks. The page lists who can sign in now, and how (key or password). When root has no key, it also shows a warning with an **Add key** button (see [SSH keys](#ssh-keys)).
 - A new port when SSH is started by systemd socket activation. The page then shows **socket activated** and the port field is locked. Change the port on the command line.
 
 SSH can't be stopped from the **Services** page, only restarted or reloaded.
@@ -246,10 +246,47 @@ With root sign-in **Not allowed**, you need another account that can use `sudo`,
 
 The SFTP accounts of your websites connect on the same port.
 
+### SSH keys
+
+**SSH keys**, below the SSH settings, lists the public keys of root and of the people's accounts (UID 1000 and up, with a login shell), grouped by account. Nefo reads them from `~/.ssh/authorized_keys`, or from the files set by `AuthorizedKeysFile`. Each key shows its type and size (such as `ed25519` or `rsa 4096`), its comment, its SHA256 fingerprint, and its options if it has any, such as `from="…"` or `command="…"`. A DSA key, or an RSA key under 2048 bits, is marked **weak**: current OpenSSH refuses them. Add a new key, then remove the weak one.
+
+The SFTP accounts of your websites are not listed: their keys are in each website's SFTP settings.
+
+#### Add a key
+
+1. On your computer, make a key pair if you don't have one yet. This works the same in PowerShell on Windows 10 and later:
+   ```sh
+   ssh-keygen -t ed25519
+   ```
+   The private key goes to `~/.ssh/id_ed25519` and stays on your computer. The public key goes to `~/.ssh/id_ed25519.pub`.
+2. Print the public key and copy the whole line, which starts with `ssh-ed25519`:
+   ```sh
+   cat ~/.ssh/id_ed25519.pub
+   ```
+3. In the panel, under **SSH keys**, select **Add key**.
+4. Choose the **Account**, paste the line into **Public key** and select **Add key**.
+5. Test it from a new terminal, for example `ssh root@203.0.113.10`.
+
+Nefo adds the key at the end of the account's `~/.ssh/authorized_keys`. When the folder or the file is missing, it creates them, owned by the account, with modes 700 and 600. It refuses:
+
+- a private key, such as one that starts with `-----BEGIN OPENSSH PRIVATE KEY-----`. If you pasted a private key somewhere by mistake, make a new key pair;
+- more than one line. In PuTTYgen, copy the box **Public key for pasting into OpenSSH authorized_keys file**;
+- DSA keys, and RSA keys under 2048 bits;
+- a key the account already has;
+- an `authorized_keys` file or `.ssh` folder that is a symbolic link, or not a regular file or folder. An account could point it at another file of the server, so Nefo neither reads nor changes it.
+
+#### Remove a key
+
+Select the bin icon next to the key and confirm. The confirmation names the key by its type, fingerprint and comment. If nobody could sign in over SSH without this key, with the current settings, the panel refuses: add another key first, or allow sign-in with a password.
+
+Added and removed keys are recorded in the activity log, with the account and the key's fingerprint.
+
 ### Turn off password sign-in
 
-1. Add your public key to `/root/.ssh/authorized_keys` and check that you can sign in with it.
-2. Turn off **Allow sign-in with a password** and select **Save**.
+1. Under [SSH keys](#ssh-keys), add your public key for root, or for the account you sign in with.
+2. Open a new terminal and sign in with the key. If SSH asks for a password, the key isn't used: check that you added it to the account you sign in as.
+3. Turn off **Allow sign-in with a password** and select **Save**. If nobody has a key, the panel refuses (see [What the SSH settings refuse](#what-the-ssh-settings-refuse)).
+4. Keep your current session open, and check a new connection once more before you close it.
 
 The SFTP accounts of your websites keep their own sign-in method, password or key, even with password sign-in off for SSH.
 

@@ -111,6 +111,10 @@ func (m *Manager) RenewDue(ctx context.Context, report func(domain string, err e
 		}
 		m.ops.Lock()
 		site, err := m.store.SiteByID(ctx, s.ID) // it may have changed meanwhile
+		if err == nil && (!site.SSL || site.SSLSource == SSLCustom) {
+			m.ops.Unlock() // HTTPS turned off, or a certificate installed
+			continue
+		}
 		if err == nil {
 			err = m.obtainAndInstall(ctx, site, slogLogger{m})
 			if err != nil {

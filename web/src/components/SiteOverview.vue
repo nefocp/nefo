@@ -5,6 +5,7 @@ import { daysLeft } from '../attention.js'
 import { appName } from '../logos.js'
 import { SERVER_NAMES } from '../webservers.js'
 import Icon from './Icon.vue'
+import SiteCloneModal from './SiteCloneModal.vue'
 
 // SiteOverview is the first tab of the site drawer: the facts about a site
 // and its quick switches. Changes go up as events; the drawer calls the API.
@@ -14,7 +15,7 @@ const props = defineProps({
   busy: { type: Boolean, default: false },
   database: { type: Object, default: null },
 })
-const emit = defineEmits(['go', 'force-https', 'suspend', 'app', 'deps', 'delete', 'install-wp', 'note'])
+const emit = defineEmits(['go', 'force-https', 'suspend', 'app', 'deps', 'delete', 'install-wp', 'note', 'job'])
 const { t, locale } = useI18n()
 
 const fmtDate = (v) => new Date(v).toLocaleDateString(locale.value, { year: 'numeric', month: 'short', day: 'numeric' })
@@ -58,6 +59,7 @@ function saveNote() {
   if (v !== (props.site.note || '')) emit('note', v)
 }
 
+const cloning = ref(false)
 const wafText = computed(() => (props.site.waf === 'block' ? t('drawer.waf_block') : props.site.waf === 'detect' ? t('drawer.waf_detect') : t('drawer.off')))
 </script>
 
@@ -149,6 +151,17 @@ const wafText = computed(() => (props.site.waf === 'block' ? t('drawer.waf_block
         </div>
       </div>
     </section>
+
+    <section v-if="!site.proxy_port && !isDocker" class="card">
+      <div class="card-head" style="margin: 0">
+        <div>
+          <h3 style="margin: 0 0 2px">{{ t('clone.card') }}</h3>
+          <p class="muted small" style="margin: 0">{{ t('clone.card_hint') }}</p>
+        </div>
+        <button type="button" class="btn" :disabled="busy" @click="cloning = true"><Icon name="copy" :size="15" />{{ t('clone.open') }}</button>
+      </div>
+    </section>
+    <SiteCloneModal v-if="cloning" :site="site" @close="cloning = false" @started="(j) => emit('job', j)" />
 
     <section class="card card-danger">
       <div class="card-head">

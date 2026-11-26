@@ -37,6 +37,8 @@ Nefo is built for small VPSes with 1 GB of RAM. The panel itself is one program,
 
 One component needs much more memory: the optional ClamAV antivirus needs about 1.4 GB of free memory while it scans, so it suits servers with 2 GB or more.
 
+On a server with 1 GB of memory, add 1 to 2 GB of swap, so that a busy moment doesn't make the kernel stop MariaDB or PHP. Many VPS images come without swap. **System** → **Swap** creates a swap file in one click (see [Swap](./os#swap)). In a container (OpenVZ, LXC), the kernel doesn't allow swap: ask your provider.
+
 The disk space you need depends on your websites, databases and backups. Backups kept on the server are stored in `/var/backups/panel`, on the same disk as your websites. The dashboard shows disk use, and the panel warns you when the disk is 90% full.
 
 ## A fresh server

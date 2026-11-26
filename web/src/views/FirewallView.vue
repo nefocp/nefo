@@ -78,6 +78,53 @@ function saveSSH() {
   call('PUT', 'api/security/ssh', { port: Number(s.port), password_auth: s.password_auth, permit_root_login: s.permit_root_login }, t('firewall.ssh_saved'))
 }
 
+// ---- SSH keys ----
+const keys = ref(null)
+const showKey = ref(false)
+const newKey = ref({ user: 'root', key: '' })
+const keyError = ref('')
+const keyBusy = ref(false)
+
+async function loadKeys() {
+  try {
+    keys.value = await api('GET', 'api/security/ssh/keys')
+  } catch (e) {
+    error.value = errorMessage(e)
+  }
+}
+
+function openAddKey(user) {
+  clearMessages()
+  keyError.value = ''
+  newKey.value = { user: user || keys.value?.accounts?.[0]?.user || 'root', key: '' }
+  showKey.value = true
+}
+
+async function addKey() {
+  keyError.value = ''
+  keyBusy.value = true
+  try {
+    await api('POST', 'api/security/ssh/keys', newKey.value)
+    showKey.value = false
+    notice.value = t('firewall.key_added', { user: newKey.value.user })
+    await Promise.all([load(), loadKeys()])
+  } catch (e) {
+    keyError.value = errorMessage(e)
+  } finally {
+    keyBusy.value = false
+  }
+}
+
+async function removeKey(acc, k) {
+  if (!window.confirm(t('firewall.key_remove_confirm', { key: keyName(k), user: acc.user }))) return
+  if (await call('POST', 'api/security/ssh/keys/delete', { user: acc.user, fingerprint: k.fingerprint }, t('firewall.key_removed'))) await loadKeys()
+}
+
+// "ed25519", "rsa 4096", "ecdsa 256"…
+const keyType = (k) => (k.bits && ['rsa', 'ecdsa', 'dsa'].includes(k.type) ? `${k.type} ${k.bits}` : k.type)
+const keyName = (k) => `${keyType(k)} ${k.fingerprint}${k.comment ? ` (${k.comment})` : ''}`
+const keyFile = computed(() => keys.value?.accounts?.find((a) => a.user === newKey.value.user)?.file || '')
+
 // ---- fail2ban ----
 async function installFail2ban() {
   clearMessages()
@@ -108,7 +155,7 @@ const sshRisk = computed(() => data.value?.ssh?.password_auth && data.value?.ssh
 usePageMeta(() => ({ sub: data.value ? [fw.value.active ? t('pg.fw_active') : t('attention.firewall_off'), `SSH ${data.value.ssh.port}`, f2b.value.running ? 'fail2ban' : ''].filter(Boolean).join(' · ') : '' }))
 
 onMounted(async () => {
-  await load()
+  await Promise.all([load(), loadKeys()])
   resume(['install_fail2ban'])
 })
 </script>
@@ -235,7 +282,10 @@ onMounted(async () => {
           <span v-if="data.ssh.socket_activated" class="tag">{{ t('pg.fw_socket') }}</span>
         </div>
         <form class="panel-body stack" @submit.prevent="saveSSH">
-          <p v-if="!data.ssh.root_has_keys" class="alert alert-warn" style="margin: 0">{{ t('firewall.no_keys') }}</p>
+          <div v-if="!data.ssh.root_has_keys" class="alert alert-warn alert-row" style="margin: 0">
+            <span>{{ t('firewall.no_keys') }}</span>
+            <button v-if="keys" type="button" class="btn btn-sm" @click="openAddKey('root')"><Icon name="key" :size="14" />{{ t('firewall.key_add') }}</button>
+          </div>
           <p v-if="data.ssh.logins && !data.ssh.logins.length" class="alert alert-warn" style="margin: 0">{{ t('firewall.logins_none') }}</p>
           <p v-else-if="data.ssh.logins" class="muted small" style="margin: 0">
             {{ t('firewall.logins') }}
@@ -308,6 +358,66 @@ onMounted(async () => {
         </section>
       </template>
 
+      <!-- SSH keys, below the SSH settings -->
+      <section v-if="tab === 'ssh' && ssh && keys" class="panel">
+        <div class="panel-head">
+          <h2 class="panel-title"><Icon name="key" :size="17" />{{ t('firewall.keys_title') }}</h2>
+          <button type="button" class="btn btn-sm" @click="openAddKey()"><Icon name="plus" :size="14" />{{ t('firewall.key_add') }}</button>
+        </div>
+        <div class="panel-body stack">
+          <p class="muted small" style="margin: 0">{{ t('firewall.keys_hint') }}</p>
+          <p v-if="keys.key_command" class="muted small" style="margin: 0">{{ t('firewall.keys_command') }}</p>
+          <div v-for="acc in keys.accounts" :key="acc.user" class="key-acc">
+            <div class="key-acc-head">
+              <strong class="mono">{{ acc.user }}</strong>
+              <span class="muted small mono">{{ acc.file }}</span>
+            </div>
+            <p v-if="!acc.allowed" class="muted small">{{ t('firewall.keys_not_allowed') }}</p>
+            <ul v-if="acc.keys.length" class="key-list">
+              <li v-for="k in acc.keys" :key="k.file + k.fingerprint">
+                <span class="tag" :class="{ 'tag-warn': k.weak }">{{ keyType(k) }}</span>
+                <div class="key-main">
+                  <div><span v-if="k.comment" class="key-comment">{{ k.comment }}</span> <span class="mono small muted">{{ k.fingerprint }}</span></div>
+                  <div v-if="k.options.length" class="mono small muted">{{ k.options.join(',') }}</div>
+                  <div v-if="k.file !== acc.file" class="mono small muted">{{ k.file }}</div>
+                  <div v-if="k.weak" class="small key-weak">{{ t('firewall.key_weak') }}: {{ t('firewall.key_weak_hint') }}</div>
+                </div>
+                <button type="button" class="icon-btn icon-btn-sm danger" :aria-label="t('firewall.key_remove', { key: keyName(k) })" :title="t('firewall.key_remove', { key: keyName(k) })" @click="removeKey(acc, k)"><Icon name="trash" :size="15" /></button>
+              </li>
+            </ul>
+            <p v-else class="muted small">{{ t('firewall.keys_none') }}</p>
+            <p v-for="f in acc.skipped" :key="f" class="muted small">{{ t('firewall.keys_skipped', { file: f }) }}</p>
+            <p v-if="acc.invalid" class="muted small">{{ t('firewall.keys_invalid', { n: acc.invalid }, acc.invalid) }}</p>
+          </div>
+        </div>
+      </section>
+
+      <Modal v-if="showKey" :title="t('firewall.key_add')" @close="showKey = false">
+        <form class="stack" @submit.prevent="addKey">
+          <p v-if="keyError" class="alert alert-crit pre-wrap" role="alert" style="margin: 0">{{ keyError }}</p>
+          <label class="field">
+            <span>{{ t('firewall.key_account') }}</span>
+            <select v-model="newKey.user" class="input">
+              <option v-for="acc in keys?.accounts || []" :key="acc.user" :value="acc.user">{{ acc.user }}</option>
+            </select>
+            <small v-if="keyFile" class="muted">{{ t('firewall.key_saved_in', { file: keyFile }) }}</small>
+          </label>
+          <label class="field">
+            <span>{{ t('firewall.key_text') }}</span>
+            <textarea v-model="newKey.key" class="input mono" rows="4" spellcheck="false" autocomplete="off" placeholder="ssh-ed25519 AAAA… me@laptop" required></textarea>
+          </label>
+          <div class="stack-tight">
+            <p class="muted small" style="margin: 0">{{ t('firewall.key_hint') }}</p>
+            <pre class="code-block">ssh-keygen -t ed25519
+cat ~/.ssh/id_ed25519.pub</pre>
+          </div>
+          <div class="modal-actions">
+            <button type="button" class="btn btn-ghost" @click="showKey = false">{{ t('common.cancel') }}</button>
+            <button class="btn btn-primary" :disabled="keyBusy">{{ t('firewall.key_add') }}</button>
+          </div>
+        </form>
+      </Modal>
+
       <Modal v-if="showRule" :title="t('firewall.add_rule')" @close="showRule = false">
         <form class="stack" @submit.prevent="addRule">
           <div class="tabs rule-act" role="radiogroup" :aria-label="t('firewall.action')">
@@ -358,4 +468,17 @@ onMounted(async () => {
 .rule-act button { flex: 1; justify-content: center; }
 .num { font-variant-numeric: tabular-nums; }
 .login { margin-left: 6px; }
+.alert-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.key-acc { display: flex; flex-direction: column; gap: 6px; }
+.key-acc p { margin: 0; }
+.key-acc + .key-acc { border-top: 1px solid var(--border); padding-top: 14px; }
+.key-acc-head { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.key-acc-head .mono.small { word-break: break-all; }
+.key-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.key-list li { display: flex; align-items: flex-start; gap: 10px; }
+.key-list .tag { flex-shrink: 0; min-width: 72px; justify-content: center; }
+.key-main { flex: 1; min-width: 0; }
+.key-main .mono { word-break: break-all; }
+.key-comment { font-weight: 600; }
+.key-weak { color: var(--warn); }
 </style>

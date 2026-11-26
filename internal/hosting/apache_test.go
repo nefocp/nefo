@@ -23,6 +23,10 @@ import (
 func apacheCases() map[string]vhostData {
 	cases := nginxVhostCases()
 	for n, d := range cases {
+		if d.CacheZone != "" { // Nginx only
+			delete(cases, n)
+			continue
+		}
 		d.LogDir, d.SnippetDir, d.EmptyRoot = "/var/log/apache2", "/etc/apache2/panel", "/var/lib/panel-acme"
 		if d.AuthFile != "" {
 			d.AuthFile = "/etc/apache2/panel/auth/example.com.htpasswd"

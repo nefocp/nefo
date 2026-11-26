@@ -48,6 +48,7 @@ const DOCS: Group[] = [
       ['software', 'Software', 'Phần mềm'],
       ['docker', 'Docker', 'Docker'],
       ['security', 'Security', 'Bảo mật'],
+      ['os', 'System', 'Hệ thống'],
       ['system', 'System tools', 'Công cụ hệ thống'],
       ['mail-alerts', 'Mail and alerts', 'Thư và cảnh báo'],
     ],

@@ -100,6 +100,8 @@ If the newer version already changed the panel's database, an older version refu
 
 Nefo doesn't update itself, and it doesn't check for updates on its own. It checks only when you click **Check for updates** or run `nefo update`. To hear about new releases, watch the releases of the [GitHub repository](https://github.com/nefocp/nefo/releases).
 
+This is only about the panel itself. The operating system's packages are a separate matter: the panel checks for them every few hours, shows them on **System** → **Updates**, and can install security updates automatically. See [System](./os#updates).
+
 ## Where updates come from
 
 By default, updates come from `https://github.com/nefocp/nefo/releases/latest/download`. The `update_url` field in `/etc/nefo/config.json` can point to another address that publishes the same files. It must start with `https://`, otherwise checking for updates fails with "update_url in config.json must be an https:// address." Leave it unset unless you know you need it.

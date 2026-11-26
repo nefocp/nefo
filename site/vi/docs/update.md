@@ -100,6 +100,8 @@ Nếu phiên bản mới đã thay đổi database của panel, phiên bản cũ
 
 Nefo không tự cập nhật, và cũng không tự kiểm tra bản cập nhật. Nó chỉ kiểm tra khi bạn bấm **Kiểm tra cập nhật** hoặc chạy `nefo update`. Để biết khi có bản mới, hãy theo dõi mục phát hành của [kho GitHub](https://github.com/nefocp/nefo/releases).
 
+Điều này chỉ nói về bản thân panel. Các gói của hệ điều hành là chuyện riêng: panel kiểm tra chúng vài giờ một lần, hiện chúng ở **Hệ thống** → **Cập nhật**, và có thể tự động cài bản cập nhật bảo mật. Xem [Hệ thống](./os#updates).
+
 ## Bản cập nhật lấy từ đâu {#where-updates-come-from}
 
 Mặc định, bản cập nhật lấy từ `https://github.com/nefocp/nefo/releases/latest/download`. Trường `update_url` trong `/etc/nefo/config.json` có thể trỏ tới một địa chỉ khác có cùng các tệp đó. Địa chỉ phải bắt đầu bằng `https://`, nếu không việc kiểm tra cập nhật sẽ lỗi với thông báo "update_url trong config.json phải là địa chỉ https://." Hãy để trống trừ khi bạn biết chắc mình cần.

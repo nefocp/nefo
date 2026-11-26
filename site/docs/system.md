@@ -5,7 +5,7 @@ description: The dashboard, cron jobs, services, background programs, processes 
 
 # System tools
 
-This page covers the server tools in Nefo: the dashboard, cron jobs, services, background programs, processes and listening ports, SSH sign-ins, the web terminal, where to find logs, and how to restart the panel or reboot the server. Most of them are in the **Server** group of the left menu.
+This page covers the server tools in Nefo: the dashboard, cron jobs, services, background programs, processes and listening ports, SSH sign-ins, the web terminal, where to find logs, and how to restart the panel or reboot the server. Most of them are in the **Server** group of the left menu. Operating system updates, swap, the time zone and host name, TCP BBR and disk cleanup are on the [System](./os) page.
 
 ## Dashboard {#dashboard}
 
@@ -29,6 +29,8 @@ The panel records the load every minute and keeps 7 days of history. After a fre
 - A website expires within 7 days.
 - A scheduled backup failed.
 - The disk is 90% full or more.
+- Security updates of the operating system are waiting (see [Updates](./os#updates)).
+- The server needs a restart to finish installing updates.
 
 The bell at the top right (**Notifications**) shows the same list. Both are only visible while you're signed in. To get a message by Telegram or e-mail instead, set up [alerts](./mail-alerts).
 

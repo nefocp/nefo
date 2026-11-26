@@ -44,6 +44,7 @@ const groups = [
       { name: 'daemons', label: 'nav.daemons', icon: 'activity' },
       { name: 'cron', label: 'nav.cron', icon: 'clock' },
       { name: 'software', label: 'nav.software', icon: 'layers' },
+      { name: 'system', label: 'nav.system', icon: 'gear' },
     ],
   },
   {

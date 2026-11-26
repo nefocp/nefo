@@ -114,7 +114,7 @@ Nhật ký ghi lại:
 
 - đăng nhập, đăng xuất và đăng nhập thất bại, kèm lý do (sai tên đăng nhập hoặc mật khẩu, hoặc sai mã 2FA);
 - đổi mật khẩu, đặt lại mật khẩu từ dòng lệnh, bật hoặc tắt 2FA;
-- các thay đổi làm trong panel: website, chứng chỉ, cơ sở dữ liệu, tệp tin, sao lưu, cron job, dịch vụ, luật tường lửa, cài đặt SSH, phần mềm và Docker;
+- các thay đổi làm trong panel: website, chứng chỉ, cơ sở dữ liệu, tệp tin, sao lưu, cron job, dịch vụ, luật tường lửa, cài đặt SSH và SSH key, phần mềm và Docker;
 - mở và đóng terminal, kèm thời gian đã mở;
 - khởi động lại panel và khởi động lại máy chủ.
 
@@ -227,7 +227,7 @@ Sau khi lưu, hãy giữ phiên SSH hiện tại. Mở một kết nối mới v
 - Cài đặt khiến không ai đăng nhập SSH được nữa. Ví dụ: tắt đăng nhập bằng mật khẩu khi chưa tài khoản nào có SSH key; đặt đăng nhập root **Chỉ bằng SSH key** khi root chưa có key; hoặc root **Không cho phép** khi không tài khoản nào khác đăng nhập được.
 - Cổng đã có chủ: cổng của panel, 80, 443, hoặc bất kỳ cổng nào đang có chương trình khác dùng.
 
-Để quyết định, panel xét root và các tài khoản người dùng (UID từ 1000 trở lên) có shell đăng nhập: key trong `~/.ssh/authorized_keys` (hoặc các file đặt bằng `AuthorizedKeysFile`), mật khẩu, cùng `AllowUsers`, `DenyUsers`, `AllowGroups` và `DenyGroups`. Panel không đọc các khối `Match`. Trang liệt kê những ai đang đăng nhập được và bằng cách nào (key hoặc mật khẩu). Khi root chưa có key, trang cũng hiện cảnh báo.
+Để quyết định, panel xét root và các tài khoản người dùng (UID từ 1000 trở lên) có shell đăng nhập: key trong `~/.ssh/authorized_keys` (hoặc các file đặt bằng `AuthorizedKeysFile`), mật khẩu, cùng `AllowUsers`, `DenyUsers`, `AllowGroups` và `DenyGroups`. Panel không đọc các khối `Match`. Trang liệt kê những ai đang đăng nhập được và bằng cách nào (key hoặc mật khẩu). Khi root chưa có key, trang cũng hiện cảnh báo kèm nút **Thêm key** (xem [SSH key](#ssh-keys)).
 - Đổi cổng khi SSH được khởi động bằng socket của systemd. Khi đó trang hiện nhãn **kích hoạt qua socket** và ô cổng bị khóa. Hãy đổi cổng bằng dòng lệnh.
 
 Không thể dừng SSH ở trang **Dịch vụ**, chỉ khởi động lại hoặc nạp lại được.
@@ -246,10 +246,47 @@ Nếu đặt đăng nhập root là **Không cho phép**, bạn cần một tài
 
 Tài khoản SFTP của các website cũng kết nối qua cổng này.
 
+### SSH key {#ssh-keys}
+
+Mục **SSH key**, bên dưới cài đặt SSH, liệt kê public key của root và của các tài khoản người dùng (UID từ 1000 trở lên, có shell đăng nhập), nhóm theo tài khoản. Nefo đọc chúng từ `~/.ssh/authorized_keys`, hoặc từ các file đặt bằng `AuthorizedKeysFile`. Mỗi key hiện loại và kích thước (như `ed25519` hoặc `rsa 4096`), ghi chú, fingerprint SHA256, và các tùy chọn nếu có, như `from="…"` hoặc `command="…"`. Key DSA, hoặc key RSA dưới 2048 bit, được đánh dấu **yếu**: OpenSSH hiện nay từ chối chúng. Hãy thêm một key mới, rồi xóa key yếu.
+
+Tài khoản SFTP của website không có trong danh sách này: key của chúng nằm trong cài đặt SFTP của từng website.
+
+#### Thêm key {#add-a-key}
+
+1. Trên máy của bạn, tạo một cặp key nếu chưa có. Lệnh này chạy giống hệt trong PowerShell trên Windows 10 trở lên:
+   ```sh
+   ssh-keygen -t ed25519
+   ```
+   Private key được lưu vào `~/.ssh/id_ed25519` và ở lại trên máy của bạn. Public key được lưu vào `~/.ssh/id_ed25519.pub`.
+2. In public key ra và sao chép nguyên dòng, bắt đầu bằng `ssh-ed25519`:
+   ```sh
+   cat ~/.ssh/id_ed25519.pub
+   ```
+3. Trong panel, ở mục **SSH key**, chọn **Thêm key**.
+4. Chọn **Tài khoản**, dán dòng đó vào ô **Public key** rồi chọn **Thêm key**.
+5. Thử bằng một terminal mới, ví dụ `ssh root@203.0.113.10`.
+
+Nefo thêm key vào cuối file `~/.ssh/authorized_keys` của tài khoản. Nếu thư mục hoặc file chưa có, panel tạo chúng, thuộc về tài khoản đó, với quyền 700 và 600. Panel từ chối:
+
+- private key, ví dụ key bắt đầu bằng `-----BEGIN OPENSSH PRIVATE KEY-----`. Nếu lỡ dán private key vào đâu đó, hãy tạo cặp key mới;
+- nhiều hơn một dòng. Với PuTTYgen, hãy sao chép ô **Public key for pasting into OpenSSH authorized_keys file**;
+- key DSA, và key RSA dưới 2048 bit;
+- key mà tài khoản đã có;
+- file `authorized_keys` hoặc thư mục `.ssh` là liên kết tượng trưng, hoặc không phải file hay thư mục thường. Tài khoản đó có thể trỏ nó tới một file khác của máy chủ, nên Nefo không đọc và không sửa nó.
+
+#### Xóa key {#remove-a-key}
+
+Chọn biểu tượng thùng rác cạnh key và xác nhận. Hộp xác nhận ghi rõ key theo loại, fingerprint và ghi chú. Nếu thiếu key này mà với cài đặt hiện tại không ai đăng nhập SSH được nữa, panel sẽ từ chối: hãy thêm key khác trước, hoặc cho phép đăng nhập bằng mật khẩu.
+
+Việc thêm và xóa key được ghi vào nhật ký hoạt động, kèm tài khoản và fingerprint của key.
+
 ### Tắt đăng nhập bằng mật khẩu
 
-1. Thêm public key của bạn vào `/root/.ssh/authorized_keys` và kiểm tra là đăng nhập được bằng key.
-2. Tắt **Cho phép đăng nhập bằng mật khẩu** rồi chọn **Lưu**.
+1. Ở mục [SSH key](#ssh-keys), thêm public key của bạn cho root, hoặc cho tài khoản bạn dùng để đăng nhập.
+2. Mở một terminal mới và đăng nhập bằng key. Nếu SSH hỏi mật khẩu thì key chưa được dùng: hãy kiểm tra là bạn đã thêm nó cho đúng tài khoản bạn đăng nhập.
+3. Tắt **Cho phép đăng nhập bằng mật khẩu** rồi chọn **Lưu**. Nếu chưa ai có key, panel sẽ từ chối (xem mục **Những gì cài đặt SSH từ chối** ở trên).
+4. Giữ phiên hiện tại, và thử lại một kết nối mới trước khi đóng nó.
 
 Tài khoản SFTP của website vẫn giữ cách đăng nhập riêng (mật khẩu hoặc key), kể cả khi SSH đã tắt đăng nhập bằng mật khẩu.
 

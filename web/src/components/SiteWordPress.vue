@@ -7,6 +7,7 @@ import { toast } from '../toast.js'
 import Icon from './Icon.vue'
 import WpPasswordModal from './WpPasswordModal.vue'
 import WpStagingModal from './WpStagingModal.vue'
+import WpPushModal from './WpPushModal.vue'
 
 // SiteWordPress is the WordPress tab of the site drawer: the same checks
 // and switches as the WordPress page, for one site. Jobs (updates,
@@ -20,6 +21,8 @@ const loading = ref(true)
 const error = ref('')
 const pw = ref(false)
 const staging = ref(false)
+const live = ref(null) // the live site, when this site is a staging copy
+const push = ref(false)
 const url = () => `${props.site.ssl ? 'https' : 'http'}://${props.site.domain}`
 
 async function load() {
@@ -33,7 +36,10 @@ async function load() {
     loading.value = false
   }
 }
-onMounted(load)
+onMounted(() => {
+  load()
+  api('GET', `api/wordpress/${props.site.id}/push`).then((r) => (live.value = r.live)).catch(() => {})
+})
 
 async function toggle(what, on) {
   if (what === 'maintenance' && on && !window.confirm(t('wp.maintenance_confirm', { domain: props.site.domain }))) return
@@ -116,13 +122,16 @@ const updatesOf = () => st.value?.updates || []
       <div class="row wp-more">
         <button type="button" class="btn" @click="pw = true"><Icon name="key" :size="15" />{{ t('wp.reset_password') }}</button>
         <button type="button" class="btn" :disabled="busy" @click="staging = true"><Icon name="copy" :size="15" />{{ t('wp.clone') }}</button>
+        <button v-if="live" type="button" class="btn" :disabled="busy" @click="push = true"><Icon name="upload" :size="15" />{{ t('wp.push') }}</button>
         <button type="button" class="btn btn-ghost" :disabled="loading" @click="load"><Icon name="refresh" :size="15" />{{ t('wp.recheck') }}</button>
         <RouterLink :to="{ name: 'wordpress' }" class="btn btn-ghost">{{ t('drawer.wp_toolkit') }}<Icon name="chevronRight" :size="15" /></RouterLink>
       </div>
+      <p v-if="live" class="muted small wp-staging">{{ t('wp.staging_of', { domain: live.domain }) }}</p>
     </section>
 
     <WpPasswordModal v-if="pw" :site="site" @close="pw = false" />
     <WpStagingModal v-if="staging" :site="site" @close="staging = false" @started="(j) => { staging = false; emit('job', j) }" />
+    <WpPushModal v-if="push && live" :site="site" :live="live" @close="push = false" @started="(j) => { push = false; emit('job', j) }" />
   </div>
 </template>
 
@@ -132,4 +141,5 @@ const updatesOf = () => st.value?.updates || []
 .wp-list { margin: 14px 0 0; padding: 12px 0 0; list-style: none; border-top: 1px solid var(--border); display: grid; gap: 6px; font-size: 13px; }
 .opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
 .wp-more { gap: 8px; }
+.wp-staging { margin: 10px 0 0; }
 </style>

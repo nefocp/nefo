@@ -5,7 +5,7 @@ description: Kiểm tra và cập nhật các website WordPress sau khi sao lưu
 
 # Công cụ WordPress
 
-Công cụ WordPress cho biết phiên bản và các bản cập nhật đang chờ của từng website WordPress, cập nhật chỉ với một lần bấm sau khi sao lưu database, và bật tắt chế độ bảo trì, chế độ debug, tự động cập nhật. Công cụ này còn đặt lại mật khẩu quản trị và tạo bản sao staging.
+Công cụ WordPress cho biết phiên bản và các bản cập nhật đang chờ của từng website WordPress, cập nhật chỉ với một lần bấm sau khi sao lưu database, và bật tắt chế độ bảo trì, chế độ debug, tự động cập nhật. Công cụ này còn đặt lại mật khẩu quản trị, tạo bản sao staging và đẩy bản staging lên website chính.
 
 Công cụ áp dụng cho các website WordPress do Nefo cài: từ [Kho ứng dụng](./apps), bằng nút **Cài WordPress** trên một website PHP trống, hoặc là một bản staging. WordPress bạn tự tải lên sẽ không xuất hiện ở đây. Mục **WordPress** ở menu bên trái chỉ hiện khi máy chủ đã có website WordPress.
 
@@ -113,8 +113,36 @@ Nefo từ chối tạo bản staging khi:
 Ai cũng mở được website staging khi DNS của nó đã trỏ về máy chủ. Muốn giữ kín, hãy khóa bằng mật khẩu ở tab **Chặn truy cập** của nó: xem [Website](./websites).
 :::
 
-### Đưa thay đổi lên và xóa bản staging
+## Đẩy bản staging lên website chính {#push-the-staging-copy-to-the-live-site}
 
-Nefo không có nút chép website staging ngược lại website thật. Hãy làm lại trên website thật những thay đổi bạn đã thử, hoặc chuyển chúng bằng công cụ của bạn.
+Khi những thay đổi đã thử trên bản staging đã ổn, hãy chép chúng đè lên website chính. Nefo nhớ mỗi bản staging được tạo từ website nào. Các bản staging tạo trước khi Nefo có nút này, và các [bản nhân bản](./websites#clone-a-website) của một website, không gắn với website chính nào nên không đẩy lên được.
+
+1. Ở hàng của website staging, chọn **Đẩy lên bản chính**, hoặc bấm **Đẩy lên bản chính** ở tab **WordPress** của nó. Danh sách website ghi "Bản staging của example.com" dưới website staging.
+2. Chọn nội dung cần đẩy:
+   - **File và database**;
+   - **Chỉ file (giao diện, plugin, tệp tải lên)**: website chính giữ nguyên bài viết, trang, đơn hàng và cài đặt;
+   - **Chỉ database (bài viết, trang, cài đặt)**: website chính giữ nguyên các file.
+3. Gõ tên miền của website chính để xác nhận, rồi bấm **Đẩy lên bản chính**.
+
+Việc đẩy chạy như một tác vụ có nhật ký riêng:
+
+1. Nefo sao lưu file và cơ sở dữ liệu của website chính. Bản sao lưu nằm ở trang [Sao lưu](./backups). Nếu sao lưu lỗi, không có gì được đẩy lên.
+2. Website chính hiện trang bảo trì. Nếu trước đó website đã ở chế độ bảo trì, nó vẫn ở chế độ bảo trì sau khi đẩy.
+3. **File**: các file trong thư mục `public` của website staging thay cho file của website chính, và thuộc user Linux của website chính. File nào bản staging không có sẽ bị xóa khỏi website chính; file cùng kích thước và ngày giờ được giữ nguyên. Website chính giữ `wp-config.php` của riêng nó, các drop-in cache (`object-cache.php`, `advanced-cache.php`) và các liên kết tượng trưng (symlink). Trong `.user.ini` và `wordfence-waf.php`, thư mục staging được thay bằng thư mục của website chính.
+4. **Cơ sở dữ liệu**: cơ sở dữ liệu chính được làm trống rồi nhận bản sao cơ sở dữ liệu staging. Sau đó Nefo làm ngược lại những gì bản staging đã làm: địa chỉ staging (cả `http://` lẫn `https://`, cả dạng JSON) và thư mục staging được thay bằng địa chỉ và thư mục chính ở mọi nơi, website chính lấy lại địa chỉ và cài đặt cho công cụ tìm kiếm của nó. Bộ nhớ đệm đối tượng được xóa, và WordPress tạo lại quy tắc rewrite ở lượt truy cập kế tiếp.
+5. Chế độ bảo trì được tắt, kể cả khi một bước bị lỗi.
+
+::: warning
+Việc đẩy thay thế website chính. Những gì thêm vào website chính kể từ lúc tạo bản staging sẽ mất: đơn hàng, bình luận và người dùng mới khi đẩy cơ sở dữ liệu, tệp tải lên khi đẩy file. Nếu website chính không chạy sau khi đẩy, hãy khôi phục bản sao lưu ở bước 1 trên trang **Sao lưu**.
+:::
+
+Nefo từ chối đẩy khi:
+
+- website không phải bản staging, hoặc website chính của nó đã bị xóa;
+- bạn đẩy cơ sở dữ liệu mà MariaDB không chạy, cơ sở dữ liệu chính không có trên trang **Cơ sở dữ liệu**, hai website dùng chung một cơ sở dữ liệu, tiền tố bảng (`$table_prefix`) của chúng khác nhau, hoặc một lý do trong danh sách ở trên áp dụng cho `wp-config.php` của một trong hai website.
+
+Cài đặt trong `wp-config.php` không bao giờ được đẩy lên: hãy tự sửa trên website chính.
+
+## Xóa bản staging {#delete-a-staging-copy}
 
 Muốn xóa bản staging, hãy xóa website của nó và giữ dấu chọn **Xóa luôn các database gắn với website này**: xem [Website](./websites).

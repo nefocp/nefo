@@ -29,6 +29,7 @@ export const router = createRouter({
         { path: 'firewall', name: 'firewall', component: () => import('./views/FirewallView.vue') },
         { path: 'settings', name: 'settings', component: () => import('./views/SettingsView.vue') },
         { path: 'software', name: 'software', component: () => import('./views/SoftwareView.vue') },
+        { path: 'system', name: 'system', component: () => import('./views/SystemView.vue') },
         { path: 'docker', name: 'docker', component: () => import('./views/DockerView.vue') },
         // Loaded on demand: the terminal library is large.
         { path: 'terminal', name: 'terminal', component: () => import('./views/TerminalView.vue') },

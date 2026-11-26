@@ -84,7 +84,7 @@ Click the domain in the list, or **Settings** at the end of its row. The setting
 |---|---|
 | **Basics** | **Overview**, **Domains**, **PHP** (PHP sites), **Runtime** (app sites) |
 | **Security** | **SSL / HTTPS**, **Web firewall (WAF)**, **Block access**, **Hotlink protection**, **Malware scan** |
-| **Configuration** | **Rewrite** (PHP and static sites), **Nginx configuration** (named after your web server), **Redirect**, **Reverse proxy** (app sites), **404 page** |
+| **Configuration** | **Rewrite** (PHP and static sites), **Page cache** (PHP sites on Nginx and OpenLiteSpeed), **Nginx configuration** (named after your web server), **Redirect**, **Reverse proxy** (app sites), **404 page** |
 | **Operations** | **WordPress** (WordPress sites), **Git deploy**, **SFTP**, **Backups**, **Traffic**, **Logs**, **Expiry and suspension** |
 
 The **Overview** tab shows the website's **Folder** (with **Open in Files**), its **Linux user**, domains, PHP version or runtime, web server, HTTPS and firewall state. Click **Add a note** to write one line (up to 200 characters) that shows under the domain in the list, such as a client name.
@@ -101,6 +101,7 @@ Each website gets its own Linux user, so one hacked site can't read or change th
 | `/var/www/example.com/app` | App websites only: the program's code. |
 | `/var/log/nginx/example.com.access.log` and `.error.log` | The web server's logs for the site (`/var/log/apache2` on Apache, `/var/log/openlitespeed` on OpenLiteSpeed). |
 | `/var/lib/nefo/certs/example.com` | The website's certificate. |
+| `/var/cache/nginx/nefo/example.com` | Nginx only: the [page cache](#page-cache), when it is on. |
 
 The web server and PHP-FPM files that Nefo writes start with "Managed by Nefo. Do not edit". Nefo rewrites them, so make your changes in the panel instead.
 
@@ -146,6 +147,20 @@ The next tab is named after your web server, for example **Nginx configuration**
 The web server checks the new configuration before anything changes. If it refuses, Nefo shows the error and the website keeps working as before. Click **Show the full configuration file** to see what Nefo generates.
 
 About `.htaccess` files: Apache reads them. OpenLiteSpeed uses only their rewrite rules, which Nefo copies into the site's configuration within seconds of a change. Nginx ignores them.
+
+## Page cache
+
+On Nginx, the **Page cache** tab of a PHP website turns on Nginx's FastCGI cache for it: Nginx keeps each page that PHP makes and serves it again without running PHP or asking the database. Turn on the **Page cache** switch.
+
+- A page is kept for 10 minutes, a missing page (404) for 1 minute. If PHP fails or stops answering, Nginx serves the last copy it still has.
+- Nginx asks PHP every time for requests other than GET and HEAD (forms), addresses with a `?`, visitors with a sign-in or cart cookie (WordPress `wordpress_logged_in_`, `wp-postpass_`, `comment_author_`, WooCommerce `woocommerce_items_in_cart`, `wp_woocommerce_session_`, and PHP's own `PHPSESSID`), and the pages under `/wp-admin/`, `/wp-login.php`, `/xmlrpc.php`, `/wp-json/`, `/wp-cron.php`, `/cart/`, `/checkout/` and `/my-account/`. Pages that PHP marks as private or sends with a cookie are not kept either.
+- Each website has its own cache of up to 256 MB in `/var/cache/nginx/nefo/example.com`. A page nobody asked for in an hour is dropped.
+
+After you change a page, click **Purge cache**: every visitor gets the new version at once. Otherwise visitors who are not signed in may see the old page for up to 10 minutes. Turning the cache off, or deleting the website, deletes its folder.
+
+To check that it works, open a page twice in a private window, or run `curl -sI https://example.com/` twice: the `X-Cache-Status` header says `MISS`, then `HIT` (`BYPASS` for the requests above). Static files have no such header: Nginx serves them directly anyway.
+
+On OpenLiteSpeed, the tab says that LSCache, its own page cache, is built in: for WordPress install the LiteSpeed Cache plugin, other applications turn it on with cache rules in `.htaccess`. Apache has no page cache in Nefo, and no tab.
 
 ## Suspend, redirect or password-protect a website
 
@@ -210,6 +225,30 @@ The **Logs** tab shows the newest lines of:
 - **Web firewall (WAF)**: ModSecurity with the OWASP Core Rule Set for this site: **Off**, **Detect only: log attacks, block nothing** or **Block attacks**. Install the firewall on the **Software** page first. See [Security](./security), which also covers the **Malware scan** tab.
 - **Backups**: **Back up now**, or schedule a backup **Every day at 03:00**. See [Backups](./backups).
 
+## Clone a website
+
+**Clone** copies a PHP or static website to a new domain: to start a new website from an existing one, or to try changes on a copy.
+
+1. Open the website's **Overview** tab and click **Clone…** under **Clone this website**.
+2. Type the **Domain of the copy**.
+3. Leave **Copy the databases linked to this website** ticked to copy them too.
+4. Click **Clone**. The website keeps running during the copy, which runs as a task with a log.
+5. Point the new domain's DNS to this server, then turn on HTTPS on its **SSL / HTTPS** tab. The copy starts on `http://`.
+
+The copy gets:
+
+- a new website of the same type (the same PHP version, or static) with its own Linux user, the same app, PHP settings, rewrite rules and own directives. In your directives, the old website's folder is replaced with the new one;
+- a copy of the website's folder `/var/www/example.com`, owned by the new user, without `logs`, `tmp` and the Git deploy key (`.ssh`). Symbolic links are left out, and in `public/.user.ini` the old folder is replaced with the new one;
+- for each linked database, a new database and user with a copy of its data, linked to the new website.
+
+When the copy is ready, Nefo shows the connection details of the new databases. The app's own configuration files (such as `.env` or `config.php`) still name the old database and user: change them to the new ones. Files that name the old folder, such as a cache of the app's settings, still do too.
+
+A WordPress site is copied like a [staging copy](./wordpress#make-a-staging-copy): its database is always copied, `wp-config.php` is pointed at the copy and the site's address is replaced everywhere, so the copy works right away. Search engines are asked not to index it; if the copy is a website of its own, change that in WordPress under **Settings → Reading**. Unlike a staging copy, a clone can't be pushed back to the website it came from.
+
+Not copied: aliases, the certificate, password protection, redirects and firewall settings, cron jobs, background programs, Git deploy settings, SFTP access and backup schedules.
+
+Nefo can't clone app websites (Node.js, Python or Docker) yet. If a step fails, Nefo removes everything it created for the copy.
+
 ## Delete a website
 
 1. Open the website's **Overview** tab.
@@ -227,7 +266,7 @@ Nefo removes:
 - the Linux user and group, and the SFTP access
 - the web server configuration, the password file and your own directives
 - the PHP-FPM pool, the app service or the Docker app with its containers, data and unused images
-- the certificate and the web server logs of the site
+- the certificate, the page cache and the web server logs of the site
 - the website's background programs, the cron jobs that run as its user, its backup schedules and its Git deploy settings
 - the website's trash in **Files** and its files quarantined by the malware scanner
 - the linked databases, if you left the box ticked

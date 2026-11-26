@@ -370,19 +370,23 @@ func (m *Manager) AppCredentials(ctx context.Context, name string) (*Credentials
 	return c, nil
 }
 
-// ---- HTTPS turned on ----
+// ---- HTTPS turned on or off ----
 
 // refreshDockerApp recreates a Docker app's containers after its address
-// changed (HTTPS turned on). The data stays.
+// changed (HTTPS turned on or off). The data stays.
 func (m *Manager) refreshDockerApp(ctx context.Context, site *store.Site, lg Logger) {
 	app, ok := siteDockerApp(site)
 	if !ok {
 		return
 	}
+	scheme := "http"
+	if site.SSL {
+		scheme = "https"
+	}
 	inst, err := m.store.AppForSite(ctx, site.ID)
 	if errors.Is(err, store.ErrNotFound) {
 		if l, ok := legacyApps[app.ID]; ok {
-			lg.Logf("Restarting %s with its https:// address", app.Name)
+			lg.Logf("Restarting %s with its %s:// address", app.Name, scheme)
 			if err := m.runLegacy(ctx, site, l); err != nil {
 				lg.Logf("Warning: %v", err)
 			}
@@ -393,7 +397,7 @@ func (m *Manager) refreshDockerApp(ctx context.Context, site *store.Site, lg Log
 		return
 	}
 	// The certificate code holds ops: no appOps here (lock order).
-	lg.Logf("Restarting %s with its https:// address", app.Name)
+	lg.Logf("Restarting %s with its %s:// address", app.Name, scheme)
 	secrets, err := m.store.AppSecrets(ctx, inst.ID)
 	if err == nil {
 		var env *appstore.Env

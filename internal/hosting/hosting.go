@@ -42,6 +42,7 @@ type Paths struct {
 	Certs       string // <Certs>/<domain>/{fullchain,privkey}.pem
 	ACME        string // ACME account key
 	Quarantine  string // files the malware scanner moved out of sites
+	NginxCache  string // Nginx's page cache: <NginxCache>/<domain>
 }
 
 // DefaultPaths returns the Debian and Ubuntu locations. dataDir is the
@@ -63,6 +64,7 @@ func DefaultPaths(dataDir string) Paths {
 		Certs:       filepath.Join(dataDir, "certs"),
 		ACME:        filepath.Join(dataDir, "acme"),
 		Quarantine:  "/var/lib/panel-quarantine",
+		NginxCache:  "/var/cache/nginx/nefo",
 	}
 }
 
