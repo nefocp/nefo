@@ -112,11 +112,17 @@ func array(items []string) string {
 func (f *fakeRedis) serve(c net.Conn) {
 	defer c.Close()
 	r := bufio.NewReader(c)
-	db, authed := 0, f.password == ""
+	db, authed, first := 0, false, true
 	for {
 		args, err := readCommand(r)
 		if err != nil {
 			return
+		}
+		if first {
+			// Read the test's set-up only once a command has arrived: data
+			// received over TCP orders the test's writes before this read
+			// for the race detector, an accepted connection alone does not.
+			authed, first = f.password == "", false
 		}
 		f.mu.Lock()
 		f.cmds = append(f.cmds, strings.Join(args, " "))
