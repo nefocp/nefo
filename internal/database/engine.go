@@ -91,12 +91,17 @@ func InstalledEngine() Engine {
 	return ""
 }
 
+// hostEngine finds the installed server for a Manager without a detect
+// hook. Tests replace it (see TestMain): a test machine may have a real
+// MySQL, such as GitHub's runners.
+var hostEngine = InstalledEngine
+
 // engine is the server the manager talks to: the installed one, or MariaDB
 // while none is (its Status then says it is not installed).
 func (m *Manager) engine() Engine {
 	detect := m.detect
 	if detect == nil {
-		detect = InstalledEngine
+		detect = hostEngine
 	}
 	if e := detect(); e != "" {
 		return e
