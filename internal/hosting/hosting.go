@@ -92,7 +92,10 @@ var inputErr = usererr.New
 
 // Manager changes the web server configuration. All changes are serialised.
 type Manager struct {
-	paths         Paths
+	paths Paths
+	// nginxHTTPConf replaces reading nginx.conf and conf.d in tests (see
+	// nginxServer.httpConf); nil reads the files.
+	nginxHTTPConf func() string
 	run           run.Runner
 	store         *store.Store
 	log           *slog.Logger

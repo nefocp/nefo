@@ -276,6 +276,8 @@ func goldenManager(t *testing.T, nginxVersion string) *Manager {
 	}
 	m := New(p, goldenRunner(nginxVersion), st, slog.New(slog.NewTextHandler(io.Discard, nil)), "")
 	m.now = func() time.Time { return time.Date(2026, 11, 25, 12, 0, 0, 0, time.UTC) }
+	// Ubuntu's nginx.conf, not this machine's (the gzip directives depend on it).
+	m.nginxHTTPConf = func() string { return ubuntuNginxConf }
 	// Explicitly: the files of this machine (an Apache hook) must not decide.
 	if err := m.setServerKind(context.Background(), ServerNginx); err != nil {
 		t.Fatal(err)
