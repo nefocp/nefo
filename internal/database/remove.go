@@ -165,22 +165,79 @@ func (m *Manager) Remove(ctx context.Context, deleteData bool, confirm string, l
 	return m.RemoveEngine(ctx, MariaDB, deleteData, confirm, lg)
 }
 
-// RemoveEngine is Remove for MariaDB or MySQL. For MySQL it also removes
-// Oracle's repository and its key, which only the panel added.
+// RemoveEngine is Remove for MariaDB or MySQL. It also removes the
+// repository and key the panel added for it: Oracle's for MySQL, MariaDB's
+// for a MariaDB from MariaDB's repository.
 func (m *Manager) RemoveEngine(ctx context.Context, e Engine, deleteData bool, confirm string, lg Logger) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if err := m.CheckRemoveEngine(ctx, e, deleteData, confirm); err != nil {
 		return err
 	}
-	patterns := []string{"mariadb-server*", "mariadb-client*", "mariadb-plugin-*",
-		"mariadb-backup*", "default-mysql-server*", "default-mysql-client*"}
+	if err := m.removeEnginePackages(ctx, e, true, lg); err != nil {
+		return err
+	}
+	confDir := m.confDir(e)
+	confs := []string{filepath.Join(confDir, panelConfName), m.remoteConfPath(), m.slowConfPath()}
+	more, _ := filepath.Glob(filepath.Join(confDir, "99-panel-*.cnf"))
+	// Without the server the repository has nothing left to update.
+	if e == MySQL {
+		confs = append(confs, m.repo.list, m.repo.keyring)
+	} else {
+		keyring, list := m.mariaRepoPaths()
+		confs = append(confs, list, keyring)
+	}
+	for _, f := range append(confs, more...) {
+		if err := os.Remove(f); err == nil {
+			lg.Logf("Removed %s", f)
+		}
+	}
+	m.listenDirty = false
+	name := e.Name()
+	dir := m.dataDirPath()
+	if !deleteData {
+		if _, err := os.Stat(dir); err == nil {
+			lg.Logf("%s is removed. Its data directory %s was kept; installing %s again uses it.", name, dir, name)
+		} else {
+			lg.Logf("%s is removed.", name)
+		}
+		return nil
+	}
+	if out, err := m.run.Output(ctx, "systemctl", "is-active", e.service()); err == nil && strings.HasPrefix(out, "active") {
+		return fmt.Errorf("%s is still running, so its data directory was not deleted", name)
+	}
+	dirs := []string{dir}
+	if e == MySQL && m.dataDir == "" {
+		// Where MySQL's packages keep import and export files and keyrings.
+		dirs = append(dirs, "/var/lib/mysql-files", "/var/lib/mysql-keyring")
+	}
+	for _, d := range dirs {
+		lg.Logf("Deleting %s", d)
+		if err := os.RemoveAll(d); err != nil {
+			return err
+		}
+	}
+	lg.Logf("%s is removed, with its data directory.", name)
+	return nil
+}
+
+// enginePackages are the dpkg-query patterns of e's server and client.
+func enginePackages(e Engine) []string {
 	if e == MySQL {
 		// mysql-common and the libraries go with the leftovers, when nothing
 		// else needs them.
-		patterns = []string{"mysql-community-server*", "mysql-community-client*", "mysql-server", "mysql-client"}
+		return []string{"mysql-community-server*", "mysql-community-client*", "mysql-server", "mysql-client"}
 	}
-	pkgs, err := apt.Installed(ctx, m.run, true, patterns...)
+	return []string{"mariadb-server*", "mariadb-client*", "mariadb-plugin-*",
+		"mariadb-backup*", "default-mysql-server*", "default-mysql-client*"}
+}
+
+// removeEnginePackages stops e and purges its server and client packages,
+// and with cleanup the libraries only they needed (an upgrade or a switch
+// installs packages again right away, and cleans up later). The data
+// directory stays: the purge scripts are told not to delete it.
+func (m *Manager) removeEnginePackages(ctx context.Context, e Engine, cleanup bool, lg Logger) error {
+	pkgs, err := apt.Installed(ctx, m.run, true, enginePackages(e)...)
 	if err != nil {
 		return err
 	}
@@ -208,50 +265,16 @@ func (m *Manager) RemoveEngine(ctx context.Context, e Engine, deleteData bool, c
 	name := e.Name()
 	lg.Logf("Stopping %s", name)
 	if out, err := m.run.Output(ctx, "systemctl", "stop", e.service()); err != nil {
-		return fmt.Errorf("stopping %s failed: %s", name, strings.TrimSpace(out))
+		// A unit that is gone (a half-installed package) is not running.
+		if st, aerr := m.run.Output(ctx, "systemctl", "is-active", e.service()); aerr == nil && strings.HasPrefix(st, "active") {
+			return fmt.Errorf("stopping %s failed: %s", name, strings.TrimSpace(out))
+		}
 	}
 	lg.Logf("Removing %s", name)
-	if err := apt.Remove(ctx, m.run, lg, true, pkgs...); err != nil {
-		return err
+	if !cleanup {
+		return apt.RemoveOnly(ctx, m.run, lg, true, pkgs...)
 	}
-	confDir := m.confDir(e)
-	confs := []string{filepath.Join(confDir, panelConfName), m.remoteConfPath(), m.slowConfPath()}
-	more, _ := filepath.Glob(filepath.Join(confDir, "99-panel-*.cnf"))
-	if e == MySQL {
-		// Without the server the repository has nothing left to update.
-		confs = append(confs, m.repo.list, m.repo.keyring)
-	}
-	for _, f := range append(confs, more...) {
-		if err := os.Remove(f); err == nil {
-			lg.Logf("Removed %s", f)
-		}
-	}
-	m.listenDirty = false
-	dir := m.dataDirPath()
-	if !deleteData {
-		if _, err := os.Stat(dir); err == nil {
-			lg.Logf("%s is removed. Its data directory %s was kept; installing %s again uses it.", name, dir, name)
-		} else {
-			lg.Logf("%s is removed.", name)
-		}
-		return nil
-	}
-	if out, err := m.run.Output(ctx, "systemctl", "is-active", e.service()); err == nil && strings.HasPrefix(out, "active") {
-		return fmt.Errorf("%s is still running, so its data directory was not deleted", name)
-	}
-	dirs := []string{dir}
-	if e == MySQL && m.dataDir == "" {
-		// Where MySQL's packages keep import and export files and keyrings.
-		dirs = append(dirs, "/var/lib/mysql-files", "/var/lib/mysql-keyring")
-	}
-	for _, d := range dirs {
-		lg.Logf("Deleting %s", d)
-		if err := os.RemoveAll(d); err != nil {
-			return err
-		}
-	}
-	lg.Logf("%s is removed, with its data directory.", name)
-	return nil
+	return apt.Remove(ctx, m.run, lg, true, pkgs...)
 }
 
 // bufferPoolMB is the InnoDB buffer pool the panel gives MariaDB and MySQL

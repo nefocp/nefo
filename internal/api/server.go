@@ -97,12 +97,16 @@ func New(cfg *config.Config, st *store.Store, log *slog.Logger) *Server {
 	s.cron = cron.New(st, run.System{}, log, s.cronUsers)
 	s.services = services.New(run.System{})
 	s.security = security.New(run.System{}, cfg.Port())
-	s.db.SetFirewall(s.security) // remote database access opens and closes port 3306
+	s.db.SetFirewall(s.security)    // remote database access opens and closes port 3306
+	s.db.SetDumpFixer(dbNamesFixer) // backups from before a switch restore (dbserver.go)
+	s.pg.SetFirewall(s.security)    // and PostgreSQL's port, see postgres.go
 	s.security.SetWebPorts(s.hosting.FirewallPorts)
 	s.docker = docker.New(run.System{})
 	s.mail = mailrelay.New(run.System{}, st)
 	s.hosting.SetReservedPorts(cfg.Port(), gitdeploy.HookPort)
 	s.monitor = monitor.New(st, s.sys, log, s.watchedServices)
+	// SSH sign-in alerts read the journal once a minute (monitor/logins.go).
+	s.monitor.SetSSHSource(s.procsManager().SSHJournal, s.procsManager().SSHSignIns)
 	s.uptime = uptime.New(st, s.monitor.Notify, log)
 	s.software = software.New(run.System{}, st, func(ctx context.Context) string { return s.hosting.Status(ctx).DefaultPHP })
 	s.systools = systools.New(run.System{}, st)
@@ -137,6 +141,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/sites", s.requireAuth(s.handleListSites))
 	mux.Handle("POST /api/sites", s.requireAuth(s.handleCreateSite))
 	mux.Handle("DELETE /api/sites/{id}", s.requireAuth(s.handleDeleteSite))
+	mux.Handle("GET /api/sites/{id}/delete-info", s.requireAuth(s.handleSiteDeleteInfo))
+	mux.Handle("PUT /api/sites/{id}/proxy", s.requireAuth(s.handleSiteProxy))
 	mux.Handle("POST /api/sites/{id}/ssl", s.requireAuth(s.handleIssueSSL))
 	mux.Handle("POST /api/sites/{id}/force-https", s.requireAuth(s.handleForceHTTPS))
 	mux.Handle("DELETE /api/sites/{id}/ssl", s.requireAuth(s.handleRemoveSSL))
@@ -170,6 +176,12 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/sites/{id}/quarantine/{qid}/restore", s.requireAuth(s.handleQuarantineAction))
 	mux.Handle("DELETE /api/sites/{id}/quarantine/{qid}", s.requireAuth(s.handleQuarantineAction))
 	mux.Handle("PUT /api/sites/{id}/firewall", s.requireAuth(s.handleSetFirewall))
+	// Country blocking and the file lock (protect.go).
+	mux.Handle("GET /api/sites/{id}/country", s.requireAuth(s.handleGetCountry))
+	mux.Handle("PUT /api/sites/{id}/country", s.requireAuth(s.handleSetCountry))
+	mux.Handle("GET /api/sites/{id}/filelock", s.requireAuth(s.handleGetFileLock))
+	mux.Handle("PUT /api/sites/{id}/filelock", s.requireAuth(s.handleSetFileLock))
+	mux.Handle("POST /api/sites/{id}/filelock/snapshot", s.requireAuth(s.handleFileLockSnapshot))
 	mux.Handle("POST /api/sites/{id}/certificate", s.requireAuth(s.handleInstallCertificate))
 	mux.Handle("GET /api/settings/cloudflare", s.requireAuth(s.handleGetCloudflare))
 	mux.Handle("GET /api/mail-relay", s.requireAuth(s.handleMailRelayStatus))
@@ -177,6 +189,9 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/node-versions", s.requireAuth(s.handleNodeVersions))
 	mux.Handle("POST /api/node-versions/{major}", s.requireAuth(s.handleNodeVersion))
 	mux.Handle("DELETE /api/node-versions/{major}", s.requireAuth(s.handleNodeVersion))
+	mux.Handle("GET /api/java-versions", s.requireAuth(s.handleJavaVersions))
+	mux.Handle("POST /api/java-versions/{major}", s.requireAuth(s.handleJavaVersion))
+	mux.Handle("DELETE /api/java-versions/{major}", s.requireAuth(s.handleJavaVersion))
 	mux.Handle("POST /api/sites/{id}/app/deps", s.requireAuth(s.handleAppDeps))
 	mux.Handle("POST /api/php/{version}/extensions/{ext}", s.requireAuth(s.handlePHPExtension))
 	mux.Handle("DELETE /api/php/{version}/extensions/{ext}", s.requireAuth(s.handlePHPExtension))
@@ -192,6 +207,9 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("PUT /api/dns/zones/{zone}/records/{id}", s.requireAuth(s.handleUpdateDNSRecord))
 	mux.Handle("DELETE /api/dns/zones/{zone}/records/{id}", s.requireAuth(s.handleDeleteDNSRecord))
 	mux.Handle("POST /api/dns/zones/{zone}/purge", s.requireAuth(s.handlePurgeDNSCache))
+	// The e-mail helper: MX, SPF, DMARC and DKIM of a mail provider (dns_mail.go).
+	mux.Handle("POST /api/dns/zones/{zone}/mail/plan", s.requireAuth(s.handleMailDNSPlan))
+	mux.Handle("POST /api/dns/zones/{zone}/mail/apply", s.requireAuth(s.handleMailDNSApply))
 	mux.Handle("POST /api/sites/{id}/dns/plan", s.requireAuth(s.handlePointDNSPlan))
 	mux.Handle("POST /api/sites/{id}/dns/apply", s.requireAuth(s.handlePointDNSApply))
 	mux.Handle("PUT /api/sites/{id}/nginx", s.requireAuth(s.handleSetNginx))
@@ -240,6 +258,13 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/databases/{id}/remote", s.requireAuth(s.handleDBRemote))
 	mux.Handle("PUT /api/databases/{id}/remote", s.requireAuth(s.handleSetDBRemote))
 	mux.Handle("POST /api/db/restart", s.requireAuth(s.handleDBRestart))
+	// Upgrading MariaDB, switching to MySQL or back, and their dumps (dbserver.go).
+	mux.Handle("GET /api/db/engine", s.requireAuth(s.handleDBEngine))
+	mux.Handle("GET /api/db/upgrade", s.requireAuth(s.handleDBUpgradePlan))
+	mux.Handle("POST /api/db/upgrade", s.requireAuth(s.handleDBUpgrade))
+	mux.Handle("GET /api/db/switch", s.requireAuth(s.handleDBSwitchPlan))
+	mux.Handle("POST /api/db/switch", s.requireAuth(s.handleDBSwitch))
+	mux.Handle("DELETE /api/db/dumps/{name}", s.requireAuth(s.handleDeleteDBDump))
 	mux.Handle("GET /api/db/slowlog", s.requireAuth(s.handleDBSlowLog))
 	mux.Handle("PUT /api/db/slowlog", s.requireAuth(s.handleSetDBSlowLog))
 	mux.Handle("DELETE /api/db/slowlog", s.requireAuth(s.handleClearDBSlowLog))
@@ -283,6 +308,14 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("DELETE /api/backups/storage", s.requireAuth(s.handleRemoveStorage))
 	mux.Handle("PUT /api/backups/sftp", s.requireAuth(s.handleSaveSFTP))
 	mux.Handle("DELETE /api/backups/sftp", s.requireAuth(s.handleRemoveSFTP))
+	mux.Handle("POST /api/backups/remote-scan", s.requireAuth(s.handleRemoteScan))
+	mux.Handle("GET /api/backups/remote-scan", s.requireAuth(s.handleRemoteFound))
+	mux.Handle("POST /api/backups/remote-import", s.requireAuth(s.handleRemoteImport))
+	mux.Handle("POST /api/backups/gdrive/connect", s.requireAuth(s.handleDriveConnect))
+	mux.Handle("GET /api/backups/gdrive/connect", s.requireAuth(s.handleDriveConnectStatus))
+	mux.Handle("DELETE /api/backups/gdrive/connect", s.requireAuth(s.handleDriveConnectCancel))
+	mux.Handle("PUT /api/backups/gdrive", s.requireAuth(s.handleSaveDrive))
+	mux.Handle("DELETE /api/backups/gdrive", s.requireAuth(s.handleRemoveDrive))
 
 	mux.Handle("GET /api/cron", s.requireAuth(s.handleListCron))
 	mux.Handle("POST /api/cron", s.requireAuth(s.handleSaveCron))
@@ -317,6 +350,11 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/security/ssh/keys/delete", s.requireAuth(s.handleRemoveSSHKey))
 	mux.Handle("POST /api/security/fail2ban/install", s.requireAuth(s.handleInstallFail2ban))
 	mux.Handle("POST /api/security/fail2ban/unban", s.requireAuth(s.handleUnban))
+	// The security check (seccheck.go).
+	mux.Handle("GET /api/security/check", s.requireAuth(s.handleSecurityCheck))
+	mux.Handle("POST /api/security/check", s.requireAuth(s.handleRunSecurityCheck))
+	mux.Handle("PUT /api/security/check/settings", s.requireAuth(s.handleSecurityCheckSettings))
+	mux.Handle("POST /api/security/check/accept", s.requireAuth(s.handleAcceptFinding))
 
 	mux.Handle("GET /api/panel", s.requireAuth(s.handlePanelSettings))
 	mux.Handle("POST /api/panel/certificate", s.requireAuth(s.handlePanelCertificate))
@@ -451,6 +489,8 @@ func (s *Server) RunMaintenance(ctx context.Context) {
 		}
 		s.renewCertificates(ctx)
 		s.expireSites(ctx)
+		s.checkLockedFiles(ctx) // protect.go
+		s.refreshGeo(ctx)
 		s.cron.TrimLogs()
 		if n, err := s.files.PurgeTrash(ctx, files.TrashMaxAge); err != nil && ctx.Err() == nil {
 			s.log.Warn("purge trash", "err", err)
@@ -460,8 +500,14 @@ func (s *Server) RunMaintenance(ctx context.Context) {
 		s.renewPanelCertificate(ctx)
 		s.refreshCatalog(ctx, false)
 		s.checkOSUpdates(ctx) // apt-get update at most every few hours (ostools.go)
+		// The security check, in the background when due (seccheck.go).
+		s.dailySecurityCheck(ctx)
 		if err := s.db.RefreshMySQLKey(ctx); err != nil && ctx.Err() == nil {
 			s.log.Warn("renew the MySQL repository key", "err", err)
+		}
+		// The slow query log, past 50 MB or a week old (database/slowrotate.go).
+		if _, err := s.db.RotateSlowLog(ctx, time.Now()); err != nil && ctx.Err() == nil {
+			s.log.Warn("rotate the slow query log", "err", err)
 		}
 		select {
 		case <-ctx.Done():
@@ -540,6 +586,7 @@ func (s *Server) staticHandler() http.Handler {
 	_, err := fs.Stat(files, "index.html")
 	hasUI := err == nil
 	fileServer := http.FileServerFS(files)
+	gz := newGzipAssets(files)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
@@ -562,6 +609,9 @@ func (s *Server) staticHandler() http.Handler {
 			if strings.HasPrefix(r.URL.Path, "/assets/") {
 				// Vite puts a content hash in every asset name.
 				w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+				if gz.serve(w, r, strings.TrimPrefix(r.URL.Path, "/")) {
+					return
+				}
 			}
 			fileServer.ServeHTTP(w, r)
 		}

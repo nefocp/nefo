@@ -26,8 +26,11 @@ type Settings struct {
 	PHPTime    int // seconds
 	ProxyPort  int
 	AppCommand string
-	// AppRuntime: "" (default node), "node:<major>" or "python".
+	// AppRuntime: "" (default node), "node:<major>", "python" or
+	// "java:<major>"; AppMemory: the program's memory limit in MB (Java's
+	// -Xmx), 0 for the runtime's default.
 	AppRuntime string
+	AppMemory  int
 	// PHP-FPM workers and pool mode, and the normally disabled functions
 	// the site may use (from HardenedFunctions).
 	PHPWorkers int
@@ -75,7 +78,10 @@ func (m *Manager) UpdateSettings(ctx context.Context, id int64, s Settings) (sit
 		if err := checkRuntime(s.AppRuntime); err != nil {
 			return nil, false, err
 		}
-		site.AppRuntime = s.AppRuntime
+		if err := checkAppMemory(s.AppMemory); err != nil {
+			return nil, false, err
+		}
+		site.AppRuntime, site.AppMemory = s.AppRuntime, s.AppMemory
 	} else if s.AppCommand != "" {
 		return nil, false, usererr.New("invalid_app")
 	}
@@ -148,7 +154,7 @@ func (m *Manager) UpdateSettings(ctx context.Context, id int64, s Settings) (sit
 		restore()
 		return nil, false, err
 	}
-	if site.ProxyPort != 0 && (site.ProxyPort != old.ProxyPort || site.AppCommand != old.AppCommand || site.AppRuntime != old.AppRuntime) {
+	if site.ProxyPort != 0 && (site.ProxyPort != old.ProxyPort || site.AppCommand != old.AppCommand || site.AppRuntime != old.AppRuntime || site.AppMemory != old.AppMemory) {
 		if err := m.writeApp(ctx, site); err != nil {
 			restore()
 			m.writeApp(bg, &old)

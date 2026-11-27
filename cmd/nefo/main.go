@@ -36,6 +36,8 @@ Usage:
   nefo reset-password  Set a new random password for an account
   nefo update          Install the latest release and restart the panel
   nefo setup           Install a web server, PHP, a database and extras
+  nefo unlock-files    Give locked websites their files back (before removing the panel)
+  nefo decrypt-backup  Decrypt a backup copy that remote storage encrypted
   nefo version         Show the version
 
 Run "nefo <command> -h" for the options of a command.
@@ -61,6 +63,10 @@ func main() {
 		err = cmdUpdate(args)
 	case "setup":
 		err = cmdSetup(args)
+	case "unlock-files":
+		err = cmdUnlockFiles(args)
+	case "decrypt-backup":
+		err = cmdDecryptBackup(args)
 	case "version", "--version", "-v":
 		fmt.Printf("%s %s (commit %s)\n", version.AppName, version.Version, version.Commit)
 	case "help", "--help", "-h":

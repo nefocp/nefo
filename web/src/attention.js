@@ -22,6 +22,8 @@ export function refreshAttention(force = false) {
     load('api/system/updates', { ttl: 10 * 60000, force }),
     // Monitored websites that are down (internal/uptime): kept in memory, cheap.
     load('api/uptime', { ttl: 60000, force }),
+    // The last security check's counts (it runs on demand and once a day).
+    load('api/security/check', { ttl: 5 * 60000, force }),
   ])
 }
 
@@ -38,6 +40,12 @@ export const attention = computed(() => {
   }
   if (sec?.firewall?.installed && !sec.firewall.active) {
     out.push({ id: 'fw', sev: 'warn', icon: 'shield', title: ['attention.firewall_off'], sub: ['attention.firewall_off_sub'], to: { name: 'firewall' }, action: 'attention.fix' })
+  }
+  // The security check: one line for its open problems (notes are left out).
+  const cc = store['api/security/check']?.report ? store['api/security/check'].counts : null
+  if (cc && cc.critical + cc.warning > 0) {
+    const n = cc.critical + cc.warning
+    out.push({ id: 'seccheck', sev: cc.critical ? 'crit' : 'warn', icon: 'shieldAlert', title: ['attention.check_problems', { n }, n], sub: ['attention.check_problems_sub', { crit: cc.critical, warn: cc.warning }], to: { name: 'security-check' }, action: 'attention.view' })
   }
   const upd = store['api/system/updates']
   if (upd?.security > 0) {

@@ -9,6 +9,7 @@ import { usePageMeta } from '../page.js'
 import Icon from '../components/Icon.vue'
 import Modal from '../components/Modal.vue'
 import RowActions from '../components/RowActions.vue'
+import DnsMailSetup from '../components/DnsMailSetup.vue'
 import { EDITABLE, PROXIABLE, TTLS, ttlText, panelHost } from '../dns.js'
 
 // The DNS page: the zones the Cloudflare token can see, a zone's records
@@ -151,6 +152,13 @@ async function remove(r) {
   }
 }
 
+// ---- e-mail records (DnsMailSetup) ----
+const mailSetup = ref(false)
+async function mailDone() {
+  mailSetup.value = false
+  await loadRecords()
+}
+
 // ---- purge ----
 const purge = ref(null)
 const purgeError = ref('')
@@ -183,6 +191,7 @@ onMounted(loadZones)
     <div class="page-head sr-only"><h1 class="page-title">{{ t('dns.title') }}</h1></div>
     <Teleport defer to="#topbar-actions">
       <template v-if="zone">
+        <button class="btn" @click="mailSetup = true"><Icon name="mail" :size="15" />{{ t('dnsmail.button') }}</button>
         <button class="btn" @click="openPurge"><Icon name="refresh" :size="15" />{{ t('dns.purge') }}</button>
         <button class="btn btn-primary" @click="openForm(null)"><Icon name="plus" :size="15" />{{ t('dns.add') }}</button>
       </template>
@@ -373,6 +382,8 @@ onMounted(loadZones)
         </div>
       </form>
     </Modal>
+
+    <DnsMailSetup v-if="mailSetup && zone" :zone="zone" @close="mailSetup = false" @done="mailDone" />
 
     <Modal v-if="purge" :title="t('dns.purge_title', { zone: zone.name })" @close="purge = null">
       <form class="stack" @submit.prevent="doPurge">

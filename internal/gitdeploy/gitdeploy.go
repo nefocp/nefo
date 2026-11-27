@@ -95,12 +95,20 @@ type Manager struct {
 	// appPath gives the PATH of an app site (Node.js or Python): with the
 	// Node.js version picked for it, or its virtual environment, first.
 	appPath func(site *store.Site) string
+	// appEnv gives the other variables an app site's runtime needs, such
+	// as JAVA_HOME (hosting.Manager.RuntimeEnv).
+	appEnv func(site *store.Site) []string
 }
 
 // SetAppPath sets how the PATH of an app site's deploy script is found
 // (hosting.Manager.RuntimePath), so the script's npm, node, pip or python
 // are the ones the app runs with.
 func (m *Manager) SetAppPath(fn func(site *store.Site) string) { m.appPath = fn }
+
+// SetAppEnv sets how the other variables of an app site's runtime are
+// found (hosting.Manager.RuntimeEnv: JAVA_HOME for Java), so a script's
+// mvn or gradle builds with the app's Java version.
+func (m *Manager) SetAppEnv(fn func(site *store.Site) []string) { m.appEnv = fn }
 
 // New returns a Manager. root gives a site's folder (hosting.Manager.Root).
 func New(r run.Runner, st Store, root func(domain string) string) *Manager {
@@ -472,11 +480,15 @@ func (m *Manager) binDir(site *store.Site) string {
 func (m *Manager) userArgs(site *store.Site, dir string, extraEnv []string, command ...string) []string {
 	tmp := filepath.Join(m.root(site.Domain), "tmp")
 	path := userPATH
+	var runtimeEnv []string
 	switch {
 	case site.PHPVersion != "":
 		path = m.binDir(site) + ":" + path // "php" is the site's PHP version, see phpShim
 	case site.ProxyPort != 0 && m.appPath != nil:
 		path = m.appPath(site)
+		if m.appEnv != nil {
+			runtimeEnv = m.appEnv(site)
+		}
 	}
 	args := []string{"-u", site.SysUser, "--", "sh", "-c", `umask 027 && exec "$@"`, "sh",
 		"env", "--chdir=" + dir,
@@ -487,6 +499,7 @@ func (m *Manager) userArgs(site *store.Site, dir string, extraEnv []string, comm
 		"GIT_TERMINAL_PROMPT=0", "GIT_ALLOW_PROTOCOL=https:ssh",
 		"GIT_SSH_COMMAND=" + m.sshCommand(site),
 	}
+	args = append(args, runtimeEnv...)
 	args = append(args, extraEnv...)
 	return append(args, command...)
 }

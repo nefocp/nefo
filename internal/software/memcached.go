@@ -88,12 +88,9 @@ func (m *Manager) InstallMemcached(ctx context.Context, lg Logger) error {
 		return err
 	}
 	pkgs := []string{"memcached"}
-	var versions []string
-	for _, v := range PHPVersions {
-		if phpInstalled(v) {
-			pkgs = append(pkgs, "php"+v+"-memcached")
-			versions = append(versions, v)
-		}
+	versions := installedPHP()
+	for _, v := range versions {
+		pkgs = append(pkgs, "php"+v+"-memcached")
 	}
 	lg.Logf("Installing Memcached")
 	if err := run.Apt(ctx, m.run, lg, append([]string{"install", "--no-install-recommends"}, pkgs...)...); err != nil {

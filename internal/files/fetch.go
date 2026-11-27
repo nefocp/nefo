@@ -201,6 +201,9 @@ func (m *Manager) CheckFetch(ctx context.Context, dir, raw string) (*url.URL, er
 		return nil, err
 	}
 	defer t.Close()
+	if err := t.writable(true); err != nil {
+		return nil, err
+	}
 	fi, err := t.root.Stat(t.rel)
 	if err != nil {
 		return nil, mapErr(err, t.abs)
@@ -224,6 +227,9 @@ func (m *Manager) Fetch(ctx context.Context, dir string, u *url.URL, lg Logger) 
 		return "", err
 	}
 	defer t.Close()
+	if err := t.writable(true); err != nil {
+		return "", err
+	}
 	fi, err := t.root.Stat(t.rel)
 	if err != nil {
 		return "", mapErr(err, t.abs)

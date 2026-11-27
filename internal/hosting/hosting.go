@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
@@ -43,6 +44,8 @@ type Paths struct {
 	ACME        string // ACME account key
 	Quarantine  string // files the malware scanner moved out of sites
 	NginxCache  string // Nginx's page cache: <NginxCache>/<domain>
+	GeoIP       string // the country database (see geo.go)
+	FileLock    string // what locking each site's files changed (see filelock.go)
 }
 
 // DefaultPaths returns the Debian and Ubuntu locations. dataDir is the
@@ -65,6 +68,10 @@ func DefaultPaths(dataDir string) Paths {
 		ACME:        filepath.Join(dataDir, "acme"),
 		Quarantine:  "/var/lib/panel-quarantine",
 		NginxCache:  "/var/cache/nginx/nefo",
+		// Outside dataDir too: OpenLiteSpeed reads the database. It is
+		// public data.
+		GeoIP:    "/var/lib/panel-geoip",
+		FileLock: filepath.Join(dataDir, "filelock"),
 	}
 }
 
@@ -130,6 +137,22 @@ type Manager struct {
 	defaultPHP   string
 
 	reserved []int // ports app sites may not use
+
+	geoMu sync.Mutex // the country database's download and refresh
+
+	// lockMu guards lockBusy: the sites whose files an operation unlocked
+	// for its duration (see filelock.go).
+	lockMu   sync.Mutex
+	lockBusy map[int64]int
+	lockSite sync.Map // site ID → *sync.Mutex, one lock or unlock at a time
+
+	wafPackaged sync.Map // web server kind → bool, see WAFPackaged
+
+	// Reverse proxy sites (proxysite.go): name lookups, this server's
+	// addresses and /etc/resolv.conf; nil uses the system's (tests set them).
+	lookupHost func(ctx context.Context, host string) ([]net.IP, error)
+	localAddrs func() []net.IP
+	resolvConf func() string
 }
 
 // New returns a Manager. acmeDirectory is the ACME server for certificates.

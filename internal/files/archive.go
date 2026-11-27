@@ -55,6 +55,9 @@ func (m *Manager) Compress(ctx context.Context, paths []string, dest string, lg 
 		return err
 	}
 	defer out.Close()
+	if err := out.writable(false); err != nil {
+		return err
+	}
 	var rels []string
 	for _, p := range paths {
 		t, err := m.open(ctx, p)
@@ -210,6 +213,9 @@ func (m *Manager) Extract(ctx context.Context, archive, dest string, lg Logger) 
 	defer dst.Close()
 	if src.scope.Root != dst.scope.Root {
 		return usererr.New("cross_scope")
+	}
+	if err := dst.writable(true); err != nil {
+		return err
 	}
 	f, err := src.root.Open(src.rel)
 	if err != nil {

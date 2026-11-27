@@ -53,7 +53,7 @@ const kindText = computed(() => t(`apps.kind_${props.app.kind}`))
     </div>
     <p v-if="refusal" class="as-refusal"><Icon name="ban" :size="14" /><span>{{ refusal }}</span></p>
     <div class="as-card-foot">
-      <span v-if="installs" class="status-pill ok as-installed">{{ installs > 1 ? t('apps.installed_n', { n: installs }) : t('apps.installed_badge') }}</span>
+      <span v-if="installs" class="status-pill ok as-installed">{{ installs > 1 ? t('apps.installed_n', { n: installs }, installs) : t('apps.installed_badge') }}</span>
       <button v-if="serviceDone" type="button" class="btn btn-sm" @click="emit('manage')">
         <Icon name="settings" :size="15" />{{ t('apps.manage') }}
       </button>

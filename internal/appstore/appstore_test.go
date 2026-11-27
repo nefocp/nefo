@@ -110,6 +110,7 @@ func TestValidatorRefuses(t *testing.T) {
 func testEnv(t *testing.T, secrets map[string]string) *Env {
 	return &Env{Name: "vault_example_com", Domain: "vault.example.com", HTTPS: true, Port: 20001, SiteUID: 20001, SiteGID: 20001,
 		AdminEmail: "owner@example.com", Secrets: secrets, Inputs: map[string]string{}, ProjectDir: "/var/lib/panel-apps/vault_example_com",
+		SiteDir:    "/var/www/vault.example.com",
 		ExtraPorts: map[int]int{9000: 20002}}
 }
 
@@ -381,7 +382,7 @@ func TestRemoteCatalog(t *testing.T) {
 		w.Write(b)
 	}))
 	defer srv.Close()
-	defer setCurrent(Embedded(), "embedded")
+	defer setCurrent(Embedded(), "embedded", nil)
 
 	off := &Remote{Base: srv.URL, CacheDir: t.TempDir()}
 	if _, err := off.Refresh(context.Background()); !errors.Is(err, ErrRemoteDisabled) {
@@ -398,7 +399,7 @@ func TestRemoteCatalog(t *testing.T) {
 		t.Errorf("replay: %v", err)
 	}
 	// But it loads from the cache at start-up.
-	setCurrent(Embedded(), "embedded")
+	setCurrent(Embedded(), "embedded", nil)
 	if err := r.LoadCache(); err != nil || Current().CatalogVersion != c.CatalogVersion {
 		t.Errorf("cache: %v", err)
 	}

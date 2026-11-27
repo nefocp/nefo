@@ -23,6 +23,7 @@ export function logoURL(name) {
   if (!name) return ''
   let k = String(name).toLowerCase().replace(/^docker:/, '')
   if (/^php[0-9.]*(-fpm)?$/.test(k)) k = 'php'
+  if (/^mariadb-[0-9.]+$/.test(k)) k = 'mariadb' // a series from MariaDB's repository
   k = ALIASES[k] || k
   return LOGOS[k] || ''
 }

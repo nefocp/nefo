@@ -13,6 +13,7 @@ import (
 	"bytes"
 	_ "embed"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"slices"
 	"sync"
@@ -55,17 +56,21 @@ type App struct {
 	License     string `json:"license"`
 	// SourceAvailable marks a licence that is not OSI-approved (the UI
 	// shows a badge).
-	SourceAvailable bool      `json:"source_available,omitempty"`
-	Homepage        string    `json:"homepage"`
-	Source          string    `json:"source,omitempty"`
-	Logo            string    `json:"logo"`
-	Replaces        string    `json:"replaces,omitempty"`
-	Resources       Resources `json:"resources"`
-	Requires        Requires  `json:"requires"`
-	Admin           Admin     `json:"admin"`
-	Updates         Updates   `json:"updates"`
-	Docker          *Recipe   `json:"docker,omitempty"`
-	PHP             *PHPApp   `json:"php,omitempty"`
+	SourceAvailable bool   `json:"source_available,omitempty"`
+	Homepage        string `json:"homepage"`
+	Source          string `json:"source,omitempty"`
+	Logo            string `json:"logo"`
+	Replaces        string `json:"replaces,omitempty"`
+	// MinPanel is the oldest panel version that can install this app (a
+	// recipe that needs code an older panel does not have). Older panels
+	// leave the app out of a downloaded catalog (see ParseRemote).
+	MinPanel  string    `json:"min_panel,omitempty"`
+	Resources Resources `json:"resources"`
+	Requires  Requires  `json:"requires"`
+	Admin     Admin     `json:"admin"`
+	Updates   Updates   `json:"updates"`
+	Docker    *Recipe   `json:"docker,omitempty"`
+	PHP       *PHPApp   `json:"php,omitempty"`
 }
 
 // Resources are what an app needs. MinRAMMB and the disk figure are
@@ -177,7 +182,10 @@ type Service struct {
 	Entrypoint []string          `json:"entrypoint,omitempty"`
 	Command    []string          `json:"command,omitempty"`
 	Env        map[string]string `json:"env,omitempty"`
-	// EnvBootstrap is only set for the first start (initial passwords).
+	// EnvBootstrap is only set for the first start (initial passwords). A
+	// variable that is also in Env takes this value on the first start and
+	// the Env value afterwards (sign-ups open only while the panel creates
+	// the first account).
 	EnvBootstrap map[string]string `json:"env_bootstrap,omitempty"`
 	// SecretFiles mounts secrets as read-only files: container path ->
 	// secret name.
@@ -195,6 +203,11 @@ type Volume struct {
 	Owner    string `json:"owner"` // "site" or "uid:gid"
 	Mode     string `json:"mode,omitempty"`
 	ReadOnly bool   `json:"read_only,omitempty"`
+	// Site puts the folder in the website's own folder (<site root>/<source>)
+	// instead of the app's data folder, owned by the site's user, so that
+	// files can be added to it with SFTP or the file manager (a music or
+	// video library). Only for apps with a website; the owner must be "site".
+	Site bool `json:"site,omitempty"`
 }
 
 // File is a file written into a volume before the first start.
@@ -237,12 +250,21 @@ type Step struct {
 
 // HTTPStep sends a request to the app on 127.0.0.1.
 type HTTPStep struct {
-	Method      string            `json:"method"`
-	Path        string            `json:"path"`
-	Form        map[string]string `json:"form,omitempty"`
-	JSON        map[string]string `json:"json,omitempty"`
+	Method string            `json:"method"` // GET, POST, PUT or PATCH
+	Path   string            `json:"path"`
+	Form   map[string]string `json:"form,omitempty"`
+	// JSON is the request body: placeholders are filled in its strings, at
+	// any depth; numbers, booleans and nulls are sent as they are.
+	JSON map[string]any `json:"json,omitempty"`
+	// Headers are sent with the request ("Host" sets the Host header, for
+	// apps that check it). Values may use placeholders.
+	Headers     map[string]string `json:"headers,omitempty"`
 	KeepCookies bool              `json:"keep_cookies,omitempty"`
 	Expect      []int             `json:"expect"`
+	// Save keeps strings from the JSON answer for the next steps, as
+	// ${step.NAME}: name -> dotted path in the answer ("accessToken",
+	// "data.token"). They are kept in memory for this set-up only.
+	Save map[string]string `json:"save,omitempty"`
 }
 
 // ExecStep runs a program in a container; Stdin carries secrets.
@@ -336,6 +358,7 @@ var (
 	mu      sync.RWMutex
 	current *Catalog
 	source  = "embedded"
+	skipped []Skipped // apps of the remote catalog in use that this panel left out
 )
 
 // Embedded returns the catalog built into the binary.
@@ -371,9 +394,17 @@ func Source() string {
 	return source
 }
 
-func setCurrent(c *Catalog, src string) {
+// SkippedApps lists the entries of the remote catalog in use that this
+// panel left out (see ParseRemote).
+func SkippedApps() []Skipped {
+	mu.RLock()
+	defer mu.RUnlock()
+	return slices.Clone(skipped)
+}
+
+func setCurrent(c *Catalog, src string, sk []Skipped) {
 	mu.Lock()
-	current, source = c, src
+	current, source, skipped = c, src, sk
 	mu.Unlock()
 }
 
@@ -389,6 +420,91 @@ func Parse(data []byte) (*Catalog, error) {
 		return nil, err
 	}
 	return &c, nil
+}
+
+// Skipped is an entry of a downloaded catalog this panel left out.
+type Skipped struct {
+	ID     string `json:"id"`
+	Reason string `json:"reason"`
+}
+
+// ParseRemote reads a downloaded catalog. Unlike Parse, one entry this
+// panel cannot use does not refuse the whole file: an entry with a field or
+// a recipe feature this panel does not know (newer panels add them), a
+// min_panel above this panel's version, an installer it does not have, or
+// any other failed check is left out and listed in skipped. If the
+// embedded catalog has an app with the same ID, that entry is kept, so the
+// app stays installable at the version this panel knows and installed
+// copies keep working. The file itself is refused only when its frame is
+// wrong (format, version, no usable app).
+func ParseRemote(data []byte, panelVersion string) (*Catalog, []Skipped, error) {
+	var frame struct {
+		Schema         int               `json:"schema"`
+		CatalogVersion int64             `json:"catalog_version"`
+		Generated      string            `json:"generated"`
+		MinPanel       string            `json:"min_panel"`
+		Apps           []json.RawMessage `json:"apps"`
+	}
+	if err := json.Unmarshal(data, &frame); err != nil {
+		return nil, nil, fmt.Errorf("read catalog: %w", err)
+	}
+	if frame.Schema != Schema {
+		return nil, nil, fmt.Errorf("catalog schema %d is not supported (this panel reads %d)", frame.Schema, Schema)
+	}
+	if frame.CatalogVersion <= 0 {
+		return nil, nil, errors.New("catalog_version missing")
+	}
+	c := &Catalog{Schema: frame.Schema, CatalogVersion: frame.CatalogVersion, Generated: frame.Generated, MinPanel: frame.MinPanel}
+	var skipped []Skipped
+	seen := map[string]bool{}
+	skip := func(id, reason string) {
+		skipped = append(skipped, Skipped{ID: id, Reason: reason})
+	}
+	for _, raw := range frame.Apps {
+		var head struct {
+			ID string `json:"id"`
+		}
+		json.Unmarshal(raw, &head)
+		if !idRe.MatchString(head.ID) {
+			head.ID = "?"
+		}
+		dec := json.NewDecoder(bytes.NewReader(raw))
+		dec.DisallowUnknownFields()
+		var a App
+		if err := dec.Decode(&a); err != nil {
+			skip(head.ID, "uses a field this panel does not know: "+err.Error())
+			continue
+		}
+		if seen[a.ID] {
+			skip(a.ID, "listed twice")
+			continue
+		}
+		if a.MinPanel != "" && panelVersion != "dev" && !versionAtLeast(panelVersion, a.MinPanel) {
+			skip(a.ID, "needs panel "+a.MinPanel+" or newer")
+			continue
+		}
+		if err := a.validate(); err != nil {
+			skip(a.ID, err.Error())
+			continue
+		}
+		seen[a.ID] = true
+		c.Apps = append(c.Apps, &a)
+	}
+	// Keep what this panel knows of the apps it had to leave out.
+	emb := Embedded()
+	for _, s := range skipped {
+		if s.ID == "?" || seen[s.ID] {
+			continue
+		}
+		if a, ok := emb.App(s.ID); ok {
+			seen[s.ID] = true
+			c.Apps = append(c.Apps, a)
+		}
+	}
+	if len(c.Apps) == 0 {
+		return nil, skipped, errors.New("the catalog has no app this panel can use")
+	}
+	return c, skipped, nil
 }
 
 // App returns the app with an ID.

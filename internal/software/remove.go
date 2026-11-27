@@ -76,6 +76,16 @@ func (m *Manager) CheckRemove(ctx context.Context, id string, opts RemoveOptions
 			return usererr.New("software_not_installed", "Python")
 		}
 		return pythonBlocker(pythonUsers(sites))
+	case "ioncube":
+		if !IoncubeInstalled() {
+			return usererr.New("software_not_installed", "ionCube Loader")
+		}
+		return nil
+	case "java":
+		if len(InstalledJava()) == 0 {
+			return usererr.New("software_not_installed", "Java")
+		}
+		return m.javaRemovable(ctx, 0)
 	case "docker":
 		if !DockerInstalled() {
 			return usererr.New("software_not_installed", "Docker")
@@ -113,6 +123,10 @@ func (m *Manager) Remove(ctx context.Context, id string, opts RemoveOptions, lg 
 		return m.removePython(ctx, lg)
 	case "docker":
 		return m.removeDocker(ctx, opts.DeleteData, lg)
+	case "java":
+		return m.removeAllJava(ctx, lg)
+	case "ioncube":
+		return m.removeIoncube(ctx, lg)
 	case "composer":
 		return m.removeComposer(ctx, lg)
 	}

@@ -26,6 +26,7 @@ func TestParseSetupFlags(t *testing.T) {
 			setup.Choice{Web: "apache", PHP: []string{"8.4"}, DB: "mysql", Extras: []string{"python", "adminer", "waf", "clamav"}}, true},
 		{[]string{"--web", "none", "--docker", "-y"}, setup.Choice{PHP: []string{}, Extras: []string{"docker"}}, true},
 		{[]string{"--web", "NGINX", "--php", "none", "--db", "none"}, setup.Choice{Web: "nginx", PHP: []string{}, Extras: []string{}}, true},
+		{[]string{"--db", "mariadb-11.4"}, setup.Choice{PHP: []string{}, DB: "mariadb-11.4", Extras: []string{}}, true},
 		{[]string{"--db", "mariadb", "--mariadb", "--postgresql", "--memcached"},
 			setup.Choice{PHP: []string{}, DB: "mariadb", Extras: []string{"postgresql", "memcached"}}, true},
 		// Nothing named: the recommended choice.
@@ -129,10 +130,10 @@ func TestPrintSetupPlan(t *testing.T) {
 	printSetupPlan(&out, v, p)
 	for _, want := range []string{
 		"This server: 2 CPUs, 960 MB of RAM (700 MB in use), 19.5 GB of free disk.",
-		"1. Nginx and PHP 8.3  about 40 MB of RAM, 55 MB of disk",
-		"2. PHP 8.5            about 25 MB of RAM, 50 MB of disk, from ppa:ondrej/php",
+		"1. Nginx and PHP 8.3  about 40 MB of RAM, 135 MB of disk",
+		"2. PHP 8.5            about 25 MB of RAM, 130 MB of disk, from ppa:ondrej/php",
 		"4. Redis              installed already: skipped",
-		"In all: about 293 MB more RAM and 405 MB of disk.",
+		"In all: about 293 MB more RAM and 665 MB of disk.",
 		"Warning: that is more memory than this server has to spare (about 116 MB)",
 	} {
 		if !strings.Contains(out.String(), want) {

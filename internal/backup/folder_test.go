@@ -4,8 +4,11 @@ import (
 	"archive/tar"
 	"compress/gzip"
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"io/fs"
 	"net/http"
@@ -280,8 +283,18 @@ func newFakeS3(t *testing.T) *fakeS3 {
 				return
 			}
 			b, _ := io.ReadAll(r.Body)
+			// The signed checksum must be the body's, as S3 checks it.
+			if sum := sha256.Sum256(b); r.Header.Get("X-Amz-Content-Sha256") != hex.EncodeToString(sum[:]) {
+				w.WriteHeader(http.StatusBadRequest)
+				io.WriteString(w, `<Error><Code>XAmzContentSHA256Mismatch</Code><Message>checksum</Message></Error>`)
+				return
+			}
 			f.objects[r.URL.Path] = string(b)
 		case http.MethodGet:
+			if r.URL.Query().Get("list-type") == "2" {
+				f.list(w, r)
+				return
+			}
 			v, ok := f.objects[r.URL.Path]
 			if !ok {
 				w.WriteHeader(http.StatusNotFound)
@@ -301,6 +314,37 @@ func newFakeS3(t *testing.T) *fakeS3 {
 	}
 	t.Cleanup(func() { newS3Remote = f.prevMaker; f.srv.Close() })
 	return f
+}
+
+// list answers ListObjectsV2 with pages of two objects.
+func (f *fakeS3) list(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	prefix := r.URL.Path + "/" + q.Get("prefix")
+	var keys []string
+	for k := range f.objects {
+		if strings.HasPrefix(k, prefix) {
+			keys = append(keys, k)
+		}
+	}
+	slices.Sort(keys)
+	start := 0
+	if t := q.Get("continuation-token"); t != "" {
+		start = slices.Index(keys, t)
+	}
+	end := min(start+2, len(keys))
+	var b strings.Builder
+	b.WriteString(`<?xml version="1.0" encoding="UTF-8"?><ListBucketResult>`)
+	for _, k := range keys[start:end] {
+		fmt.Fprintf(&b, `<Contents><Key>%s</Key><Size>%d</Size><LastModified>2026-11-27T03:00:00.000Z</LastModified></Contents>`,
+			strings.TrimPrefix(k, r.URL.Path+"/"), len(f.objects[k]))
+	}
+	if end < len(keys) {
+		fmt.Fprintf(&b, `<IsTruncated>true</IsTruncated><NextContinuationToken>%s</NextContinuationToken>`, keys[end])
+	} else {
+		b.WriteString(`<IsTruncated>false</IsTruncated>`)
+	}
+	b.WriteString(`</ListBucketResult>`)
+	io.WriteString(w, b.String())
 }
 
 func (f *fakeS3) set(fn func()) {

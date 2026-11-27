@@ -138,6 +138,11 @@ func (m *Manager) InstallMySQL(ctx context.Context, lg Logger) error {
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	return m.installMySQL(ctx, lg)
+}
+
+// installMySQL is InstallMySQL for a caller holding m.mu.
+func (m *Manager) installMySQL(ctx context.Context, lg Logger) error {
 	if err := m.checkInstall(ctx, MySQL); err != nil {
 		return err
 	}
@@ -145,15 +150,8 @@ func (m *Manager) InstallMySQL(ctx context.Context, lg Logger) error {
 	if err := m.addMySQLRepo(ctx); err != nil {
 		return err
 	}
-	// The packages' questions, answered before apt asks them: an empty root
-	// password makes the package switch root to auth_socket, and a later
-	// purge keeps the databases.
-	seed := "mysql-community-server mysql-community-server/root-pass password \n" +
-		"mysql-community-server mysql-community-server/re-root-pass password \n" +
-		"mysql-community-server mysql-community-server/remove-data-dir boolean false\n" +
-		"mysql-community-server mysql-server/lowercase-table-names select Disabled\n"
-	if out, err := m.run.Input(ctx, []byte(seed), "debconf-set-selections"); err != nil {
-		return fmt.Errorf("debconf-set-selections: %s", strings.TrimSpace(out))
+	if err := m.seedMySQL(ctx); err != nil {
+		return err
 	}
 	// The panel's settings are in place before the package first starts
 	// the server, so it never listens on port 33060 or writes binary logs.
@@ -193,6 +191,20 @@ func (m *Manager) InstallMySQL(ctx context.Context, lg Logger) error {
 		return err
 	}
 	lg.Logf("MySQL is ready")
+	return nil
+}
+
+// seedMySQL answers the packages' questions before apt asks them: an
+// empty root password makes the package switch root to auth_socket, and a
+// later purge keeps the databases.
+func (m *Manager) seedMySQL(ctx context.Context) error {
+	seed := "mysql-community-server mysql-community-server/root-pass password \n" +
+		"mysql-community-server mysql-community-server/re-root-pass password \n" +
+		"mysql-community-server mysql-community-server/remove-data-dir boolean false\n" +
+		"mysql-community-server mysql-server/lowercase-table-names select Disabled\n"
+	if out, err := m.run.Input(ctx, []byte(seed), "debconf-set-selections"); err != nil {
+		return fmt.Errorf("debconf-set-selections: %s", strings.TrimSpace(out))
+	}
 	return nil
 }
 

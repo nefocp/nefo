@@ -10,7 +10,12 @@ import (
 	"github.com/nefocp/nefo/internal/secure"
 )
 
-const bcryptCost = 12
+var bcryptCost = 12
+
+// UseFastHashesForTests lowers the bcrypt cost for the tests of other
+// packages (internal/api signs in hundreds of times; at cost 12 under the
+// race detector that alone takes minutes). Never called by the panel.
+func UseFastHashesForTests() { bcryptCost = bcrypt.MinCost }
 
 // HashPassword returns a bcrypt hash of pw.
 func HashPassword(pw string) (string, error) {

@@ -113,8 +113,37 @@ var apacheVhostTmpl = func() *template.Template {
 	template.Must(t.New("open").Parse(apacheOpen))
 	template.Must(t.New("custom").Parse(apacheCustom))
 	template.Must(t.New("exempt").Parse(apacheExempt))
+	template.Must(t.New("geo").Parse(apacheGeo))
+	template.Must(t.New("upstream").Parse(apacheUpstream))
 	return t
 }()
+
+// apacheGeo is country blocking (see geo.go), inside the <RequireAll> of
+// the panel's <Location /> block. Each included file is one country's
+// "Require ip" lines. The server's own requests ("Require local") are never
+// refused; an allow list also includes the reserved addresses (ZZ).
+const apacheGeo = `
+{{- if eq .GeoMode "allow"}}
+            # Country blocking: only these countries get in.
+            <RequireAny>
+                Require local
+{{- range .GeoFiles}}
+                Include {{.}}
+{{- end}}
+            </RequireAny>
+{{- else if .GeoMode}}
+            # Country blocking: these countries are refused.
+            <RequireNone>
+                <RequireAll>
+                    Require not local
+                    <RequireAny>
+{{- range .GeoFiles}}
+                        Include {{.}}
+{{- end}}
+                    </RequireAny>
+                </RequireAll>
+            </RequireNone>
+{{- end}}`
 
 const apacheVhostText = `# Managed by {{app}}. Do not edit: the panel rewrites this file.
 # Site: {{.Domain}}
@@ -214,6 +243,12 @@ const apacheBody = `
     CustomLog {{.LogDir}}/{{.Domain}}.access.log panel_combined
     ErrorLog {{.LogDir}}/{{.Domain}}.error.log
     Include {{.SnippetDir}}/acme.conf
+{{- if .GeoTrusted}}
+    # Country blocking: behind Cloudflare's proxy, the visitor's address is
+    # the one in CF-Connecting-IP (for this site's log and PHP too).
+    RemoteIPHeader CF-Connecting-IP
+    RemoteIPTrustedProxy {{join .GeoTrusted " "}}
+{{- end}}
 {{- if .WAF}}
     <IfModule security2_module>
         SecRuleEngine {{if eq .WAF "detect"}}DetectionOnly{{else}}On{{end}}
@@ -228,7 +263,7 @@ const apacheBody = `
         ProxyFCGISetEnvIf "{{if .PHPSocket}}note('uds_path') != '{{.PHPSocket}}'{{else}}true{{end}}" SCRIPT_FILENAME /nonexistent
         ProxyFCGISetEnvIf "true" !PHP_VALUE
         ProxyFCGISetEnvIf "true" !PHP_ADMIN_VALUE
-{{- if or .AuthFile .BlockedIPs}}
+{{- if or .AuthFile .BlockedIPs .GeoMode}}
 {{- if .AuthFile}}
         AuthType Basic
         AuthName "Restricted"
@@ -242,6 +277,7 @@ const apacheBody = `
 {{- if .BlockedIPs}}
             Require not ip {{join .BlockedIPs " "}}
 {{- end}}
+{{- template "geo" .}}
         </RequireAll>
 {{- end}}
     </Location>
@@ -252,16 +288,23 @@ const apacheBody = `
         Require all denied
     </LocationMatch>
 {{- end}}
-{{- if .AuthFile}}
+{{- if or .AuthFile .GeoMode}}
 
-    # Let's Encrypt validates without the password.
+    # Let's Encrypt validates {{if and .AuthFile .GeoMode}}without the password and from any country{{else if .AuthFile}}without the password{{else}}from any country{{end}}.
     <Location /.well-known/acme-challenge/>
+{{- template "open" .}}
+    </Location>
+{{- end}}
+{{- if .GeoMode}}
+
+    # Blocked visitors may load the site's own error page.
+    <Location /403.html>
 {{- template "open" .}}
     </Location>
 {{- end}}
 {{- template "githook" .}}
 {{- template "exempt" .}}
-{{- if and .BodyLimit (or .Files .ProxyPort)}}
+{{- if and .BodyLimit (or .Files .ProxyPort .Upstream)}}
     RewriteCond expr "%{HTTP:Content-Length} -gt {{.BodyLimit}}"
     RewriteRule ^ - [R=413,L]
 {{- end}}
@@ -272,6 +315,8 @@ const apacheBody = `
     RewriteCond %{THE_REQUEST} ^\S+\s+(/[^\s?]*)
     RewriteRule ^ {{rwesc .RedirectURL}}%1 [R=301,L,NE]
     RewriteRule ^/?(.*)$ {{rwesc .RedirectURL}}/$1 [R=301,L]
+{{- else if .Upstream}}
+{{- template "upstream" .}}
 {{- else if .ProxyPort}}
 
     ProxyPreserveHost On
@@ -353,7 +398,7 @@ func renderApacheVhost(d vhostData, rewrite string) ([]byte, error) {
 		return nil, fmt.Errorf("refusing to render %q without an empty document root", d.Domain)
 	}
 	a := apacheVhost{vhostData: d}
-	a.Files = !d.Disabled && d.RedirectURL == "" && d.ProxyPort == 0
+	a.Files = !d.Disabled && d.RedirectURL == "" && d.ProxyPort == 0 && d.Upstream == nil
 	a.BodyLimit = int64(d.UploadMB) << 20
 	rules := apacheRewriteRules(rewrite, d.PHPSocket != "")
 	a.DirRules, a.ServerRules = rules.Dir, rules.Server
@@ -405,7 +450,10 @@ var apachePresetRules = map[string]apacheRules{
     RewriteRule ^/(?:build|tests|config|lib|3rdparty|templates|data)(?:$|/) - [R=404,L]
     RewriteRule ^/(?:\.|autotest|occ|issue|indie|db_|console) - [R=404,L]`},
 	"moodle": {Dir: `        FallbackResource /r.php`},
-	"spa":    {Dir: `        FallbackResource /index.html`},
+	"phpbb": {Dir: `        FallbackResource /app.php`, Server: `
+    # Settings, cache, attachments, backups and code are never served.
+    RewriteRule ^/(?:config\.php|common\.php|cache|files|images/avatars/upload|includes|phpbb|store|vendor)(?:/|$) - [F]`},
+	"spa": {Dir: `        FallbackResource /index.html`},
 	"static-clean": {Dir: `        RewriteEngine On
         RewriteCond %{REQUEST_FILENAME} !-f
         RewriteCond %{REQUEST_FILENAME}.html -f

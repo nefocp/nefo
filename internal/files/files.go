@@ -40,6 +40,10 @@ type Scope struct {
 	UID  int    // owner of new files and folders
 	GID  int
 	Site string // domain when Root is a website's folder
+	// Guard, if set, refuses changes to a path (relative to Root): in a
+	// website whose files are locked, only its writable folders change.
+	// self allows the path to be such a folder itself, not only inside one.
+	Guard func(rel string, self bool) error
 }
 
 // Resolver finds the scope of an absolute path.
@@ -87,6 +91,14 @@ type target struct {
 }
 
 func (t *target) Close() { t.root.Close() }
+
+// writable applies the scope's Guard to the target (see Scope).
+func (t *target) writable(self bool) error {
+	if t.scope.Guard == nil {
+		return nil
+	}
+	return t.scope.Guard(t.rel, self)
+}
 
 func (m *Manager) open(ctx context.Context, p string) (*target, error) {
 	if runtime.GOOS != "linux" {
@@ -283,6 +295,9 @@ func (m *Manager) WriteText(ctx context.Context, p, content string, create bool)
 		return err
 	}
 	defer t.Close()
+	if err := t.writable(false); err != nil {
+		return err
+	}
 	fi, err := t.root.Lstat(t.rel)
 	switch {
 	case err == nil && create:
@@ -318,6 +333,9 @@ func (m *Manager) Mkdir(ctx context.Context, p string) error {
 		return err
 	}
 	defer t.Close()
+	if err := t.writable(false); err != nil {
+		return err
+	}
 	if err := t.root.Mkdir(t.rel, 0o755); err != nil {
 		return mapErr(err, t.abs)
 	}
@@ -350,6 +368,12 @@ func (m *Manager) Rename(ctx context.Context, from, to string) error {
 		return err
 	}
 	if err := dst.checkChangeable(); err != nil {
+		return err
+	}
+	if err := src.writable(false); err != nil {
+		return err
+	}
+	if err := dst.writable(false); err != nil {
 		return err
 	}
 	if _, err := src.root.Lstat(dst.rel); err == nil {
@@ -389,6 +413,9 @@ func (m *Manager) deleteOne(ctx context.Context, p string, permanent bool) error
 	if err := t.checkChangeable(); err != nil {
 		return err
 	}
+	if err := t.writable(false); err != nil {
+		return err
+	}
 	// The trash folder itself, and the folders that hold it, stay.
 	if t.abs == m.trashDir || strings.HasPrefix(m.trashDir, t.abs+"/") {
 		return usererr.New("path_protected", t.abs)
@@ -417,6 +444,9 @@ func (m *Manager) Chmod(ctx context.Context, p, mode string) error {
 	if err := t.checkChangeable(); err != nil {
 		return err
 	}
+	if err := t.writable(true); err != nil {
+		return err
+	}
 	return mapErr(t.root.Chmod(t.rel, fs.FileMode(v)), t.abs)
 }
 
@@ -436,6 +466,9 @@ func (m *Manager) Upload(ctx context.Context, dir, name string, r io.Reader, ove
 		return 0, err
 	}
 	defer t.Close()
+	if err := t.writable(false); err != nil {
+		return 0, err
+	}
 	flags := os.O_WRONLY | os.O_CREATE | os.O_EXCL
 	if overwrite {
 		if fi, err := t.root.Lstat(t.rel); err == nil && !fi.Mode().IsRegular() {

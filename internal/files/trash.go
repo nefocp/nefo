@@ -416,6 +416,11 @@ func restoreEntry(root *os.Root, scope Scope, sid string, bin *os.Root, id, tras
 	if protected[abs] || abs == trashDir || strings.HasPrefix(abs, trashDir+"/") {
 		return "", usererr.New("path_protected", abs)
 	}
+	if scope.Guard != nil {
+		if err := scope.Guard(rel, false); err != nil {
+			return "", err
+		}
+	}
 	// "Not a folder" means a parent is a file: mkdirParents says so.
 	if _, err := root.Lstat(rel); err == nil {
 		return "", usererr.New("restore_exists", abs)

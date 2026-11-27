@@ -2,10 +2,12 @@ package api
 
 import (
 	"context"
+	"fmt"
 	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
+	"slices"
 	"sort"
 	"time"
 
@@ -23,10 +25,14 @@ type backupResponse struct {
 	Size      int64     `json:"size"`
 	Local     bool      `json:"local"`
 	Remote    bool      `json:"remote"`
-	Remotes   []string  `json:"remotes"` // "s3", "sftp": where copies are
+	Remotes   []string  `json:"remotes"`   // "s3", "sftp", "gdrive": where copies are
+	Encrypted []string  `json:"encrypted"` // the remotes whose copy is encrypted
 	Scheduled bool      `json:"scheduled"`
 	CreatedAt time.Time `json:"created_at"`
 	App       string    `json:"app,omitempty"` // app store app of an app backup
+	// Exists tells whether the website, database or app is on this
+	// server; a restore creates a missing website or database again.
+	Exists bool `json:"exists"`
 }
 
 type scheduleResponse struct {
@@ -49,12 +55,29 @@ func (s *Server) handleListBackups(w http.ResponseWriter, r *http.Request, a *au
 		s.opError(w, r, err)
 		return
 	}
+	sites, _ := s.store.ListSites(ctx)
+	dbs, _ := s.store.ListDatabases(ctx)
+	if pgdbs, err := s.store.ListPGDatabases(ctx); err == nil {
+		dbs = append(dbs, pgdbs...)
+	}
+	apps, _ := s.store.ListApps(ctx)
+	exists := map[string]bool{}
+	for _, site := range sites {
+		exists[backup.KindSite+" "+site.Domain] = true
+	}
+	for _, d := range dbs {
+		exists[backup.KindDatabase+" "+d.Name] = true
+	}
+	for _, in := range apps {
+		exists[backup.KindApp+" "+in.Name] = true
+	}
 	backups := make([]backupResponse, 0, len(list))
 	folders := map[string]bool{}
 	for _, b := range list {
 		_, statErr := os.Stat(b.File)
 		backups = append(backups, backupResponse{b.ID, b.Kind, b.Target, filepath.Base(b.File), b.Size,
-			statErr == nil, b.RemoteKey != "", backup.Remotes(b), b.ScheduleID != 0, b.CreatedAt, b.AppID})
+			statErr == nil, b.RemoteKey != "", backup.Remotes(b), backup.EncryptedRemotes(b), b.ScheduleID != 0, b.CreatedAt, b.AppID,
+			b.Kind == backup.KindFolder || exists[b.Kind+" "+b.Target]})
 		if b.Kind == backup.KindFolder {
 			folders[b.Target] = true
 		}
@@ -86,17 +109,16 @@ func (s *Server) handleListBackups(w http.ResponseWriter, r *http.Request, a *au
 		s.opError(w, r, err)
 		return
 	}
+	driveStorage, err := s.backup.DriveStorage(ctx)
+	if err != nil {
+		s.opError(w, r, err)
+		return
+	}
 	remotes, err := s.backup.ConfiguredRemotes(ctx)
 	if err != nil {
 		s.opError(w, r, err)
 		return
 	}
-	sites, _ := s.store.ListSites(ctx)
-	dbs, _ := s.store.ListDatabases(ctx)
-	if pgdbs, err := s.store.ListPGDatabases(ctx); err == nil {
-		dbs = append(dbs, pgdbs...)
-	}
-	apps, _ := s.store.ListApps(ctx)
 	// Folders have no list of their own: those backed up before are suggested.
 	targets := map[string][]string{"site": {}, "database": {}, "folder": {}, "app": {}}
 	for f := range folders {
@@ -118,8 +140,10 @@ func (s *Server) handleListBackups(w http.ResponseWriter, r *http.Request, a *au
 	_, offset := time.Now().Zone()
 	writeJSON(w, http.StatusOK, map[string]any{
 		"backups": backups, "schedules": schedules, "storage": storage, "sftp": sftpStorage, "remotes": remotes,
-		"targets":     targets,
-		"server_time": time.Now(), "server_utc_offset": offset,
+		"gdrive": driveStorage, "gdrive_default_folder": backup.DefaultDriveFolder(),
+		"gdrive_builtin_client": backup.BuiltinDriveClient(),
+		"targets":               targets,
+		"server_time":           time.Now(), "server_utc_offset": offset,
 	})
 }
 
@@ -188,6 +212,9 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request, a *
 	}
 	var req struct {
 		Confirm string `json:"confirm"`
+		// Passphrase decrypts an encrypted remote copy (optional: the
+		// storage's own passphrases are tried too).
+		Passphrase string `json:"passphrase"`
 	}
 	if !decodeJSON(w, r, &req) {
 		return
@@ -203,7 +230,24 @@ func (s *Server) handleRestoreBackup(w http.ResponseWriter, r *http.Request, a *
 	}
 	user, ip := a.user.Username, clientIP(r)
 	job, err := s.jobs.Start("restore", b.Target, 6*time.Hour, func(ctx context.Context, j *jobs.Job) error {
-		err := s.backup.Restore(ctx, id, j)
+		// A website whose files are locked is unlocked for the restore and
+		// locked again after it (see hosting/filelock.go).
+		restore := func() error {
+			return s.backup.RestoreWith(ctx, id, backup.RestoreOptions{Passphrase: req.Passphrase}, j)
+		}
+		var err error
+		switch b.Kind {
+		case "site":
+			if site, serr := s.siteByDomain(ctx, b.Target); serr == nil {
+				err = s.hosting.WithUnlocked(ctx, site.ID, j, restore)
+			} else {
+				err = restore()
+			}
+		case "folder":
+			err = s.hosting.UnlockedFor(ctx, b.Target, j, restore)
+		default:
+			err = restore()
+		}
 		action := "backup_restored"
 		if err != nil {
 			action = "restore_failed"
@@ -381,6 +425,147 @@ func (s *Server) handleRemoveSFTP(w http.ResponseWriter, r *http.Request, a *aut
 		return
 	}
 	s.audit(r.Context(), a.user.Username, "storage_removed", clientIP(r), "SFTP")
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+// Backups found on a storage (a new server recovering an earlier one's):
+//
+//	POST /api/backups/remote-scan    {remote, passphrase}: lists and reads them, as a job
+//	GET  /api/backups/remote-scan?remote=sftp  the last scan's result
+//	POST /api/backups/remote-import  {remote, keys}: adds them to the backup list
+
+func (s *Server) handleRemoteScan(w http.ResponseWriter, r *http.Request, a *authed) {
+	var req struct {
+		Remote     string `json:"remote"`
+		Passphrase string `json:"passphrase"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if !slices.Contains(backup.RemoteNames(), req.Remote) {
+		writeError(w, http.StatusBadRequest, "bad_request")
+		return
+	}
+	names, err := s.backup.ConfiguredRemotes(r.Context())
+	if err != nil {
+		s.opError(w, r, err)
+		return
+	}
+	if !slices.Contains(names, req.Remote) {
+		s.opError(w, r, usererr.New("storage_not_configured"))
+		return
+	}
+	job, err := s.jobs.Start("scan_storage", backup.RemoteLabel(req.Remote), time.Hour, func(ctx context.Context, j *jobs.Job) error {
+		res, err := s.backup.ScanRemote(ctx, req.Remote, req.Passphrase, j)
+		if err != nil {
+			return err
+		}
+		readable := 0
+		for _, f := range res.Found {
+			if f.Readable {
+				readable++
+			}
+		}
+		j.Logf("Found %d backups that are not in the list; %d of them could be read", len(res.Found), readable)
+		return nil
+	})
+	if err != nil {
+		s.opError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, job.Snapshot())
+}
+
+func (s *Server) handleRemoteFound(w http.ResponseWriter, r *http.Request, a *authed) {
+	l := s.backup.FoundOn(r.URL.Query().Get("remote"))
+	if l == nil {
+		writeJSON(w, http.StatusOK, map[string]any{"found": nil})
+		return
+	}
+	writeJSON(w, http.StatusOK, l)
+}
+
+func (s *Server) handleRemoteImport(w http.ResponseWriter, r *http.Request, a *authed) {
+	var req struct {
+		Remote string   `json:"remote"`
+		Keys   []string `json:"keys"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if len(req.Keys) == 0 || len(req.Keys) > 2000 {
+		writeError(w, http.StatusBadRequest, "bad_request")
+		return
+	}
+	ids, err := s.backup.ImportFound(r.Context(), req.Remote, req.Keys)
+	if err != nil {
+		s.opError(w, r, err)
+		return
+	}
+	s.audit(r.Context(), a.user.Username, "backups_imported", clientIP(r), fmt.Sprintf("%d from %s", len(ids), req.Remote))
+	writeJSON(w, http.StatusOK, map[string]any{"ids": ids})
+}
+
+// Google Drive storage:
+//
+//	POST   /api/backups/gdrive/connect  {client_id, client_secret, folder, encrypt, encrypt_passphrase}
+//	                                    asks Google for a code to enter at google.com/device
+//	GET    /api/backups/gdrive/connect  the sign-in's state; once done, the settings are saved
+//	DELETE /api/backups/gdrive/connect  stops waiting for the code
+//	PUT    /api/backups/gdrive          {folder, encrypt, encrypt_passphrase}: changes without signing in again
+//	DELETE /api/backups/gdrive          forgets the settings and gives up the access
+
+func (s *Server) handleDriveConnect(w http.ResponseWriter, r *http.Request, a *authed) {
+	var req backup.DriveConfig
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	user, ip := a.user.Username, clientIP(r)
+	st, err := s.backup.StartDriveConnect(r.Context(), req, func(v *backup.DriveView) {
+		s.audit(context.Background(), user, "storage_saved", ip, "Google Drive "+v.Account+" "+v.Folder)
+	})
+	if err != nil {
+		s.opError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, st)
+}
+
+func (s *Server) handleDriveConnectStatus(w http.ResponseWriter, r *http.Request, a *authed) {
+	st := s.backup.DriveConnectStatus()
+	if st == nil {
+		writeJSON(w, http.StatusOK, map[string]string{"state": "none"})
+		return
+	}
+	writeJSON(w, http.StatusOK, st)
+}
+
+func (s *Server) handleDriveConnectCancel(w http.ResponseWriter, r *http.Request, a *authed) {
+	s.backup.CancelDriveConnect()
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+}
+
+func (s *Server) handleSaveDrive(w http.ResponseWriter, r *http.Request, a *authed) {
+	var req backup.DriveConfig
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	http.NewResponseController(w).SetWriteDeadline(time.Now().Add(4 * time.Minute))
+	v, err := s.backup.SaveDrive(r.Context(), req)
+	if err != nil {
+		s.opError(w, r, err)
+		return
+	}
+	s.audit(r.Context(), a.user.Username, "storage_saved", clientIP(r), "Google Drive "+v.Account+" "+v.Folder)
+	writeJSON(w, http.StatusOK, map[string]any{"gdrive": v})
+}
+
+func (s *Server) handleRemoveDrive(w http.ResponseWriter, r *http.Request, a *authed) {
+	if err := s.backup.RemoveDrive(r.Context()); err != nil {
+		s.opError(w, r, err)
+		return
+	}
+	s.audit(r.Context(), a.user.Username, "storage_removed", clientIP(r), "Google Drive")
 	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 

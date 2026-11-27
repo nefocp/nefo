@@ -33,11 +33,13 @@ func (s *Server) handleDBStatus(w http.ResponseWriter, r *http.Request, a *authe
 }
 
 // handleDBInstall installs the database server: {"engine": "mariadb"} (the
-// default, also for an empty body) or {"engine": "mysql"} (dbengine.go).
+// default, also for an empty body), with "series": "11.4" for a series from
+// MariaDB's repository, or {"engine": "mysql"} (dbengine.go).
 func (s *Server) handleDBInstall(w http.ResponseWriter, r *http.Request, a *authed) {
 	user, ip := a.user.Username, clientIP(r)
 	var req struct {
 		Engine string `json:"engine"`
+		Series string `json:"series"`
 	}
 	if r.ContentLength != 0 && !decodeJSON(w, r, &req) {
 		return
@@ -45,17 +47,22 @@ func (s *Server) handleDBInstall(w http.ResponseWriter, r *http.Request, a *auth
 	if req.Engine == "" {
 		req.Engine = string(database.MariaDB)
 	}
-	e, ok := dbEngineOf(req.Engine)
-	if !ok {
-		s.opError(w, r, usererr.New("unknown_software", req.Engine))
+	id := req.Engine
+	if req.Series != "" && req.Engine == string(database.MariaDB) {
+		id = database.SeriesID(req.Series)
+	}
+	e, ok := dbEngineOf(id)
+	if !ok || (req.Series != "" && e != database.MariaDB) {
+		s.opError(w, r, usererr.New("unknown_software", id))
 		return
 	}
-	if err := s.db.CheckInstall(r.Context(), e); err != nil {
+	if err := s.checkDBInstall(r.Context(), id); err != nil {
 		s.opError(w, r, err)
 		return
 	}
-	job, err := s.jobs.Start("install_db", e.Name(), 30*time.Minute, func(ctx context.Context, j *jobs.Job) error {
-		err := s.installDB(ctx, e, j)
+	name, _ := softwareName(id)
+	job, err := s.jobs.Start("install_db", name, 30*time.Minute, func(ctx context.Context, j *jobs.Job) error {
+		err := s.installSoftware(ctx, id, j)
 		if err == nil {
 			s.audit(ctx, user, "db_installed", ip, string(e))
 		}

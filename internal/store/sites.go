@@ -3,7 +3,9 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"time"
 )
@@ -37,8 +39,16 @@ type Site struct {
 	// 127.0.0.1:ProxyPort. AppCommand, if set, is run as a service.
 	ProxyPort  int
 	AppCommand string
-	// AppRuntime is "" (the server's node), "node:<major>" or "python".
+	// AppRuntime is "" (the server's node), "node:<major>", "python" or
+	// "java:<major>". AppMemory is the memory limit of the program in MB
+	// (Java's -Xmx), 0 for the runtime's own default.
 	AppRuntime string
+	AppMemory  int
+	// ProxyURL makes a reverse proxy site: the web server forwards every
+	// request to this address (http(s)://host:port[/path]), another server
+	// or a local service the panel does not run. ProxyOpts are its options.
+	ProxyURL  string
+	ProxyOpts ProxyOptions
 	// Access: a suspended site answers 503; a redirect sends every request
 	// to RedirectURL; AuthUser/AuthHash (bcrypt) ask for a password.
 	Disabled    bool
@@ -89,17 +99,41 @@ func (s *Site) Names() []string {
 	return append([]string{s.Domain}, s.Aliases...)
 }
 
+// ProxyOptions are how a reverse proxy site forwards requests.
+type ProxyOptions struct {
+	// UpstreamHost sends the upstream's host name in the Host header
+	// instead of the site's domain.
+	UpstreamHost bool `json:"upstream_host,omitempty"`
+	// WebSocket passes WebSocket upgrades on; Forwarded adds the
+	// X-Forwarded-For, -Proto and -Host headers (and X-Real-IP).
+	WebSocket bool `json:"websocket,omitempty"`
+	Forwarded bool `json:"forwarded,omitempty"`
+	// Timeout is how long the upstream may take to answer, in seconds.
+	Timeout int `json:"timeout,omitempty"`
+	// Insecure accepts any certificate from an https:// upstream
+	// (self-signed ones).
+	Insecure bool `json:"insecure,omitempty"`
+}
+
+func proxyOptsJSON(o ProxyOptions, url string) string {
+	if url == "" {
+		return ""
+	}
+	b, _ := json.Marshal(o)
+	return string(b)
+}
+
 const siteCols = `id, domain, aliases, sys_user, php_version, ssl, force_https,
-	cert_not_before, cert_not_after, ssl_error, ssl_attempt_at, app, php_memory, php_upload, php_time, proxy_port, app_command, disabled, redirect_url, auth_user, auth_hash, sftp, rewrite, nginx_custom, ssl_source, ssl_dns, waf, rate_limit, blocked_ips, php_workers, php_pm, php_allow, custom_404, hotlink, hotlink_allow, expires_at, app_runtime, note, hsts, hsts_subdomains, page_cache, created_at`
+	cert_not_before, cert_not_after, ssl_error, ssl_attempt_at, app, php_memory, php_upload, php_time, proxy_port, app_command, disabled, redirect_url, auth_user, auth_hash, sftp, rewrite, nginx_custom, ssl_source, ssl_dns, waf, rate_limit, blocked_ips, php_workers, php_pm, php_allow, custom_404, hotlink, hotlink_allow, expires_at, app_runtime, app_memory, note, hsts, hsts_subdomains, page_cache, created_at, proxy_url, proxy_opts`
 
 type scanner interface{ Scan(dest ...any) error }
 
 func scanSite(row scanner) (*Site, error) {
 	var s Site
-	var aliases string
+	var aliases, proxyOpts string
 	var notBefore, notAfter, attempt, created, expires int64
 	err := row.Scan(&s.ID, &s.Domain, &aliases, &s.SysUser, &s.PHPVersion, &s.SSL, &s.ForceHTTPS,
-		&notBefore, &notAfter, &s.SSLError, &attempt, &s.App, &s.PHPMemory, &s.PHPUpload, &s.PHPTime, &s.ProxyPort, &s.AppCommand, &s.Disabled, &s.RedirectURL, &s.AuthUser, &s.AuthHash, &s.SFTP, &s.Rewrite, &s.NginxCustom, &s.SSLSource, &s.SSLDNS, &s.WAF, &s.RateLimit, &s.BlockedIPs, &s.PHPWorkers, &s.PHPPM, &s.PHPAllow, &s.Custom404, &s.Hotlink, &s.HotlinkAllow, &expires, &s.AppRuntime, &s.Note, &s.HSTS, &s.HSTSSubdomains, &s.PageCache, &created)
+		&notBefore, &notAfter, &s.SSLError, &attempt, &s.App, &s.PHPMemory, &s.PHPUpload, &s.PHPTime, &s.ProxyPort, &s.AppCommand, &s.Disabled, &s.RedirectURL, &s.AuthUser, &s.AuthHash, &s.SFTP, &s.Rewrite, &s.NginxCustom, &s.SSLSource, &s.SSLDNS, &s.WAF, &s.RateLimit, &s.BlockedIPs, &s.PHPWorkers, &s.PHPPM, &s.PHPAllow, &s.Custom404, &s.Hotlink, &s.HotlinkAllow, &expires, &s.AppRuntime, &s.AppMemory, &s.Note, &s.HSTS, &s.HSTSSubdomains, &s.PageCache, &created, &s.ProxyURL, &proxyOpts)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -113,6 +147,11 @@ func scanSite(row scanner) (*Site, error) {
 	s.CertNotBefore, s.CertNotAfter = unixOrZero(notBefore), unixOrZero(notAfter)
 	s.SSLAttemptAt, s.CreatedAt = unixOrZero(attempt), time.Unix(created, 0)
 	s.ExpiresAt = unixOrZero(expires)
+	if proxyOpts != "" {
+		if err := json.Unmarshal([]byte(proxyOpts), &s.ProxyOpts); err != nil {
+			return nil, fmt.Errorf("site %d: proxy options: %w", s.ID, err)
+		}
+	}
 	return &s, nil
 }
 
@@ -144,10 +183,11 @@ func (s *Store) CreateSite(ctx context.Context, site *Site) error {
 		site.PHPMemory, site.PHPUpload, site.PHPTime = 256, 64, 300
 	}
 	res, err := s.db.ExecContext(ctx,
-		`INSERT INTO sites (domain, aliases, sys_user, php_version, php_memory, php_upload, php_time, proxy_port, app_command, disabled, created_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO sites (domain, aliases, sys_user, php_version, php_memory, php_upload, php_time, proxy_port, app_command, disabled, created_at, proxy_url, proxy_opts)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		site.Domain, strings.Join(site.Aliases, " "), site.SysUser, site.PHPVersion,
-		site.PHPMemory, site.PHPUpload, site.PHPTime, site.ProxyPort, site.AppCommand, site.Disabled, site.CreatedAt.Unix())
+		site.PHPMemory, site.PHPUpload, site.PHPTime, site.ProxyPort, site.AppCommand, site.Disabled, site.CreatedAt.Unix(),
+		site.ProxyURL, proxyOptsJSON(site.ProxyOpts, site.ProxyURL))
 	if isUniqueViolation(err) {
 		return ErrConflict
 	}
@@ -191,8 +231,8 @@ func (s *Store) UpdateSite(ctx context.Context, site *Site) error {
 			disabled = ?, redirect_url = ?, auth_user = ?, auth_hash = ?, sftp = ?,
 			rewrite = ?, nginx_custom = ?, ssl_source = ?, ssl_dns = ?,
 			waf = ?, rate_limit = ?, blocked_ips = ?, php_workers = ?, php_pm = ?, php_allow = ?,
-			custom_404 = ?, hotlink = ?, hotlink_allow = ?, expires_at = ?, app_runtime = ?,
-			hsts = ?, hsts_subdomains = ?, page_cache = ?
+			custom_404 = ?, hotlink = ?, hotlink_allow = ?, expires_at = ?, app_runtime = ?, app_memory = ?,
+			hsts = ?, hsts_subdomains = ?, page_cache = ?, proxy_url = ?, proxy_opts = ?
 		 WHERE id = ?`,
 		strings.Join(site.Aliases, " "), site.PHPVersion, boolInt(site.SSL), boolInt(site.ForceHTTPS),
 		zeroOrUnix(site.CertNotBefore), zeroOrUnix(site.CertNotAfter), site.SSLError, zeroOrUnix(site.SSLAttemptAt), site.App,
@@ -200,8 +240,9 @@ func (s *Store) UpdateSite(ctx context.Context, site *Site) error {
 		boolInt(site.Disabled), site.RedirectURL, site.AuthUser, site.AuthHash, boolInt(site.SFTP),
 		site.Rewrite, site.NginxCustom, site.SSLSource, boolInt(site.SSLDNS),
 		site.WAF, site.RateLimit, site.BlockedIPs, site.PHPWorkers, site.PHPPM, site.PHPAllow,
-		boolInt(site.Custom404), boolInt(site.Hotlink), site.HotlinkAllow, zeroOrUnix(site.ExpiresAt), site.AppRuntime,
-		boolInt(site.HSTS), boolInt(site.HSTSSubdomains), boolInt(site.PageCache), site.ID)
+		boolInt(site.Custom404), boolInt(site.Hotlink), site.HotlinkAllow, zeroOrUnix(site.ExpiresAt), site.AppRuntime, site.AppMemory,
+		boolInt(site.HSTS), boolInt(site.HSTSSubdomains), boolInt(site.PageCache),
+		site.ProxyURL, proxyOptsJSON(site.ProxyOpts, site.ProxyURL), site.ID)
 	if err != nil {
 		return err
 	}

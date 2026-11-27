@@ -88,6 +88,7 @@ const ICONS = {
   edit: [['path', { d: 'M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z' }], ['path', { d: 'M13.5 6.5l4 4' }]],
   grid: [['rect', { x: 4, y: 4, width: 6.5, height: 6.5, rx: 1.5 }], ['rect', { x: 13.5, y: 4, width: 6.5, height: 6.5, rx: 1.5 }], ['rect', { x: 4, y: 13.5, width: 6.5, height: 6.5, rx: 1.5 }], ['rect', { x: 13.5, y: 13.5, width: 6.5, height: 6.5, rx: 1.5 }]],
   return: [['path', { d: 'M9 10l-4 4 4 4' }], ['path', { d: 'M5 14h10a4 4 0 0 0 4-4V6' }]],
+  mail: [['rect', { x: 3.5, y: 5.5, width: 17, height: 13, rx: 1.8 }], ['path', { d: 'M4 7l8 6 8-6' }]],
 }
 </script>
 

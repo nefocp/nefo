@@ -48,6 +48,7 @@ async function load() {
       web.value = d.web || ''
       php.value = [...(d.php || [])]
       db.value = d.db || ''
+      if (isMaria(db.value)) mariaVersion.value = db.value
       extras.value = [...(d.extras || [])]
     }
   } catch (e) {
@@ -74,7 +75,22 @@ const webParts = computed(() => {
   return installed ? [installed] : all
 })
 const phpParts = computed(() => group('php'))
-const dbParts = computed(() => group('db'))
+// The database servers, with MariaDB's series from MariaDB's repository
+// (mariadb-11.4…) as versions of MariaDB rather than options of their own.
+const dbParts = computed(() => group('db').filter((p) => !p.id.startsWith('mariadb-')))
+const mariaSeries = computed(() => group('db').filter((p) => p.id.startsWith('mariadb-') && !p.blocked))
+const isMaria = (id) => id === 'mariadb' || id.startsWith('mariadb-')
+// The radio picks the server; for MariaDB, mariaVersion the version.
+const mariaVersion = ref('mariadb')
+const dbMain = computed({
+  get: () => (isMaria(db.value) ? 'mariadb' : db.value),
+  set: (v) => (db.value = v === 'mariadb' ? mariaVersion.value : v),
+})
+function pickMaria(id) {
+  if (running.value) return
+  mariaVersion.value = id
+  db.value = id
+}
 const extraGroups = computed(() =>
   ['data', 'runtimes', 'security'].map((id) => ({ id, items: group(id) })).filter((g) => g.items.length),
 )
@@ -90,6 +106,7 @@ const NAMES = { mariadb: 'MariaDB', mysql: 'MySQL', postgresql: 'PostgreSQL', re
 const nameOf = (id) => {
   if (SERVER_NAMES[id]) return SERVER_NAMES[id]
   if (id.startsWith('php')) return 'PHP ' + id.slice(3)
+  if (id.startsWith('mariadb-')) return 'MariaDB ' + id.slice(8)
   if (te(`software.${id}`)) return t(`software.${id}`)
   return NAMES[id] || plan.value?.steps?.find((s) => s.id === id)?.name || id
 }
@@ -123,7 +140,10 @@ const chosen = computed(() => {
 })
 const toInstall = computed(() => chosen.value.filter((p) => !p.installed))
 const ramSum = computed(() => toInstall.value.reduce((a, p) => a + (p.ram_mb || 0), 0))
-const diskSum = computed(() => toInstall.value.reduce((a, p) => a + (p.disk_mb || 0), 0))
+// apt's package lists, on a server that never downloaded them, come with
+// the first install.
+const aptLists = computed(() => (toInstall.value.length ? view.value?.apt_lists_mb || 0 : 0))
+const diskSum = computed(() => toInstall.value.reduce((a, p) => a + (p.disk_mb || 0), aptLists.value))
 const ramWarn = computed(() => view.value?.ram_budget_mb != null && ramSum.value > view.value.ram_budget_mb)
 const diskWarn = computed(() => view.value?.disk_budget_mb != null && diskSum.value > view.value.disk_budget_mb)
 const thirdParty = computed(() => toInstall.value.filter((p) => p.group === 'php' && p.third_party).map((p) => p.version))
@@ -267,8 +287,8 @@ function closeJob() {
           <span class="muted small">{{ t('setup.db_hint') }}</span>
         </div>
         <div class="panel-body opt-grid" role="radiogroup" :aria-labelledby="'setup-db'">
-          <label v-for="p in dbParts" :key="p.id" class="opt" :class="{ on: db === p.id, off: running || (!!p.blocked && !p.installed) }">
-            <input v-model="db" type="radio" name="setup-db" :value="p.id" :disabled="running || (!!p.blocked && !p.installed)" />
+          <label v-for="p in dbParts" :key="p.id" class="opt" :class="{ on: dbMain === p.id, off: running || (!!p.blocked && !p.installed) }">
+            <input v-model="dbMain" type="radio" name="setup-db" :value="p.id" :disabled="running || (!!p.blocked && !p.installed)" />
             <AppLogo :name="p.id" size="sm" icon="database" />
             <span class="opt-text">
               <span class="opt-name">
@@ -279,10 +299,19 @@ function closeJob() {
               <span class="muted small">{{ te(`setup.${p.id}`) ? t(`setup.${p.id}`) : '' }}</span>
               <span v-if="p.blocked && !p.installed" class="opt-why small">{{ reason(p) }}</span>
               <span v-else-if="!p.installed" class="opt-cost"><Icon name="memory" :size="13" />{{ cost(p) }}</span>
+              <span v-if="p.id === 'mariadb' && !p.installed && mariaSeries.length && dbMain === 'mariadb'" class="setup-vers" role="radiogroup" :aria-label="t('software.db_version')">
+                <button type="button" class="setup-ver" :class="{ on: db === 'mariadb' }" role="radio" :aria-checked="db === 'mariadb'" :disabled="running" @click.prevent="pickMaria('mariadb')">
+                  {{ p.version ? t('software.db_version_distro', { v: p.version }) : t('software.db_version_distro_any') }}
+                </button>
+                <button v-for="s in mariaSeries" :key="s.id" type="button" class="setup-ver" :class="{ on: db === s.id }" role="radio" :aria-checked="db === s.id" :disabled="running" :title="t('software.db_version_series_hint', { date: s.until })" @click.prevent="pickMaria(s.id)">
+                  {{ t('software.db_version_series', { v: s.version }) }}
+                </button>
+              </span>
+              <span v-if="p.id === 'mariadb' && isMaria(db) && db !== 'mariadb'" class="muted small">{{ t('setup.mariadb_repo', { date: byId[db]?.until || '' }) }}</span>
             </span>
           </label>
           <label v-if="!dbParts.some((p) => p.installed)" class="opt" :class="{ on: db === '', off: running }">
-            <input v-model="db" type="radio" name="setup-db" value="" :disabled="running" />
+            <input v-model="dbMain" type="radio" name="setup-db" value="" :disabled="running" />
             <span class="logo-tile sm opt-none"><Icon name="x" :size="16" /></span>
             <span class="opt-text">
               <span class="opt-name">{{ t('setup.none') }}</span>
@@ -350,6 +379,7 @@ function closeJob() {
             <template v-else-if="!toInstall.length">{{ t('setup.nothing_new') }}</template>
             <template v-else>{{ t('setup.choice_line', { ram: mb(ramSum), disk: mb(diskSum) }) }}</template>
           </p>
+          <p v-if="aptLists" class="small muted foot-line">{{ t('setup.apt_lists', { size: mb(aptLists) }) }}</p>
           <p v-if="ramWarn" class="foot-warn small"><Icon name="alert" :size="14" />{{ t('setup.warn_ram', { free: mb(view.ram_budget_mb) }) }}</p>
           <p v-if="diskWarn" class="foot-warn small"><Icon name="alert" :size="14" />{{ t('setup.warn_disk', { free: mb(view.server.disk_free_mb) }) }}</p>
         </div>
@@ -389,6 +419,13 @@ function closeJob() {
 .opt-cost { display: inline-flex; align-items: center; gap: 4px; margin-top: 2px; color: var(--muted); font-size: 12px; }
 .opt-why { color: var(--warn); }
 .opt-none { color: var(--muted); }
+.setup-vers { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.setup-ver {
+  padding: 3px 9px; border: 1px solid var(--border-strong); border-radius: 999px; background: var(--surface);
+  color: var(--text-2); font: inherit; font-size: 12px; font-weight: 600; cursor: pointer;
+}
+.setup-ver.on { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+.setup-ver:disabled { cursor: default; opacity: 0.7; }
 .eol { color: var(--warn); font-weight: 600; }
 .setup-sub { margin: 0; font-size: 13px; font-weight: 700; color: var(--text-2); }
 .setup-note { display: flex; align-items: flex-start; gap: 6px; margin: 4px 0 0; }

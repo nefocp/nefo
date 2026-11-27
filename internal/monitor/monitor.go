@@ -50,6 +50,11 @@ type Settings struct {
 	WebhookURL    string `json:"webhook_url"`
 	WebhookSecret string `json:"webhook_secret"` // signs the webhook's body; optional
 	WebhookHTTP   bool   `json:"webhook_http"`   // allow an http:// webhook
+
+	// Sign-in alerts (logins.go): "", "all" or "new_ip".
+	SSHLogins   string `json:"ssh_logins"`
+	SSHFailed   int    `json:"ssh_failed"` // failed SSH attempts in 10 minutes that send an alert; 0 = off
+	PanelLogins string `json:"panel_logins"`
 }
 
 // HasTelegram and HasEmail report which channels are configured.
@@ -80,6 +85,9 @@ func (s *Settings) Validate() error {
 	if err := s.validateHooks(); err != nil {
 		return err
 	}
+	if err := s.validateLogins(); err != nil {
+		return err
+	}
 	for _, p := range []int{s.CPUPercent, s.MemPercent, s.DiskPercent} {
 		if p != 0 && (p < 10 || p > 100) {
 			return usererr.New("invalid_threshold")
@@ -101,12 +109,15 @@ type Monitor struct {
 
 	mu     sync.Mutex
 	active map[string]time.Time // alert key -> last sent
+
+	logins *loginWatch // sign-in alerts (logins.go)
 }
 
 // New returns a Monitor. services reports the state of the units to watch.
 func New(st *store.Store, sys *system.Collector, log *slog.Logger, services func(context.Context) map[string]string) *Monitor {
 	return &Monitor{store: st, sys: sys, log: log, services: services,
-		http: &http.Client{Timeout: 20 * time.Second}, hooks: newHookClient(defaultHookNet()), active: map[string]time.Time{}}
+		http: &http.Client{Timeout: 20 * time.Second}, hooks: newHookClient(defaultHookNet()), active: map[string]time.Time{},
+		logins: &loginWatch{now: time.Now}}
 }
 
 // Settings returns the alert settings without secrets.
@@ -172,6 +183,7 @@ func (m *Monitor) Run(ctx context.Context) {
 			return
 		case <-t.C:
 		}
+		m.watchSSH(ctx) // sign-in alerts, from the journal (logins.go)
 		st, err := m.sys.Stats()
 		if err != nil || !st.Supported {
 			continue

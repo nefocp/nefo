@@ -269,10 +269,14 @@ func (o olsServer) baseFiles(ctx context.Context) (map[string][]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	hook, err := render(olsHookTmpl, olsHookData{
+	hd := olsHookData{
 		Home: o.home(), SnippetDir: o.snippetDir(), SitesDir: o.sitesDir(), EmptyRoot: p.ACMEWebroot,
 		DataDir: filepath.Dir(p.Certs), IPv6: ipv6Enabled(), WAF: waf, Hook: hookPort,
-	})
+	}
+	if db := m.geoDataFile("mmdb"); m.serverKind() == ServerOLS && m.geoReady() && m.geoInUse(ctx) && safePath(db) {
+		hd.GeoDB = db
+	}
+	hook, err := render(olsHookTmpl, hd)
 	if err != nil {
 		return nil, err
 	}
@@ -319,7 +323,7 @@ func (o olsServer) vhost(ctx context.Context, d vhostData, rewrite string) ([]by
 	d.RateLimit, d.RateBurst, d.RateZone = 0, 0, ""
 	v := olsVhost{vhostData: d, ErrorDir: o.errorDir()}
 	// The sites' own rewrite rules, for sites that serve their files.
-	if !d.Disabled && d.RedirectURL == "" && d.ProxyPort == 0 && d.Public != "" {
+	if !d.Disabled && d.RedirectURL == "" && d.ProxyPort == 0 && d.Upstream == nil && d.Public != "" {
 		v.Htaccess = o.m.scanHtaccess(d.ID, d.Public)
 	}
 	return renderOLSVhost(v, rewrite)

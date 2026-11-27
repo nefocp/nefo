@@ -78,6 +78,9 @@ func newRemoveTest(t *testing.T) (*Manager, *removeRunner, string) {
 	m.supported = func() bool { return true }
 	dir := t.TempDir()
 	m.etcDir = filepath.Join(dir, "etc/mysql")
+	m.mariaKeyring = filepath.Join(dir, "keyrings/panel-mariadb.gpg")
+	m.mariaList = filepath.Join(dir, "sources.list.d/panel-mariadb.list")
+	m.dumpsDir = filepath.Join(dir, "db-server")
 	m.dataDir = filepath.Join(dir, "var/lib/mysql")
 	m.remoteConf = filepath.Join(m.etcDir, "mariadb.conf.d", "99-panel-remote.cnf")
 	m.slowConf = filepath.Join(m.etcDir, "mariadb.conf.d", "99-panel-slowlog.cnf")

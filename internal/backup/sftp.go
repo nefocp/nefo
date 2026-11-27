@@ -58,6 +58,7 @@ type SFTPConfig struct {
 	// HostKey is the server key trusted by the last "Test and save", in
 	// authorized_keys format. Every later connection must present it.
 	HostKey string `json:"host_key,omitempty"`
+	Encryption
 }
 
 // SFTPView is what the UI sees of the SFTP settings: no secrets.
@@ -75,11 +76,12 @@ type SFTPView struct {
 	KeyType            string `json:"key_type,omitempty"`
 	KeyFingerprint     string `json:"key_fingerprint,omitempty"` // of the public key, as a hint
 	PublicKey          string `json:"public_key,omitempty"`      // to add to authorized_keys
+	Encrypt            bool   `json:"encrypt"`                   // copies are encrypted before upload
 }
 
 func (c *SFTPConfig) view() *SFTPView {
 	v := &SFTPView{Host: c.Host, Port: c.Port, Username: c.Username, Auth: c.Auth, Folder: c.Folder,
-		HasPassword: c.Password != "", HasKey: c.PrivateKey != "", HasPassphrase: c.Passphrase != ""}
+		HasPassword: c.Password != "", HasKey: c.PrivateKey != "", HasPassphrase: c.Passphrase != "", Encrypt: c.Encrypt}
 	if k, err := parsePublicKey(c.HostKey); err == nil {
 		v.HostKeyType, v.HostKeyFingerprint = k.Type(), ssh.FingerprintSHA256(k)
 	}
@@ -548,6 +550,37 @@ func (c *sftpClient) List(ctx context.Context, prefix string) ([]RemoteFile, err
 	return out, nil
 }
 
+// ListTree lists the files under prefix, at most two folders deep (the
+// layout is kind/target/file). Names are relative to the storage's folder.
+func (c *sftpClient) ListTree(ctx context.Context, prefix string) ([]RemoteFile, error) {
+	base := c.path(prefix)
+	out := []RemoteFile{}
+	w := c.sftp.Walk(base)
+	for w.Step() {
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+		if err := w.Err(); err != nil {
+			if w.Path() == base && errors.Is(err, fs.ErrNotExist) {
+				return out, nil
+			}
+			return nil, fmt.Errorf("list %s on the SFTP server: %w", w.Path(), err)
+		}
+		rel := strings.TrimPrefix(strings.TrimPrefix(w.Path(), base), "/")
+		fi := w.Stat()
+		if fi.IsDir() {
+			if rel != "" && strings.Count(rel, "/") >= 1 {
+				w.SkipDir()
+			}
+			continue
+		}
+		if fi.Mode().IsRegular() && len(out) < 100000 {
+			out = append(out, RemoteFile{Name: strings.Trim(prefix, "/") + "/" + rel, Size: fi.Size(), ModTime: fi.ModTime()})
+		}
+	}
+	return out, nil
+}
+
 func randomHex(n int) string {
 	b := make([]byte, n)
 	rand.Read(b)
@@ -589,7 +622,8 @@ type SFTPSaved struct {
 // SaveSFTP validates the settings, connects, trusts the host key that the
 // server presents now, tests writing, listing, reading and deleting a file
 // and stores the settings. An empty password or private key keeps the
-// stored one when the way of signing in is unchanged.
+// stored one when the way of signing in is unchanged, an empty encryption
+// passphrase the stored one.
 func (m *Manager) SaveSFTP(ctx context.Context, c SFTPConfig) (*SFTPSaved, error) {
 	c.HostKey, c.PublicKey = "", ""
 	old, err := m.sftpWithSecret(ctx)
@@ -614,6 +648,13 @@ func (m *Manager) SaveSFTP(ctx context.Context, c SFTPConfig) (*SFTPSaved, error
 	if err := c.Validate(); err != nil {
 		return nil, err
 	}
+	var oldEnc Encryption
+	if old != nil {
+		oldEnc = old.Encryption
+	}
+	if err := mergeEncryption(&c.Encryption, oldEnc); err != nil {
+		return nil, err
+	}
 	ctx, cancel := context.WithTimeout(ctx, 90*time.Second)
 	defer cancel()
 	cl, err := dialSFTP(ctx, c, true)
@@ -621,7 +662,7 @@ func (m *Manager) SaveSFTP(ctx context.Context, c SFTPConfig) (*SFTPSaved, error
 		return nil, sftpUserError(err)
 	}
 	defer cl.Close()
-	if err := testStorage(ctx, cl); err != nil {
+	if err := testStorage(ctx, cl, c.Encryption); err != nil {
 		return nil, sftpUserError(err)
 	}
 	c.HostKey = strings.TrimSpace(string(ssh.MarshalAuthorizedKey(cl.hostKey)))

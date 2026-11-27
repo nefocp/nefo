@@ -85,6 +85,9 @@ func newMySQLTest(t *testing.T, installed Engine) (*Manager, *mysqlRunner, strin
 	os.MkdirAll(filepath.Join(m.etcDir, "mysql.conf.d"), 0o755)
 	m.dataDir = filepath.Join(dir, "var/lib/mysql")
 	m.slowLog = filepath.Join(dir, "mysql-slow.log")
+	m.mariaKeyring = filepath.Join(dir, "keyrings/panel-mariadb.gpg")
+	m.mariaList = filepath.Join(dir, "sources.list.d/panel-mariadb.list")
+	m.dumpsDir = filepath.Join(dir, "db-server")
 	srv := keyServer(t)
 	m.repo = mysqlRepo{
 		keyURLs: []string{srv.URL + "/RPM-GPG-KEY-mysql-2025"},

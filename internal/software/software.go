@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/nefocp/nefo/internal/fsutil"
+	"github.com/nefocp/nefo/internal/meminfo"
 	"github.com/nefocp/nefo/internal/run"
 	"github.com/nefocp/nefo/internal/software/apt"
 	"github.com/nefocp/nefo/internal/store"
@@ -30,10 +31,6 @@ import (
 	"github.com/nefocp/nefo/internal/validate"
 	"github.com/nefocp/nefo/internal/version"
 )
-
-// PHPVersions are the versions offered for installation, oldest first. The
-// first ones are LegacyPHPVersions, for old websites (see legacyphp.go).
-var PHPVersions = []string{"5.6", "7.0", "7.1", "7.2", "7.3", "7.4", "8.0", "8.1", "8.2", "8.3", "8.4", "8.5"}
 
 // Item is one installable component.
 type Item struct {
@@ -87,6 +84,9 @@ type Item struct {
 	// published checksum). Updatable tools have an Update action.
 	Source    string `json:"source,omitempty"`
 	Updatable bool   `json:"updatable,omitempty"`
+	// PHP is what an extension for every PHP version (the ionCube Loader)
+	// does for each installed one.
+	PHP []IoncubePHPState `json:"php,omitempty"`
 }
 
 // Block marks an installed item as not removable for err (a usererr).
@@ -142,15 +142,10 @@ func (m *Manager) Catalog(ctx context.Context) ([]Item, error) {
 		used[s.PHPVersion]++
 	}
 	distro := m.distroPHP(ctx)
-	installedCount := 0
-	for _, v := range PHPVersions {
-		if phpInstalled(v) {
-			installedCount++
-		}
-	}
+	installedCount := len(installedPHP())
 	supported := supportedPHPInstalled()
 	items := []Item{}
-	for _, v := range PHPVersions {
+	for _, v := range offeredPHP(distro) { // phpversions.go
 		it := Item{ID: "php" + v, Kind: "php", Group: "php", Version: v, Installed: phpInstalled(v), ThirdParty: v != distro,
 			UsedBy: used[v], RAMMB: 25, EOL: PHPEndOfLife(v, distro, phpNow()), Legacy: IsLegacyPHP(v)}
 		if v != distro {
@@ -198,6 +193,7 @@ func (m *Manager) Catalog(ctx context.Context) ([]Item, error) {
 		py.Usage = map[string]int{"sites": n}
 		py.Block(pythonBlocker(n))
 	}
+	java := m.javaItem(sites) // java.go
 	docker := Item{ID: "docker", Kind: "docker", Group: "containers", Installed: DockerInstalled(), RAMMB: 90,
 		DataDir: dockerDataDirs[0], HasData: exists(dockerDataDirs[0])}
 	if docker.Installed {
@@ -209,7 +205,7 @@ func (m *Manager) Catalog(ctx context.Context) ([]Item, error) {
 		docker.Block(u.blocker())
 		docker.Stopped = !m.unitActive(ctx, "docker")
 	}
-	return append(items, redis, node, py, docker), nil
+	return append(items, m.IoncubeItem(), redis, node, py, java, docker), nil
 }
 
 // unitActive reports whether a systemd unit is running.
@@ -249,6 +245,10 @@ func (m *Manager) Install(ctx context.Context, id string, lg Logger) error {
 		return m.installNode(ctx, lg)
 	case id == "docker":
 		return m.installDocker(ctx, lg)
+	case id == "java":
+		return m.installJava(ctx, 0, lg)
+	case id == "ioncube":
+		return m.installIoncube(ctx, lg)
 	case id == "composer":
 		return m.installComposer(ctx, lg)
 	}
@@ -257,11 +257,13 @@ func (m *Manager) Install(ctx context.Context, id string, lg Logger) error {
 
 // ---- PHP ----
 
-// PHPExtensions are installed with every PHP version.
+// PHPExtensions is the base set of PHP packages. Don't install it as it is:
+// phpExtensionsFor gives the set for one version (from PHP 8.5 OPcache is
+// built in and has no package; before 8.0 json is a package of its own).
 var PHPExtensions = []string{"fpm", "cli", "mysql", "curl", "gd", "mbstring", "xml", "zip", "intl", "bcmath", "opcache"}
 
 func (m *Manager) installPHP(ctx context.Context, v string, lg Logger) error {
-	if validate.PHPVersion(v) != nil || !slices.Contains(PHPVersions, v) {
+	if validate.PHPVersion(v) != nil || !slices.Contains(m.OfferedPHPVersions(ctx), v) {
 		return usererr.New("unknown_software", "php"+v)
 	}
 	legacy := IsLegacyPHP(v)
@@ -319,6 +321,7 @@ func (m *Manager) installPHP(ctx context.Context, v string, lg Logger) error {
 	if _, err := m.run.Output(ctx, "systemctl", "enable", "--now", "php"+v+"-fpm"); err != nil {
 		return err
 	}
+	m.ioncubeForNewPHP(ctx, v, lg) // ioncube.go
 	m.run.Output(ctx, "systemctl", "restart", "php"+v+"-fpm")
 	lg.Logf("PHP %s is installed. Choose it in a website's settings.", v)
 	return nil
@@ -390,6 +393,8 @@ func (m *Manager) RemovePHP(ctx context.Context, v string, lg Logger) error {
 	}
 	// The package scripts stop it too, unless a policy forbids them.
 	m.run.Output(ctx, "systemctl", "disable", "--now", "php"+v+"-fpm")
+	// The ionCube Loader's files are the panel's, not a package's.
+	m.disableIoncube(v)
 	lg.Logf("Removing PHP %s", v)
 	if err := apt.Remove(ctx, m.run, lg, true, pkgs...); err != nil {
 		return err
@@ -400,7 +405,7 @@ func (m *Manager) RemovePHP(ctx context.Context, v string, lg Logger) error {
 
 // phpRemovable returns why PHP v cannot be removed now, or nil.
 func (m *Manager) phpRemovable(ctx context.Context, v string) error {
-	if validate.PHPVersion(v) != nil || !slices.Contains(PHPVersions, v) {
+	if validate.PHPVersion(v) != nil || (!phpInstalled(v) && !slices.Contains(PHPVersions, v)) {
 		return usererr.New("unknown_software", "php"+v)
 	}
 	if !phpInstalled(v) {
@@ -416,12 +421,7 @@ func (m *Manager) phpRemovable(ctx context.Context, v string) error {
 			used++
 		}
 	}
-	n := 0
-	for _, pv := range PHPVersions {
-		if phpInstalled(pv) {
-			n++
-		}
-	}
+	n := len(installedPHP())
 	if err := phpBlocker(v, used, n); err != nil {
 		return err
 	}
@@ -447,12 +447,9 @@ func (m *Manager) installRedis(ctx context.Context, lg Logger) error {
 		return err
 	}
 	pkgs := []string{"redis-server"}
-	var versions []string
-	for _, v := range PHPVersions {
-		if phpInstalled(v) {
-			pkgs = append(pkgs, "php"+v+"-redis")
-			versions = append(versions, v)
-		}
+	versions := installedPHP()
+	for _, v := range versions {
+		pkgs = append(pkgs, "php"+v+"-redis")
 	}
 	lg.Logf("Installing Redis")
 	if err := run.Apt(ctx, m.run, lg, append([]string{"install", "--no-install-recommends"}, pkgs...)...); err != nil {
@@ -476,16 +473,9 @@ func (m *Manager) installRedis(ctx context.Context, lg Logger) error {
 	return nil
 }
 
-func memTotal() int64 {
-	b, _ := os.ReadFile("/proc/meminfo")
-	for _, line := range strings.Split(string(b), "\n") {
-		if f := strings.Fields(line); len(f) >= 2 && f[0] == "MemTotal:" {
-			kb, _ := strconv.ParseInt(f[1], 10, 64)
-			return kb << 10
-		}
-	}
-	return 0
-}
+// memTotal is the server's memory in bytes: in a container, its limit
+// when that is smaller than what /proc/meminfo shows (see meminfo).
+func memTotal() int64 { return meminfo.Total() }
 
 // ---- Node.js ----
 

@@ -67,15 +67,39 @@ func command(ctx context.Context, name string, args []string) *exec.Cmd {
 
 // Output implements Runner.
 func (System) Output(ctx context.Context, name string, args ...string) (string, error) {
+	out, err := output(ctx, name, args)
+	// A package that ships units makes systemd re-execute itself (Ubuntu
+	// 26.04's systemd trigger sends PID 1 SIGRTMIN+25 and returns at once):
+	// for a moment systemctl can't reach it ("Failed to connect to system
+	// scope bus"). Nothing was done then, so try again for up to 15 s.
+	for wait := 0; err != nil && name == "systemctl" && systemdUnreachable(out) && wait < 15; wait++ {
+		select {
+		case <-ctx.Done():
+			return out, err
+		case <-time.After(time.Second):
+		}
+		out, err = output(ctx, name, args)
+	}
+	return out, err
+}
+
+func output(ctx context.Context, name string, args []string) (string, error) {
 	var buf bytes.Buffer
 	cmd := command(ctx, name, args)
 	cmd.Stdout = &buf
 	cmd.Stderr = &buf
-	err := cmd.Run()
-	if err != nil {
+	if err := cmd.Run(); err != nil {
 		return buf.String(), &Error{Cmd: name, Err: err, Output: buf.String()}
 	}
 	return buf.String(), nil
+}
+
+// systemdUnreachable tells systemctl's "can't reach systemd" from a real
+// failure of the unit.
+func systemdUnreachable(out string) bool {
+	return strings.Contains(out, "Failed to connect to system scope bus") ||
+		strings.Contains(out, "Failed to connect to bus") ||
+		strings.Contains(out, "Transport endpoint is not connected")
 }
 
 // Input implements Runner.

@@ -28,6 +28,9 @@ type Stats struct {
 	CPUPercent float64 `json:"cpu_percent"`
 	MemTotal   uint64  `json:"mem_total"`
 	MemUsed    uint64  `json:"mem_used"`
+	// MemLimited: MemTotal is the memory limit of the container the panel
+	// runs in, smaller than the host's memory that /proc/meminfo shows.
+	MemLimited bool    `json:"mem_limited,omitempty"`
 	DiskTotal  uint64  `json:"disk_total"`
 	DiskUsed   uint64  `json:"disk_used"`
 	Load1      float64 `json:"load1"`
@@ -92,39 +95,6 @@ func cpuPercent(prevIdle, prevTotal, idle, total uint64) float64 {
 		di = dt
 	}
 	return float64(dt-di) / float64(dt) * 100
-}
-
-// parseMeminfo returns MemTotal and MemAvailable from /proc/meminfo, in bytes.
-func parseMeminfo(r io.Reader) (total, available uint64, err error) {
-	var haveTotal, haveAvail bool
-	sc := bufio.NewScanner(r)
-	for sc.Scan() {
-		key, rest, ok := strings.Cut(sc.Text(), ":")
-		if !ok {
-			continue
-		}
-		fields := strings.Fields(rest)
-		if len(fields) == 0 {
-			continue
-		}
-		v, err := strconv.ParseUint(fields[0], 10, 64)
-		if err != nil {
-			continue
-		}
-		switch key {
-		case "MemTotal":
-			total, haveTotal = v*1024, true
-		case "MemAvailable":
-			available, haveAvail = v*1024, true
-		}
-	}
-	if err := sc.Err(); err != nil {
-		return 0, 0, err
-	}
-	if !haveTotal || !haveAvail {
-		return 0, 0, errors.New("MemTotal or MemAvailable missing from /proc/meminfo")
-	}
-	return total, available, nil
 }
 
 func parseLoadavg(s string) (l1, l5, l15 float64, err error) {

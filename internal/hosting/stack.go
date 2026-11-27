@@ -132,8 +132,13 @@ var distroPHPByRelease = map[string]string{
 }
 
 // phpPackages are the extensions WordPress and most PHP applications need.
+// From PHP 8.5 OPcache is part of PHP itself and has no package of its own
+// (Ubuntu 26.04, packages.sury.org): asking apt for it fails the install.
 func phpPackages(v string) []string {
-	exts := []string{"fpm", "cli", "mysql", "curl", "gd", "mbstring", "xml", "zip", "intl", "bcmath", "opcache"}
+	exts := []string{"fpm", "cli", "mysql", "curl", "gd", "mbstring", "xml", "zip", "intl", "bcmath"}
+	if !versionAtLeast(v, "8.5") {
+		exts = append(exts, "opcache")
+	}
 	pkgs := make([]string, len(exts))
 	for i, e := range exts {
 		pkgs[i] = "php" + v + "-" + e

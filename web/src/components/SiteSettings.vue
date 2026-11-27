@@ -1,5 +1,5 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { api } from '../api.js'
 import { errorMessage } from '../errors.js'
@@ -30,16 +30,25 @@ const form = ref({
   proxy_port: props.site.proxy_port,
   app_command: props.site.app_command,
   app_runtime: props.site.app_runtime || '',
+  app_memory: props.site.app_memory || '',
 })
-// Runtimes the server has: installed Node.js lines, and Python if venv works.
+// Runtimes the server has: installed Node.js lines, Python if venv works,
+// and the installed Java versions.
 const runtimes = ref([])
 if (props.site.proxy_port && !(props.site.app || '').startsWith('docker:')) {
-  Promise.all([api('GET', 'api/node-versions').catch(() => ({ versions: [] })), api('GET', 'api/software').catch(() => ({ items: [] }))])
-    .then(([n, sw]) => {
-      runtimes.value = n.versions.filter((v) => v.installed && !v.default).map((v) => ({ value: `node:${v.major}`, label: `Node.js ${v.major} (${v.version})` }))
-      if (sw.items.some((i) => i.id === 'python' && i.installed)) runtimes.value.push({ value: 'python', label: 'Python (app/.venv)' })
-    })
+  Promise.all([
+    api('GET', 'api/node-versions').catch(() => ({ versions: [] })),
+    api('GET', 'api/software').catch(() => ({ items: [] })),
+    api('GET', 'api/java-versions?installed=1').catch(() => ({ versions: [] })),
+  ]).then(([n, sw, j]) => {
+    runtimes.value = n.versions.filter((v) => v.installed && !v.default).map((v) => ({ value: `node:${v.major}`, label: `Node.js ${v.major} (${v.version})` }))
+    if (sw.items.some((i) => i.id === 'python' && i.installed)) runtimes.value.push({ value: 'python', label: 'Python (app/.venv)' })
+    for (const v of (j.versions || []).filter((x) => x.installed)) runtimes.value.push({ value: `java:${v.major}`, label: `Java ${v.major} (OpenJDK ${v.version || v.major})` })
+    // A runtime removed by hand still shows, so saving keeps it visible.
+    if (form.value.app_runtime && !runtimes.value.some((r) => r.value === form.value.app_runtime)) runtimes.value.push({ value: form.value.app_runtime, label: form.value.app_runtime })
+  })
 }
+const isJava = computed(() => (form.value.app_runtime || '').startsWith('java:'))
 // Disabled for every site unless allowed back (internal/hosting HardenedFunctions).
 const hardened = ['exec', 'passthru', 'shell_exec', 'system', 'proc_open', 'popen', 'pcntl_exec']
 const error = ref('')
@@ -60,6 +69,7 @@ async function save() {
       proxy_port: Number(form.value.proxy_port) || 0,
       app_command: (form.value.app_command || '').trim(),
       app_runtime: form.value.app_runtime,
+      app_memory: isJava.value ? Number(form.value.app_memory) || 0 : props.site.app_memory || 0,
     })
     reissue.value = res.reissue_needed
     emit('saved', res.site)
@@ -103,6 +113,11 @@ async function save() {
             <option v-for="r in runtimes" :key="r.value" :value="r.value">{{ r.label }}</option>
           </select>
           <small class="muted">{{ t('websites.app_runtime_hint') }}</small>
+        </label>
+        <label v-if="show('runtime') && isJava" class="field">
+          <span>{{ t('websites.app_memory') }}</span>
+          <input v-model="form.app_memory" class="input input-auto" type="number" min="32" max="65536" :placeholder="t('websites.app_memory_auto')" />
+          <small class="muted">{{ t('websites.app_memory_hint') }}</small>
         </label>
       </template>
       <template v-if="site.php_version && show('php')">

@@ -70,6 +70,9 @@ type Info struct {
 	// Missing means the database was removed outside the panel.
 	Missing   bool   `json:"missing"`
 	CreatedAt string `json:"created_at"`
+	// RemoteHosts are the client addresses that may connect from other
+	// machines (see SetRemote).
+	RemoteHosts []string `json:"remote_hosts"`
 }
 
 // List returns the panel's PostgreSQL databases with their sizes and owners.
@@ -105,12 +108,21 @@ FROM pg_database d JOIN pg_roles r ON r.oid = d.datdba WHERE NOT d.datistemplate
 	for _, s := range sites {
 		domains[s.ID] = s.Domain
 	}
+	remote, err := m.store.AllPGRemoteHosts(ctx)
+	if err != nil {
+		return nil, err
+	}
 	out := make([]Info, 0, len(dbs))
 	for _, d := range dbs {
 		r, ok := rows[d.Name]
+		hosts := remote[d.ID]
+		if hosts == nil {
+			hosts = []string{}
+		}
 		out = append(out, Info{
 			ID: d.ID, Name: d.Name, Username: d.Username, Owner: r.owner, SiteID: d.SiteID, SiteDomain: domains[d.SiteID],
 			Size: r.size, Missing: known && !ok, CreatedAt: d.CreatedAt.UTC().Format("2006-01-02T15:04:05Z"),
+			RemoteHosts: hosts,
 		})
 	}
 	return out, nil
@@ -304,7 +316,10 @@ func (m *Manager) SetPassword(ctx context.Context, id int64, password string) (*
 
 // Delete drops a database and its role. confirm must equal the name. While
 // PostgreSQL is installed but not running, it is refused: the panel would
-// forget a database that still exists.
+// forget a database that still exists. Its remote access goes with it: its
+// pg_hba.conf lines and ufw rules, and the listen drop-in when it was the
+// last database with remote access (the server then listens on all
+// interfaces until it restarts: see RestartPending).
 func (m *Manager) Delete(ctx context.Context, id int64, confirm string) error {
 	d, err := m.store.PGDatabaseByID(ctx, id)
 	if err != nil {
@@ -323,6 +338,13 @@ func (m *Manager) Delete(ctx context.Context, id int64, confirm string) error {
 	if err == nil {
 		if err := m.drop(ctx, c, d.Name, d.Username); err != nil {
 			return err
+		}
+	}
+	if hosts, herr := m.store.PGRemoteHosts(ctx, d.ID); herr != nil {
+		return herr
+	} else if len(hosts) > 0 {
+		if rerr := m.removeRemote(ctx, d, c, err == nil); rerr != nil {
+			return rerr
 		}
 	}
 	return m.store.DeleteDatabase(ctx, d.ID)

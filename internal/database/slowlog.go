@@ -49,6 +49,8 @@ type SlowLog struct {
 	Threshold float64 `json:"threshold"` // seconds
 	File      string  `json:"file"`
 	Size      int64   `json:"size"`
+	// Rotation is how the log is rotated, and the old logs kept.
+	Rotation SlowRotation `json:"rotation"`
 }
 
 // SlowLogStatus reads the slow query log settings: from the server while
@@ -58,7 +60,7 @@ func (m *Manager) SlowLogStatus(ctx context.Context) (*SlowLog, error) {
 		return nil, err
 	}
 	file := m.engine().slowLogFile()
-	sl := &SlowLog{File: file, Threshold: 10}
+	sl := &SlowLog{File: file, Threshold: 10, Rotation: m.slowRotation()}
 	if fi, err := os.Lstat(m.slowLogPath()); err == nil && fi.Mode().IsRegular() {
 		sl.Size = fi.Size()
 	}

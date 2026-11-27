@@ -27,6 +27,10 @@ import (
 // Passwords are only ever in request bodies and on stdin, never on a
 // command line.
 
+// stepRetryFor is how long an HTTP step waits for an app that is still
+// loading; tests shorten it.
+var stepRetryFor, stepRetryWait = 3 * time.Minute, 3 * time.Second
+
 // stepJars keeps cookies between the HTTP steps of one instance's set-up
 // (Vaultwarden: log in to /admin, then invite).
 var stepJars = map[string]http.CookieJar{}
@@ -49,7 +53,7 @@ func (m *Manager) httpStep(ctx context.Context, inst *store.App, env *appstore.E
 		return err
 	}
 	lg.Logf("Setting up the app (%s %s)", h.Method, path)
-	var body io.Reader
+	var body []byte
 	ctype := ""
 	switch {
 	case h.Form != nil:
@@ -61,18 +65,17 @@ func (m *Manager) httpStep(ctx context.Context, inst *store.App, env *appstore.E
 			}
 			v.Set(k, s)
 		}
-		body, ctype = strings.NewReader(v.Encode()), "application/x-www-form-urlencoded"
+		body, ctype = []byte(v.Encode()), "application/x-www-form-urlencoded"
 	case h.JSON != nil:
-		m := map[string]string{}
-		for k, x := range h.JSON {
-			s, err := env.Expand(x)
-			if err != nil {
-				return err
-			}
-			m[k] = s
+		x, err := expandJSON(env, h.JSON)
+		if err != nil {
+			return err
 		}
-		b, _ := json.Marshal(m)
-		body, ctype = bytes.NewReader(b), "application/json"
+		b, err := json.Marshal(x)
+		if err != nil {
+			return err
+		}
+		body, ctype = b, "application/json"
 	}
 	// A step uses the cookies of the steps before it; keep_cookies passes
 	// its own on to the next step (Vaultwarden: log in, then invite).
@@ -88,23 +91,128 @@ func (m *Manager) httpStep(ctx context.Context, inst *store.App, env *appstore.E
 	}()
 	client := &http.Client{Timeout: time.Minute, Jar: jar,
 		CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-	req, err := http.NewRequestWithContext(ctx, h.Method, "http://127.0.0.1:"+strconv.Itoa(inst.Port)+path, body)
-	if err != nil {
-		return err
-	}
+	headers := http.Header{}
+	host := ""
 	if ctype != "" {
-		req.Header.Set("Content-Type", ctype)
+		headers.Set("Content-Type", ctype)
 	}
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("set-up request %s: %w", path, err)
+	for k, x := range h.Headers {
+		v, err := env.Expand(x)
+		if err != nil {
+			return err
+		}
+		if strings.EqualFold(k, "Host") {
+			host = v
+		} else {
+			headers.Set(k, v)
+		}
 	}
-	defer resp.Body.Close()
-	io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<20))
-	if !slices.Contains(h.Expect, resp.StatusCode) {
-		return fmt.Errorf("set-up request %s answered HTTP %d", path, resp.StatusCode)
+	// Some apps answer their health check before they take requests
+	// (Jellyfin answers 503 while it loads): a refused connection or a
+	// 502/503/504 is tried again for a while, since the app did not handle
+	// the request. Any other answer counts.
+	var status int
+	var answer []byte
+	for deadline := time.Now().Add(stepRetryFor); ; {
+		req, err := http.NewRequestWithContext(ctx, h.Method, "http://127.0.0.1:"+strconv.Itoa(inst.Port)+path, bytes.NewReader(body))
+		if err != nil {
+			return err
+		}
+		req.Header = headers.Clone()
+		if host != "" {
+			req.Host = host
+		}
+		resp, err := client.Do(req)
+		if err == nil {
+			status = resp.StatusCode
+			answer, _ = io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+			resp.Body.Close()
+			if status != http.StatusBadGateway && status != http.StatusServiceUnavailable && status != http.StatusGatewayTimeout {
+				break
+			}
+		}
+		if time.Now().After(deadline) {
+			if err != nil {
+				return fmt.Errorf("set-up request %s: %w", path, err)
+			}
+			break
+		}
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(stepRetryWait):
+		}
+	}
+	if !slices.Contains(h.Expect, status) {
+		return fmt.Errorf("set-up request %s answered HTTP %d", path, status)
+	}
+	if len(h.Save) > 0 {
+		var doc any
+		if err := json.Unmarshal(answer, &doc); err != nil {
+			return fmt.Errorf("set-up request %s: the answer is not JSON", path)
+		}
+		if env.Steps == nil {
+			env.Steps = map[string]string{}
+		}
+		for name, p := range h.Save {
+			v, ok := jsonPath(doc, p)
+			if !ok {
+				return fmt.Errorf("set-up request %s: no %s in the answer", path, p)
+			}
+			env.Steps[name] = v
+		}
 	}
 	return nil
+}
+
+// expandJSON fills the placeholders of every string in a JSON body.
+func expandJSON(env *appstore.Env, v any) (any, error) {
+	switch x := v.(type) {
+	case string:
+		return env.Expand(x)
+	case map[string]any:
+		out := make(map[string]any, len(x))
+		for k, e := range x {
+			y, err := expandJSON(env, e)
+			if err != nil {
+				return nil, err
+			}
+			out[k] = y
+		}
+		return out, nil
+	case []any:
+		out := make([]any, len(x))
+		for i, e := range x {
+			y, err := expandJSON(env, e)
+			if err != nil {
+				return nil, err
+			}
+			out[i] = y
+		}
+		return out, nil
+	}
+	return v, nil
+}
+
+// jsonPath returns the string or number at a dotted path ("data.token") of
+// a JSON answer.
+func jsonPath(doc any, p string) (string, bool) {
+	for _, k := range strings.Split(p, ".") {
+		m, ok := doc.(map[string]any)
+		if !ok {
+			return "", false
+		}
+		if doc, ok = m[k]; !ok {
+			return "", false
+		}
+	}
+	switch x := doc.(type) {
+	case string:
+		return x, x != ""
+	case float64:
+		return strconv.FormatFloat(x, 'f', -1, 64), true
+	}
+	return "", false
 }
 
 func (m *Manager) execStep(ctx context.Context, inst *store.App, env *appstore.Env, e *appstore.ExecStep, oneOff bool, lg Logger) error {

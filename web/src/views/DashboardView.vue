@@ -124,20 +124,22 @@ const crons = computed(() => list(store['api/cron']?.jobs))
 const backups = computed(() => list(store['api/backups']?.backups))
 const latestBackup = computed(() => [...backups.value].sort((a, b) => new Date(b.created_at) - new Date(a.created_at))[0])
 const weekAgo = Date.now() - 7 * 86400000
+// When the security check last ran (attention.js loads it).
+const checkedAt = computed(() => store['api/security/check']?.report?.checked_at || null)
 const tiles = computed(() => [
   {
     key: 'sites', to: { name: 'websites' }, icon: 'globe', color: 'blue', n: store['api/sites'] ? sites.value.length : null, label: t('nav.websites'),
     hint: (() => {
       const nw = sites.value.filter((s) => new Date(s.created_at).getTime() > weekAgo).length
       const off = sites.value.filter((s) => s.disabled).length
-      return off ? t('dash.tile_suspended', { n: off }) : nw ? t('dash.tile_new_week', { n: nw }) : ''
+      return off ? t('dash.tile_suspended', { n: off }, off) : nw ? t('dash.tile_new_week', { n: nw }) : ''
     })(),
   },
   { key: 'dbs', to: { name: 'databases' }, icon: 'database', color: 'violet', n: store['api/databases'] ? dbs.value.length : null, label: t('nav.databases'), hint: dbs.value.length ? gb(dbs.value.reduce((a, d) => a + (d.size || 0), 0)) : '' },
   { key: 'sftp', to: { name: 'websites' }, icon: 'upload', color: 'teal', n: store['api/sites'] ? sites.value.filter((s) => s.sftp).length : null, label: t('dash.tile_sftp'), hint: sites.value.length ? t('dash.tile_of_sites', { n: sites.value.length }, sites.value.length) : '' },
-  { key: 'cron', to: { name: 'cron' }, icon: 'clock', color: 'orange', n: store['api/cron'] ? crons.value.length : null, label: t('nav.cron'), hint: crons.value.length ? t('dash.tile_enabled', { n: crons.value.filter((c) => c.enabled).length }) : '' },
+  { key: 'cron', to: { name: 'cron' }, icon: 'clock', color: 'orange', n: store['api/cron'] ? crons.value.length : null, label: t('nav.cron'), hint: crons.value.length ? t('dash.tile_enabled', { n: crons.value.filter((c) => c.enabled).length }, crons.value.filter((c) => c.enabled).length) : '' },
   { key: 'backups', to: { name: 'backups' }, icon: 'archive', color: 'green', n: store['api/backups'] ? backups.value.length : null, label: t('dash.tile_backups'), hint: latestBackup.value ? t('dash.tile_latest', { when: relativeTime(latestBackup.value.created_at, locale.value) }) : '' },
-  { key: 'risk', to: critCount.value ? attention.value[0]?.to : { name: 'security' }, icon: 'shieldAlert', color: critCount.value ? 'red' : 'green', n: critCount.value, label: t('dash.tile_risks'), hint: critCount.value ? t('dash.tile_view') : t('dash.tile_none'), danger: critCount.value > 0 },
+  { key: 'risk', to: critCount.value ? attention.value[0]?.to : { name: 'security-check' }, icon: 'shieldAlert', color: critCount.value ? 'red' : 'green', n: critCount.value, label: t('dash.tile_risks'), hint: critCount.value ? t('dash.tile_view') : checkedAt.value ? t('dash.tile_checked', { when: relativeTime(checkedAt.value, locale.value) }) : t('dash.tile_none'), danger: critCount.value > 0 },
 ])
 
 // ---- attention card: problems, then good news ----
@@ -244,9 +246,13 @@ const software = computed(() => {
     out.push({ id, logo, name, sub: [it.version, sub ?? mb(s?.memory)].filter(Boolean).join(' · '), state: unit ? s?.active || 'inactive' : 'ready', to: { name: id === 'docker' ? 'docker' : 'software' } })
   }
   add('mariadb', 'mariadb', 'MariaDB', 'mariadb')
+  add('mysql', 'mysql', 'MySQL', 'mysql')
+  add('postgresql', 'postgresql', 'PostgreSQL', 'postgresql')
+  add('memcached', 'memcached', 'Memcached', 'memcached')
   add('redis', 'redis', 'Redis', 'redis-server')
   add('nodejs', 'nodejs', 'Node.js', '', byId.nodejs?.usage ? t('dash.sw_sites', { n: byId.nodejs.usage.sites || 0 }, byId.nodejs.usage.sites || 0) : '')
   add('python', 'python', 'Python', '', byId.python?.usage ? t('dash.sw_sites', { n: byId.python.usage.sites || 0 }, byId.python.usage.sites || 0) : '')
+  add('java', 'java', 'Java', '', byId.java?.usage ? t('dash.sw_sites', { n: byId.java.usage.sites || 0 }, byId.java.usage.sites || 0) : '')
   add('docker', 'docker', 'Docker', '', byId.docker?.usage ? t('dash.sw_containers', { n: byId.docker.usage.containers || 0 }, byId.docker.usage.containers || 0) : '')
   add('adminer', 'adminer', 'Adminer', '')
   add('waf', 'waf', 'ModSecurity WAF', '')
@@ -284,7 +290,7 @@ const stateClass = (s) => (s === 'active' ? 'text-ok' : s === 'failed' ? 'text-c
         <div class="hero-chips">
           <span v-if="info?.supported" class="chip-ink"><span class="live-dot" aria-hidden="true"></span>{{ t('dash.uptime', { d: formatUptime(info.uptime_seconds, t) }) }}</span>
           <span v-if="server.ip" class="chip-ink mono">{{ server.ip }}</span>
-          <span v-if="info" class="chip-ink">{{ t('dash.vcpu', { n: info.cpus }) }}<template v-if="st"> · {{ gb(st.mem_total) }} RAM</template></span>
+          <span v-if="info" class="chip-ink">{{ t('dash.vcpu', { n: info.cpus }) }}<template v-if="st"> · {{ gb(st.mem_total) }} RAM<template v-if="st.mem_limited"> ({{ t('dash.mem_container') }})</template></template></span>
           <span v-if="stackLine" class="chip-ink">{{ stackLine }}</span>
         </div>
         <div class="hero-actions">
@@ -482,7 +488,11 @@ const stateClass = (s) => (s === 'active' ? 'text-ok' : s === 'failed' ? 'text-c
 .c-orange { background: rgb(194 87 15 / 0.12); color: #c2570f; }
 .c-green { background: rgb(16 185 129 / 0.13); color: #0e9f6e; }
 .c-red { background: rgb(239 68 68 / 0.12); color: #dc2626; }
-.tile-hint { font-size: 12px; color: var(--muted); text-align: right; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+/* two lines at most, so longer languages aren't cut to "…" */
+.tile-hint {
+  font-size: 12px; color: var(--muted); text-align: right; font-weight: 500; line-height: 1.3; min-width: 0;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere;
+}
 .tile-hint.text-crit { font-weight: 700; }
 .tile-num { font-size: 26px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; font-variant-numeric: tabular-nums; min-height: 26px; }
 .tile-label { font-size: 13px; color: var(--muted); margin-top: 4px; }

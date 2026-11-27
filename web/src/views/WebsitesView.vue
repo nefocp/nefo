@@ -37,7 +37,8 @@ const actionError = ref('')
 const warnings = ref([])
 
 const { job, running: jobRunning, watch: watchJob, resume, clear: clearJob } = useJob((j) => {
-  if (j.kind === 'backup') loadCached('api/backups', { force: true }).catch(() => {})
+  if (j.kind === 'backup' || j.kind === 'site_delete') loadCached('api/backups', { force: true }).catch(() => {})
+  if (j.kind === 'site_delete' && j.status === 'succeeded') notice.value = t('websites.deleted', { domain: j.target })
   return load()
 })
 
@@ -109,8 +110,9 @@ async function startJob(method, path, body) {
 
 // ---- filters, sort, pages ----
 const typeOf = (s) => {
+  if (s.proxy_url) return 'proxy'
   if ((s.app || '').startsWith('docker:')) return 'docker'
-  if (s.proxy_port) return s.app_runtime === 'python' ? 'python' : 'node'
+  if (s.proxy_port) return s.app_runtime === 'python' ? 'python' : (s.app_runtime || '').startsWith('java:') ? 'java' : 'node'
   if (s.php_version) return 'php'
   return 'static'
 }
@@ -126,8 +128,10 @@ const kinds = computed(() => {
     { id: 'php', label: 'PHP', logo: 'php', n: n('php') },
     { id: 'node', label: 'Node.js', logo: 'nodejs', n: n('node') },
     { id: 'python', label: 'Python', logo: 'python', n: n('python'), hide: !n('python') && !features.python },
+    { id: 'java', label: 'Java', logo: 'java', n: n('java'), hide: !n('java') },
     { id: 'docker', label: 'Docker', logo: 'docker', n: n('docker'), hide: !n('docker') && !features.docker },
     { id: 'static', label: t('ws.static'), icon: 'code', n: n('static') },
+    { id: 'proxy', label: t('ws.proxy'), icon: 'swap', n: n('proxy'), hide: !n('proxy') },
   ].filter((k) => !k.hide)
 })
 const fold = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()
@@ -280,7 +284,7 @@ function replaceSite(updated) {
 
 // ---- new site ----
 const showForm = ref(false)
-const form = ref({ domain: '', www: false, wwwTouched: false, php: '', touchedType: false, port: '', command: '' })
+const form = ref({ domain: '', www: false, wwwTouched: false, php: '', touchedType: false, port: '', command: '', proxyURL: '', hostHeader: 'site' })
 const formError = ref('')
 const creating = ref(false)
 const cleanDomain = computed(() => form.value.domain.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/\.$/, ''))
@@ -300,17 +304,19 @@ async function createSite() {
   creating.value = true
   const domain = cleanDomain.value
   const isApp = form.value.php === 'app'
+  const isProxy = form.value.php === 'proxy'
   try {
     const site = await api('POST', 'api/sites', {
       domain,
       aliases: form.value.www ? [`www.${domain}`] : [],
-      php_version: isApp ? '' : form.value.php,
+      php_version: isApp || isProxy ? '' : form.value.php,
       proxy_port: isApp ? Number(form.value.port) || 0 : 0,
       app_command: isApp ? form.value.command.trim() : '',
+      ...(isProxy ? { proxy_url: form.value.proxyURL.trim(), proxy: { host_header: form.value.hostHeader, websocket: true, forwarded: true, timeout: 60 } } : {}),
     })
-    notice.value = t('websites.created', { domain: site.domain, path: `${site.root}/${isApp ? 'app' : 'public'}` })
+    notice.value = isProxy ? t('proxy.created', { domain: site.domain, url: site.proxy_url }) : t('websites.created', { domain: site.domain, path: `${site.root}/${isApp ? 'app' : 'public'}` })
     showForm.value = false
-    form.value = { domain: '', www: false, wwwTouched: false, php: latestPHP.value, touchedType: false, port: '', command: '' }
+    form.value = { domain: '', www: false, wwwTouched: false, php: latestPHP.value, touchedType: false, port: '', command: '', proxyURL: '', hostHeader: 'site' }
     await load()
   } catch (e) {
     formError.value = errorMessage(e)
@@ -361,30 +367,61 @@ function onDrawerTab(tab) {
 const siteDB = (s) => list(store['api/databases']?.databases).find((d) => d.site_id === s.id) || null
 
 // ---- delete ----
+// The dialog shows what goes with the website (api/sites/{id}/delete-info).
+// With "Back up the website first" (the default) the deletion is a job that
+// runs only once the backup is made; the databases stay unless ticked.
 const deleting = ref(null)
 const confirmText = ref('')
-const deleteDBs = ref(true)
+const deleteDBs = ref(false)
+const deleteBackup = ref(true)
 const deleteBusy = ref(false)
 const deleteError = ref('')
+const deleteInfo = ref(null)
 
-function askDelete(site) {
+async function askDelete(site) {
   clearMessages()
   deleteError.value = ''
   deleting.value = site
   confirmText.value = ''
-  deleteDBs.value = true
+  deleteDBs.value = false
+  deleteBackup.value = true
+  deleteInfo.value = null
+  try {
+    deleteInfo.value = await api('GET', `api/sites/${site.id}/delete-info`)
+  } catch {
+    // the dialog works without the list
+  }
 }
+
+const deleteGoes = computed(() => {
+  const i = deleteInfo.value
+  if (!i) return []
+  const out = []
+  if (i.docker_app) out.push(t('websites.delete_goes_app', { app: appName('docker:' + i.docker_app) }))
+  if (i.sftp) out.push(t('websites.delete_goes_sftp'))
+  if (i.cron_jobs) out.push(t('websites.delete_goes_cron', { n: i.cron_jobs }, i.cron_jobs))
+  if (i.daemons) out.push(t('websites.delete_goes_daemons', { n: i.daemons }, i.daemons))
+  if (i.monitor) out.push(t('websites.delete_goes_monitor'))
+  if (i.git) out.push(t('websites.delete_goes_git'))
+  if (i.schedules) out.push(t('websites.delete_goes_schedules', { n: i.schedules }, i.schedules))
+  return out
+})
+const deleteDBNames = computed(() => list(deleteInfo.value?.databases).map((d) => d.name).join(', '))
 
 async function deleteSite() {
   const site = deleting.value
   deleteBusy.value = true
   deleteError.value = ''
   try {
-    const res = await api('DELETE', `api/sites/${site.id}`, { confirm: confirmText.value.trim(), delete_databases: deleteDBs.value })
-    notice.value = t('websites.deleted', { domain: site.domain })
-    warnings.value = list(res?.warnings)
+    const res = await api('DELETE', `api/sites/${site.id}`, { confirm: confirmText.value.trim(), delete_databases: deleteDBs.value, backup_first: deleteBackup.value })
     deleting.value = null
     if (drawerSite.value?.id === site.id) closeDrawer()
+    if (res?.job) {
+      watchJob(res.job)
+      return
+    }
+    notice.value = t('websites.deleted', { domain: site.domain })
+    warnings.value = list(res?.warnings)
     await load()
   } catch (e) {
     deleteError.value = errorMessage(e)
@@ -409,12 +446,21 @@ function subLine(s) {
   if (a.length) return { text: a.length === 1 ? a[0] : t('ws.aliases_n', { first: a[0], n: a.length - 1 }), cls: 'muted' }
   return { text: s.root, cls: 'muted mono-sm' }
 }
+function proxyHost(s) {
+  try {
+    return new URL(s.proxy_url).host
+  } catch {
+    return s.proxy_url
+  }
+}
 function appCell(s) {
   const ty = typeOf(s)
+  if (ty === 'proxy') return { icon: 'swap', name: t('ws.proxy'), extra: '→ ' + proxyHost(s) }
   if (s.app && ty === 'php') return { logo: s.app, name: appName(s.app), extra: s.php_version ? 'PHP ' + s.php_version : '', pill: true }
   if (ty === 'php') return { logo: 'php', name: 'PHP ' + s.php_version }
   if (ty === 'docker') return { logo: logoURL(s.app) ? s.app : 'docker', name: appName(s.app), extra: 'Docker' }
   if (ty === 'python') return { logo: 'python', name: s.app ? appName(s.app) : 'Python', extra: t('ws.port', { port: s.proxy_port }) }
+  if (ty === 'java') return { logo: 'java', name: 'Java ' + s.app_runtime.slice(5), extra: t('ws.port', { port: s.proxy_port }) }
   if (ty === 'node') return { logo: s.app && logoURL(s.app) ? s.app : 'nodejs', name: s.app ? appName(s.app) : s.app_runtime?.startsWith('node:') ? 'Node.js ' + s.app_runtime.slice(5) : 'Node.js', extra: t('ws.port', { port: s.proxy_port }) }
   return { icon: 'code', name: t('ws.static_html') }
 }
@@ -664,7 +710,7 @@ onBeforeUnmount(() => {
             </table>
           </div>
           <div v-if="sites.length && filtered.length" class="panel-foot">
-            <span class="muted">{{ t('ws.selected', { n: selected.size }) }}</span>
+            <span class="muted">{{ t('ws.selected', { n: selected.size }, selected.size) }}</span>
             <label class="sr-only" for="ws-bulk">{{ t('ws.bulk') }}</label>
             <select id="ws-bulk" v-model="bulk" class="input input-sm" :disabled="!selected.size || bulkBusy">
               <option value="">{{ t('ws.bulk') }}</option>
@@ -722,8 +768,24 @@ onBeforeUnmount(() => {
             <option v-for="p in [...phpList].reverse()" :key="p.version" :value="p.version">{{ t('websites.type_php', { v: p.version }) }}{{ p.eol ? ` (${t('software.eol_short')})` : '' }}</option>
             <option value="">{{ t('websites.type_static') }}</option>
             <option value="app">{{ t('websites.type_app') }}</option>
+            <option value="proxy">{{ t('proxy.type') }}</option>
           </select>
         </label>
+        <template v-if="form.php === 'proxy'">
+          <label class="field">
+            <span>{{ t('proxy.url') }}</span>
+            <input v-model="form.proxyURL" class="input mono" placeholder="http://10.0.0.5:8080" maxlength="500" autocomplete="off" autocapitalize="off" spellcheck="false" required />
+            <small class="muted">{{ t('proxy.url_hint') }}</small>
+          </label>
+          <label class="field">
+            <span>{{ t('proxy.host_header') }}</span>
+            <select v-model="form.hostHeader" class="input">
+              <option value="site">{{ t('proxy.host_site', { domain: cleanDomain || 'example.com' }) }}</option>
+              <option value="upstream">{{ t('proxy.host_upstream_short') }}</option>
+            </select>
+            <small class="muted">{{ t('proxy.create_hint') }}</small>
+          </label>
+        </template>
         <template v-if="form.php === 'app'">
           <label class="field">
             <span>{{ t('websites.app_port') }}</span>
@@ -774,14 +836,28 @@ onBeforeUnmount(() => {
       <p>{{ t('websites.delete_body') }}</p>
       <p v-if="deleteError" class="alert alert-crit pre-wrap" role="alert">{{ deleteError }}</p>
       <form class="stack" @submit.prevent="deleteSite">
-        <label class="check"><input v-model="deleteDBs" type="checkbox" /><span>{{ t('websites.delete_dbs') }}</span></label>
+        <div v-if="deleteGoes.length" class="small">
+          <div class="delete-goes-title">{{ t('websites.delete_goes') }}</div>
+          <ul class="delete-goes"><li v-for="g in deleteGoes" :key="g">{{ g }}</li></ul>
+        </div>
+        <p v-if="deleteInfo?.staging_copies?.length" class="alert alert-warn small">{{ t('websites.delete_live_of', { domains: deleteInfo.staging_copies.join(', ') }) }}</p>
+        <p v-if="deleteInfo?.staging_of" class="muted small">{{ t('websites.delete_staging_of', { domain: deleteInfo.staging_of }) }}</p>
+        <label class="check">
+          <input v-model="deleteBackup" type="checkbox" />
+          <span>{{ t('websites.delete_backup') }}<small class="muted delete-sub">{{ t('websites.delete_backup_hint', { name: `${deleting.domain}_before-delete_…` }) }}</small></span>
+        </label>
+        <label v-if="!deleteInfo || deleteInfo.databases.length" class="check">
+          <input v-model="deleteDBs" type="checkbox" />
+          <span>{{ deleteDBNames ? t('websites.delete_dbs_named', { names: deleteDBNames }) : t('websites.delete_dbs') }}<small class="muted delete-sub">{{ deleteDBs ? (deleteBackup ? t('websites.delete_dbs_backed') : t('websites.delete_dbs_gone')) : t('websites.delete_dbs_kept') }}</small></span>
+        </label>
+        <p v-if="!deleteBackup" class="alert alert-warn small">{{ t('websites.delete_no_backup_warn') }}</p>
         <label class="field">
           <span>{{ t('websites.delete_confirm', { domain: deleting.domain }) }}</span>
           <input v-model="confirmText" class="input" autocomplete="off" autocapitalize="off" spellcheck="false" required />
         </label>
         <div class="modal-actions">
           <button type="button" class="btn btn-ghost" @click="deleting = null">{{ t('common.cancel') }}</button>
-          <button class="btn btn-danger btn-solid" :disabled="deleteBusy || confirmText.trim().toLowerCase() !== deleting.domain"><Icon name="trash" />{{ t('websites.delete') }}</button>
+          <button class="btn btn-danger btn-solid" :disabled="deleteBusy || (deleteBackup && jobRunning) || confirmText.trim().toLowerCase() !== deleting.domain"><Icon name="trash" />{{ deleteBackup ? t('websites.delete_after_backup') : t('websites.delete') }}</button>
         </div>
       </form>
     </Modal>
@@ -865,6 +941,10 @@ onBeforeUnmount(() => {
 .server-name { font-weight: 700; }
 .server-ram { display: inline-flex; align-items: center; gap: 4px; margin-top: 4px; color: var(--muted); }
 .server-check { position: absolute; top: 10px; right: 10px; color: var(--accent); }
+.delete-goes-title { font-weight: 600; margin-bottom: 4px; }
+.delete-goes { margin: 0; padding-left: 18px; }
+.delete-goes li { margin: 2px 0; }
+.delete-sub { display: block; margin-top: 2px; }
 
 @media (max-width: 640px) {
   .ws-search { width: 100%; }

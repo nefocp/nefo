@@ -132,3 +132,47 @@ func TestAppDBServer(t *testing.T) {
 		t.Errorf("MariaDB: %q %q", v, e)
 	}
 }
+
+// MariaDB's series from MariaDB's repository are Software page items of
+// their own ("mariadb-11.4"), which install MariaDB.
+func TestMariaDBSeriesIDs(t *testing.T) {
+	for id, want := range map[string]string{"mariadb": "MariaDB", "mariadb-11.4": "MariaDB 11.4", "mariadb-11.8": "MariaDB 11.8", "mariadb-12.3": "MariaDB 12.3"} {
+		if got, ok := softwareName(id); !ok || got != want {
+			t.Errorf("softwareName(%q) = %q %v", id, got, ok)
+		}
+		if e, ok := dbEngineOf(id); !ok || e != database.MariaDB {
+			t.Errorf("dbEngineOf(%q) = %q %v", id, e, ok)
+		}
+	}
+	for _, id := range []string{"mariadb-9.9", "mariadb-"} {
+		if _, ok := softwareName(id); ok {
+			t.Errorf("softwareName(%q) accepted", id)
+		}
+	}
+	if e, ok := dbEngineOf("mysql"); !ok || e != database.MySQL {
+		t.Error("mysql")
+	}
+}
+
+// The upgrade, switch and dump routes need a session, and refuse what
+// can't be done before any job starts.
+func TestDBServerRoutes(t *testing.T) {
+	e := newEnv(t)
+	for _, r := range []struct{ method, path string }{
+		{"GET", "/api/db/engine"}, {"GET", "/api/db/upgrade?series=11.4"}, {"POST", "/api/db/upgrade"},
+		{"GET", "/api/db/switch?to=mysql"}, {"POST", "/api/db/switch"}, {"DELETE", "/api/db/dumps/x"},
+	} {
+		if res, _ := e.do(t, r.method, r.path, map[string]string{}, nil); res.StatusCode != 401 {
+			t.Errorf("%s %s without a session: %d", r.method, r.path, res.StatusCode)
+		}
+	}
+	e.login(t)
+	res, out := e.do(t, "POST", "/api/db/switch", map[string]string{"to": "mysql", "confirm": "mariadb"}, nil)
+	if res.StatusCode != 400 || out["error"] != "confirm_mismatch" {
+		t.Errorf("switch with a wrong confirmation: %d %v", res.StatusCode, out)
+	}
+	res, out = e.do(t, "DELETE", "/api/db/dumps/..", nil, nil)
+	if res.StatusCode == 200 {
+		t.Errorf("deleting a bad name: %d %v", res.StatusCode, out)
+	}
+}

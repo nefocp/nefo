@@ -165,8 +165,30 @@ var vhostTmpl = func() *template.Template {
 	template.Must(t.New("ratelimit").Parse(vhostRateLimit))
 	template.Must(t.New("githook").Parse(vhostGitHook))
 	template.Must(t.New("pagecache").Parse(vhostPageCache))
+	template.Must(t.New("geo").Parse(vhostGeo))
+	template.Must(t.New("upstream").Parse(vhostUpstream))
 	return t
 }()
+
+// vhostGeo refuses the visitors of blocked countries (see geo.go, which
+// defines $panel_country at http level). It runs before the locations, so
+// Let's Encrypt, the Git webhook and the site's own 403 page are let
+// through by path.
+const vhostGeo = `
+{{- if .GeoMode}}
+    # Country blocking (Websites → Country blocking). Let's Encrypt, the Git
+    # webhook and /403.html stay reachable.
+    set $panel_geo_deny 0;
+    if ($panel_country {{if eq .GeoMode "allow"}}!~{{else}}~{{end}} "^(?:{{.GeoRegex}})$") {
+        set $panel_geo_deny 1;
+    }
+    if ($uri ~ "^/(?:\.well-known/acme-challenge/|\.panel/deploy/|403\.html$)") {
+        set $panel_geo_deny 0;
+    }
+    if ($panel_geo_deny) {
+        return 403;
+    }
+{{- end}}`
 
 const vhostText = `# Managed by {{app}}. Do not edit: the panel rewrites this file.
 # Site: {{.Domain}}
@@ -243,6 +265,7 @@ const vhostBody = `
 {{- range .BlockedIPs}}
     deny {{.}};
 {{- end}}
+{{- template "geo" .}}
 {{- if .WAF}}
     modsecurity on;
 {{- if eq .WAF "detect"}}
@@ -269,6 +292,8 @@ const vhostBody = `
     location / {
         return 301 {{.RedirectURL}}$request_uri;
     }
+{{- else if .Upstream}}
+{{- template "upstream" .}}
 {{- else if .ProxyPort}}
     access_log {{.LogDir}}/{{.Domain}}.access.log;
     error_log {{.LogDir}}/{{.Domain}}.error.log;
@@ -414,6 +439,8 @@ type vhostData struct {
 	UploadMB    int
 	TimeoutSec  int
 	ProxyPort   int
+	// Upstream makes a reverse proxy site (see proxysite.go).
+	Upstream    *proxyVhost
 	Disabled    bool
 	RedirectURL string
 	AuthFile    string
@@ -442,6 +469,20 @@ type vhostData struct {
 	// a PHP site (see sitehttps.go).
 	CacheZone string
 	CacheDir  string
+	// Country blocking (see geo.go): GeoMode is "block" or "allow", and
+	// GeoRegex the countries ("CN|RU"; an allow list has ZZ, the reserved
+	// addresses, too). Apache includes GeoFiles (a "Require ip" list per
+	// country) and takes the visitor's address from CF-Connecting-IP for
+	// requests from GeoTrusted (Cloudflare). OpenLiteSpeed looks nothing up
+	// for the server's own addresses (GeoSelf) and takes Cloudflare's
+	// CF-IPCountry for requests from Cloudflare (GeoCF); both are regular
+	// expressions of addresses.
+	GeoMode    string
+	GeoRegex   string
+	GeoFiles   []string
+	GeoTrusted []string
+	GeoSelf    string
+	GeoCF      string
 }
 
 func (d *vhostData) check() error {
@@ -457,6 +498,9 @@ func (d *vhostData) check() error {
 		return fmt.Errorf("refusing to render redirect %q", d.RedirectURL)
 	}
 	if err := checkFirewall(d.WAF, d.RateLimit, d.RateZone, d.BlockedIPs); err != nil {
+		return err
+	}
+	if err := d.checkGeo(); err != nil {
 		return err
 	}
 	for _, n := range d.HotlinkAllow {
@@ -478,6 +522,14 @@ func (d *vhostData) check() error {
 	}
 	if (d.CacheZone != "" || d.CacheDir != "") && (!cacheZoneRe.MatchString(d.CacheZone) || d.CacheDir == "" || d.PHPSocket == "") {
 		return fmt.Errorf("refusing to render the page cache %q in %q", d.CacheZone, d.CacheDir)
+	}
+	if d.Upstream != nil {
+		if d.ProxyPort != 0 || d.PHPSocket != "" {
+			return fmt.Errorf("refusing to render %q as an app and a reverse proxy", d.Domain)
+		}
+		if err := d.Upstream.check(); err != nil {
+			return err
+		}
 	}
 	for _, p := range []string{d.Public, d.LogDir, d.SnippetDir, d.EmptyRoot, d.PHPSocket, d.CertFile, d.KeyFile, d.AuthFile, d.CustomFile, d.CacheDir} {
 		if !safePath(p) {

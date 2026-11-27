@@ -108,6 +108,13 @@ onMounted(load)
           <button type="button" class="btn btn-sm btn-danger" :disabled="busy || !settings.size" @click="clearLog"><Icon name="trash" :size="15" />{{ t('databases.slow_clear') }}</button>
         </div>
 
+        <p v-if="settings.rotation" class="small muted slow-rotate">
+          <Icon name="archive" :size="14" />
+          <span>
+            {{ t('databases.slow_rotation', { mb: settings.rotation.mb, days: settings.rotation.days, keep: settings.rotation.keep }) }}
+            <template v-if="settings.rotation.files">{{ t('databases.slow_rotated', { n: settings.rotation.files, size: formatBytes(settings.rotation.size) }, settings.rotation.files) }}</template>
+          </span>
+        </p>
         <div v-if="!entries.length" class="empty">
           <div class="empty-icon"><Icon name="clock" :size="24" /></div>
           <p class="empty-lead">{{ settings.enabled ? t('databases.slow_empty_on') : t('databases.slow_empty') }}</p>
@@ -153,6 +160,8 @@ onMounted(load)
 .slow-threshold .input { width: 84px; }
 .slow-gap { flex: 1; }
 .slow-file { overflow-wrap: anywhere; }
+.slow-rotate { display: flex; align-items: flex-start; gap: 6px; margin: 0; padding: 10px 18px; border-bottom: 1px solid var(--border); }
+.slow-rotate .icon { flex: none; margin-top: 2px; }
 .slow-wrap { max-height: 560px; overflow-y: auto; }
 .num { text-align: right !important; }
 .query-cell { min-width: 280px; max-width: 640px; }

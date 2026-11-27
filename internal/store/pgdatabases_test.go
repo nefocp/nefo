@@ -94,11 +94,16 @@ func TestDatabaseEngineMigration(t *testing.T) {
 		t.Fatal(err)
 	}
 	i := migrationIndex(t, "ADD COLUMN engine")
-	if i != len(migrations)-1 {
-		// Later migrations would run again below; undo them here first.
-		t.Fatalf("migration %d is not the last one: undo the later ones in this test", i+1)
+	// The later migrations run again below: app_memory and proxy_url are
+	// undone here with it, and the site_protect table is created IF NOT
+	// EXISTS.
+	if i != len(migrations)-4 || migrationIndex(t, "ADD COLUMN app_memory") != i+1 ||
+		!strings.Contains(migrations[i+2], "IF NOT EXISTS site_protect") ||
+		migrationIndex(t, "ADD COLUMN proxy_url") != i+3 {
+		t.Fatalf("migration %d is not the last but three: undo the later ones in this test", i+1)
 	}
-	if _, err := st.db.Exec(`ALTER TABLE databases DROP COLUMN engine;
+	if _, err := st.db.Exec(`ALTER TABLE databases DROP COLUMN engine; ALTER TABLE sites DROP COLUMN app_memory;
+		ALTER TABLE sites DROP COLUMN proxy_url; ALTER TABLE sites DROP COLUMN proxy_opts;
 		INSERT INTO databases (name, username, password, created_at) VALUES ('wp_shop', 'wp_shop', 'pw', 1)`); err != nil {
 		t.Fatal(err)
 	}

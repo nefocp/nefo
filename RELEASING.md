@@ -5,11 +5,11 @@ Releases are built by GitHub Actions when a tag such as `v1.2.0` is pushed (see 
 - `nefo-linux-amd64` and `nefo-linux-arm64`
 - `install.sh`
 - `VERSION`
-- `checksums.txt` (SHA-256 of the files above)
+- `checksums.txt` (SHA-256 of the two programs and `install.sh`)
 - `checksums.txt.sig` (Ed25519 signature of `checksums.txt`)
 - `appstore-catalog.json` and `appstore-catalog.json.sig`: the App store catalog (`internal/appstore/catalog.json`), signed on its own. Panels fetch it once a day from the latest release and use it only when its `catalog_version` is higher than the one built into them, so a catalog fix can ship without a new binary: raise `catalog_version`, then run `make release` and replace these two files on the latest release.
 
-`install.sh` and `nefo update` refuse a download whose checksum does not match, and refuse a `checksums.txt` that is not signed by the project's key. So an attacker who can change files on GitHub, or in transit, still cannot get their own binary installed.
+`install.sh` and `nefo update` refuse a download whose checksum does not match, and refuse a `checksums.txt` that is not signed by the project's key. So an attacker who can change the release files on GitHub, or in transit, cannot get their own binary installed by an update: `nefo update` checks with the key built into the installed binary. A first install is different: `install.sh` itself comes from GitHub and carries the key it checks with, so a changed `install.sh` can carry another key. And the signing key is the GitHub Actions secret `RELEASE_SIGNING_KEY`, so whoever controls the repository can sign a release.
 
 ## One-time setup: the signing key
 
@@ -29,9 +29,11 @@ While `internal/update/release.pub` is empty, builds are development builds: the
 ## Making a release
 
 ```sh
-git tag -s v1.2.0 -m "v1.2.0"
+git tag -a v1.2.0 -m "Nefo 1.2.0"
 git push origin v1.2.0
 ```
+
+Tags are annotated, not signed: the release workflow signs the release files instead.
 
 To build a release locally: `make release VERSION=v1.2.0 SIGNING_KEY=/path/to/release.key`.
 

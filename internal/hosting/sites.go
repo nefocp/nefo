@@ -29,6 +29,10 @@ type CreateRequest struct {
 	// Suspended creates the site closed (503) until it is opened: Docker
 	// apps open their site only after their set-up closed default logins.
 	Suspended bool
+	// ProxyURL makes a reverse proxy site that forwards to this address
+	// (see proxysite.go), with ProxyOpts (DefaultProxyOptions if zero).
+	ProxyURL  string
+	ProxyOpts store.ProxyOptions
 }
 
 // Root returns the folder of a site; its public files are in Root/public.
@@ -119,6 +123,17 @@ func (m *Manager) CreateSite(ctx context.Context, req CreateRequest) (*store.Sit
 	} else if req.AppCommand != "" {
 		return nil, inputErr("invalid_app")
 	}
+	if req.ProxyURL != "" {
+		if req.PHPVersion != "" || req.ProxyPort != 0 {
+			return nil, inputErr("invalid_app")
+		}
+		if req.ProxyOpts == (store.ProxyOptions{}) {
+			req.ProxyOpts = DefaultProxyOptions()
+		}
+		if req.ProxyURL, err = m.checkProxy(ctx, req.ProxyURL, &req.ProxyOpts); err != nil {
+			return nil, err
+		}
+	}
 	root := m.paths.siteRoot(domain)
 	if _, err := os.Lstat(root); err == nil {
 		return nil, inputErr("site_dir_exists", root)
@@ -129,7 +144,11 @@ func (m *Manager) CreateSite(ctx context.Context, req CreateRequest) (*store.Sit
 	}
 
 	site := &store.Site{Domain: domain, Aliases: aliases, SysUser: sysUser, PHPVersion: req.PHPVersion,
-		ProxyPort: req.ProxyPort, AppCommand: req.AppCommand, Disabled: req.Suspended}
+		ProxyPort: req.ProxyPort, AppCommand: req.AppCommand, Disabled: req.Suspended,
+		ProxyURL: req.ProxyURL, ProxyOpts: req.ProxyOpts}
+	if err := validProxySite(site); err != nil {
+		return nil, err
+	}
 	if err := m.store.CreateSite(ctx, site); err != nil {
 		if errors.Is(err, store.ErrConflict) {
 			return nil, inputErr("domain_exists", domain)
@@ -303,6 +322,8 @@ func (m *Manager) DeleteSite(ctx context.Context, id int64, confirm string) ([]s
 		}
 	}
 
+	prot, _ := m.store.SiteProtect(ctx, site.ID)
+	siteUID, _, _ := lookupIDs(site.SysUser)
 	warn(removeIfExists(m.vhostFile(site.Domain)))
 	if m.web().info(ctx).Running {
 		warn(m.reloadWeb(ctx))
@@ -321,6 +342,7 @@ func (m *Manager) DeleteSite(ctx context.Context, id int64, confirm string) ([]s
 	if site.SFTP || fileExists(sftpChroot(site.SysUser)) {
 		warn(m.disableSFTP(ctx, site))
 	}
+	m.forgetFileLock(ctx, site, siteUID)
 	warn(m.deleteUser(ctx, site.SysUser))
 	warn(os.RemoveAll(m.paths.siteRoot(site.Domain)))
 	warn(os.RemoveAll(m.paths.certDir(site.Domain)))
@@ -333,6 +355,10 @@ func (m *Manager) DeleteSite(ctx context.Context, id int64, confirm string) ([]s
 	}
 	if err := m.store.DeleteSite(ctx, site.ID); err != nil {
 		return warnings, err
+	}
+	if prot != nil && prot.GeoOn() && m.web().info(ctx).Running {
+		// The countries only this site listed need not stay loaded.
+		warn(m.applyGeo(ctx, nil))
 	}
 	return warnings, nil
 }
@@ -447,12 +473,20 @@ func (m *Manager) vhostBytes(ctx context.Context, site *store.Site) ([]byte, err
 	if site.NginxCustom != "" {
 		d.CustomFile = m.customFile(site.Domain)
 	}
+	m.geoVhost(ctx, site, &d)
 	if site.SSL {
 		d.CertFile = filepath.Join(m.paths.certDir(site.Domain), "fullchain.pem")
 		d.KeyFile = filepath.Join(m.paths.certDir(site.Domain), "privkey.pem")
 	}
 	if site.PHPVersion != "" {
 		d.PHPSocket = m.paths.phpSocket(site.SysUser)
+	}
+	if site.ProxyURL != "" {
+		up, err := m.proxyVhostFor(site)
+		if err != nil {
+			return nil, err
+		}
+		d.Upstream = up
 	}
 	return ws.vhost(ctx, d, site.Rewrite)
 }

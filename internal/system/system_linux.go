@@ -9,6 +9,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/nefocp/nefo/internal/meminfo"
 	"github.com/nefocp/nefo/internal/version"
 )
 
@@ -48,19 +49,13 @@ func (c *Collector) Stats() (Stats, error) {
 	}
 	st.CPUPercent = pct
 
-	f, err := os.Open("/proc/meminfo")
+	// In a container, the container's limit when /proc/meminfo shows the
+	// host's memory (see meminfo).
+	mem, err := meminfo.Read()
 	if err != nil {
 		return st, err
 	}
-	total, avail, err := parseMeminfo(f)
-	f.Close()
-	if err != nil {
-		return st, err
-	}
-	st.MemTotal = total
-	if avail < total {
-		st.MemUsed = total - avail
-	}
+	st.MemTotal, st.MemUsed, st.MemLimited = mem.Total, mem.Used(), mem.Limited
 
 	var fs syscall.Statfs_t
 	if err := syscall.Statfs("/", &fs); err == nil {

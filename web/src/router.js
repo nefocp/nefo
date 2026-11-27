@@ -38,6 +38,7 @@ export const router = createRouter({
         // Loaded on demand: the terminal library is large.
         { path: 'terminal', name: 'terminal', component: () => import('./views/TerminalView.vue') },
         { path: 'security', name: 'security', component: () => import('./views/SecurityView.vue') },
+        { path: 'security-check', name: 'security-check', component: () => import('./views/SecurityCheckView.vue') },
         { path: ':pathMatch(.*)*', name: 'notfound', component: () => import('./views/NotFoundView.vue') },
       ],
     },

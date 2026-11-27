@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"slices"
 	"strings"
 
@@ -73,7 +74,7 @@ Environment=PORT=%[4]d
 Environment=HOST=127.0.0.1
 Environment=NODE_ENV=production
 Environment=PATH=%[6]s
-ExecStart=%[5]s
+%[7]sExecStart=%[5]s
 Restart=always
 RestartSec=3
 NoNewPrivileges=yes
@@ -83,7 +84,7 @@ ProtectHome=yes
 
 [Install]
 WantedBy=multi-user.target
-`, site.Domain, site.SysUser, root, site.ProxyPort, appScript(site.SysUser), m.runtimePath(site))
+`, site.Domain, site.SysUser, root, site.ProxyPort, appScript(site.SysUser), m.runtimePath(site), unitEnv(append(m.RuntimeEnv(site), serviceEnv(site)...)))
 	if err := mkdir(appScriptDir, 0o755); err != nil {
 		return err
 	}
@@ -102,6 +103,22 @@ WantedBy=multi-user.target
 	_, err := m.run.Output(ctx, "systemctl", "restart", appUnit(site.SysUser))
 	return err
 }
+
+// unitEnv turns "NAME=value" pairs into Environment= lines of a unit. The
+// values come from the panel (JAVA_HOME, a number), never from the
+// administrator's input.
+func unitEnv(env []string) string {
+	var b strings.Builder
+	for _, e := range env {
+		if !unitEnvRe.MatchString(e) {
+			continue
+		}
+		b.WriteString("Environment=" + e + "\n")
+	}
+	return b.String()
+}
+
+var unitEnvRe = regexp.MustCompile(`^[A-Z_]+=[A-Za-z0-9_./:=+-]+$`)
 
 func (m *Manager) removeApp(ctx context.Context, site *store.Site) error {
 	if validate.SystemUsername(site.SysUser) != nil {

@@ -8,6 +8,7 @@ import (
 	"errors"
 	"io"
 	"log/slog"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
@@ -41,6 +42,8 @@ type fakeRunner struct {
 	// pipe answers the other Pipe calls (psql and pg_dump as a role).
 	pipe   func(c call, stdout io.Writer) error
 	output func(name string, args []string) (string, error)
+	// stream answers Stream calls (apt-get through /bin/sh, pg_upgradecluster).
+	stream func(name string, args []string) error
 }
 
 func (f *fakeRunner) record(c call) {
@@ -65,6 +68,9 @@ func (f *fakeRunner) Output(ctx context.Context, name string, args ...string) (s
 
 func (f *fakeRunner) Stream(ctx context.Context, w io.Writer, name string, args ...string) error {
 	f.record(call{name: name, args: args})
+	if f.stream != nil {
+		return f.stream(name, args)
+	}
 	return nil
 }
 
@@ -117,6 +123,14 @@ func newTestManager(t *testing.T) (*Manager, *fakeRunner, *store.Store) {
 	m.libDir, m.etcDir = filepath.Join(root, "lib"), filepath.Join(root, "etc")
 	m.dataDir, m.socketDir, m.tempDir = filepath.Join(root, "data"), "/var/run/postgresql", t.TempDir()
 	m.wait = 0
+	m.backupDir = filepath.Join(root, "backups")
+	m.freeBytes = func(string) (uint64, error) { return 100 << 30, nil }
+	m.pgdg = pgdgRepo{
+		keyURL: "http://127.0.0.1:1/no-key", keyring: filepath.Join(root, "apt", "panel-pgdg.gpg"), list: filepath.Join(root, "apt", "panel-pgdg.list"),
+		osRelease: func() (string, string) { return "ubuntu", "noble" },
+		arch:      func() string { return "amd64" },
+		client:    http.DefaultClient,
+	}
 	for _, p := range []string{filepath.Join(m.libDir, "16", "bin", "postgres"), filepath.Join(m.etcDir, "16", "main", "postgresql.conf")} {
 		if err := os.MkdirAll(filepath.Dir(p), 0o755); err != nil {
 			t.Fatal(err)
@@ -196,7 +210,7 @@ func TestHBA(t *testing.T) {
 func TestInstallWritesConfig(t *testing.T) {
 	m, f, _ := newTestManager(t)
 	// The cluster existed before (installing again repairs the settings).
-	if err := m.Install(context.Background(), testLog{t}); err != nil {
+	if err := m.Install(context.Background(), "", testLog{t}); err != nil {
 		t.Fatal(err)
 	}
 	dir := filepath.Join(m.etcDir, "16", "main")
@@ -223,7 +237,7 @@ func TestInstallPortBusy(t *testing.T) {
 	m, f, _ := newTestManager(t)
 	os.RemoveAll(m.etcDir) // no cluster yet
 	m.portFree = func(port int) bool { return port != 5432 }
-	if err := m.Install(context.Background(), testLog{t}); userCode(err) != "pg_port_busy" {
+	if err := m.Install(context.Background(), "", testLog{t}); userCode(err) != "pg_port_busy" {
 		t.Fatalf("%v", err)
 	}
 	if len(f.all()) != 0 {

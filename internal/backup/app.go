@@ -33,11 +33,15 @@ var appNameRe = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,40}$`)
 
 // BackupApp backs up an app instance.
 func (m *Manager) BackupApp(ctx context.Context, name string, scheduleID int64, remote bool, lg Logger) (*store.Backup, error) {
+	return m.backupApp(ctx, name, scheduleID, remote, "", lg)
+}
+
+func (m *Manager) backupApp(ctx context.Context, name string, scheduleID int64, remote bool, label string, lg Logger) (*store.Backup, error) {
 	plan, err := m.hosting.AppBackup(ctx, name)
 	if err != nil {
 		return nil, err
 	}
-	man := manifest{Format: 1, Kind: KindApp, App: plan.AppID, Path: plan.Dir}
+	man := manifest{Format: 1, Kind: KindApp, App: plan.AppID, Path: plan.Dir, Label: label}
 	for _, d := range plan.Dumps {
 		man.Databases = append(man.Databases, d.File)
 	}

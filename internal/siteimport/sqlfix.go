@@ -47,6 +47,9 @@ type sqlFixer struct {
 	// mysql: the server is MySQL 8 itself, which knows its collations and
 	// comments; only the statements an import account may not run go.
 	mysql bool
+	// namesOnly: only collation names and executable comments change;
+	// no statement is left out (see FixCollations).
+	namesOnly bool
 
 	Stats SQLFixStats
 }
@@ -54,15 +57,21 @@ type sqlFixer struct {
 // SQLFixStats counts what a sqlFixer changed.
 type SQLFixStats struct {
 	Collations int // collation names replaced
-	Comments   int // MySQL 8 executable comments made plain
-	Statements int // statements left out (GTID, binary log)
-	DBLines    int // CREATE DATABASE and USE lines left out
+	// MariaDBCollations are MariaDB 10.10+ collation names replaced for
+	// MySQL (a dump going into MySQL).
+	MariaDBCollations int
+	Comments          int // MySQL 8 executable comments made plain
+	Statements        int // statements left out (GTID, binary log)
+	DBLines           int // CREATE DATABASE and USE lines left out
 }
 
 func (s SQLFixStats) String() string {
 	var parts []string
 	if s.Collations > 0 {
 		parts = append(parts, count(int64(s.Collations), "MySQL 8 collation name", "MySQL 8 collation names")+" replaced")
+	}
+	if s.MariaDBCollations > 0 {
+		parts = append(parts, count(int64(s.MariaDBCollations), "MariaDB collation name", "MariaDB collation names")+" replaced")
 	}
 	if s.Comments > 0 {
 		parts = append(parts, count(int64(s.Comments), "MySQL 8 only setting", "MySQL 8 only settings")+" left out (such as DEFAULT ENCRYPTION and SRID)")
@@ -143,7 +152,7 @@ func (f *sqlFixer) feed(c byte) {
 	switch {
 	case f.stmtRule != 0:
 		f.hold(c)
-	case f.lineStart && f.st == stNormal:
+	case f.lineStart && f.st == stNormal && !f.namesOnly:
 		f.head = append(f.head, c)
 		if c == '\n' {
 			f.releaseHead()
@@ -416,10 +425,97 @@ func (f *sqlFixer) flushWord() {
 	if r, ok := mariaCollation(string(f.word)); ok && !f.mysql {
 		f.out.WriteString(r)
 		f.Stats.Collations++
+	} else if r, ok := mysqlCollation(string(f.word)); ok && f.mysql {
+		f.out.WriteString(r)
+		f.Stats.MariaDBCollations++
 	} else {
 		f.out.Write(f.word)
 	}
 	f.word = f.word[:0]
+}
+
+// FixDump adapts a dump for the server it goes into while it streams (see
+// sqlFixer): for MariaDB (toMySQL false), MySQL 8's collations and
+// executable comments; for MySQL, MariaDB 10.10 and later's collations
+// (mysqlCollation). Both leave out the statements an import account may
+// not run, and the dump's own CREATE DATABASE and USE.
+func FixDump(r io.Reader, toMySQL bool) io.Reader {
+	f := newSQLFixer(r)
+	f.mysql = toMySQL
+	return f
+}
+
+// FixCollations is FixDump that leaves nothing out: only the other
+// server's collation names and, into MariaDB, MySQL 8's executable comments
+// change. The panel's own SQL imports and backup restores use it, where a
+// USE of another database must still be refused.
+func FixCollations(r io.Reader, toMySQL bool) io.Reader {
+	f := newSQLFixer(r)
+	f.mysql, f.namesOnly = toMySQL, true
+	return f
+}
+
+// mysqlCollation returns the MySQL 8 collation for a MariaDB one MySQL
+// does not have: the UCA 14.0 collations of MariaDB 10.10 and later, such
+// as utf8mb4_uca1400_ai_ci (the default for utf8mb4 from MariaDB 11.2),
+// their NO PAD and language variants. utf8mb4 ones become MySQL's UCA 9.0
+// collations (utf8mb4_0900_ai_ci, utf8mb4_sv_0900_ai_ci…, which are all NO
+// PAD), the other character sets their unicode_520 or binary collation.
+func mysqlCollation(w string) (string, bool) {
+	l := strings.ToLower(w)
+	cs, rest, ok := strings.Cut(l, "_uca1400_")
+	if !ok || cs == "" {
+		return "", false
+	}
+	switch cs {
+	case "utf8mb4", "utf8mb3", "utf8", "ucs2", "utf16", "utf16le", "utf32":
+	default:
+		return "", false
+	}
+	parts := strings.Split(rest, "_")
+	if len(parts) < 2 {
+		return "", false
+	}
+	kind := parts[len(parts)-2] + "_" + parts[len(parts)-1]
+	switch kind {
+	case "ai_ci", "ai_cs", "as_ci", "as_cs":
+	default:
+		return "", false
+	}
+	lang := strings.Join(parts[:len(parts)-2], "_")
+	lang = strings.TrimSuffix(strings.TrimSuffix(lang, "nopad"), "_")
+	ci := strings.HasSuffix(kind, "_ci")
+	if cs != "utf8mb4" {
+		if cs == "utf8" {
+			cs = "utf8mb3"
+		}
+		if ci {
+			return cs + "_unicode_520_ci", true
+		}
+		return cs + "_bin", true
+	}
+	if lang != "" {
+		code := ""
+		for c, name := range mysqlLangs {
+			if name == lang {
+				code = c
+			}
+		}
+		if code == "" {
+			lang = ""
+		} else {
+			// MySQL's language collations are accent and case insensitive,
+			// or both sensitive.
+			if kind == "ai_ci" {
+				return "utf8mb4_" + code + "_0900_ai_ci", true
+			}
+			return "utf8mb4_" + code + "_0900_as_cs", true
+		}
+	}
+	if kind == "ai_cs" {
+		kind = "as_cs"
+	}
+	return "utf8mb4_0900_" + kind, true
 }
 
 // mysqlLangs maps MySQL 8's language codes in collation names to the

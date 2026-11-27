@@ -194,7 +194,7 @@ onMounted(async () => {
         <button type="button" class="kpi kpi-btn" :aria-pressed="tab === 'f2b'" @click="setTab('f2b')">
           <span class="kpi-ico" :class="f2b.running ? 'c-blue' : 'c-gray'"><Icon name="shieldCheck" :size="20" /></span>
           <div>
-            <div class="kpi-val">{{ f2b.installed ? (f2b.running ? t('pg.fw_banned', { n: bannedNow }) : t('pg.svc_state_inactive')) : t('pg.not_installed') }}</div>
+            <div class="kpi-val">{{ f2b.installed ? (f2b.running ? t('pg.fw_banned', { n: bannedNow }, bannedNow) : t('pg.svc_state_inactive')) : t('pg.not_installed') }}</div>
             <div class="kpi-label">fail2ban</div>
           </div>
         </button>
@@ -342,7 +342,7 @@ onMounted(async () => {
               </thead>
               <tbody>
                 <tr v-for="j in f2b.jails || []" :key="j.name">
-                  <td><strong>{{ j.name }}</strong><div class="name-ico-sub">{{ t('firewall.total_banned', { n: j.total_banned }) }}</div></td>
+                  <td><strong>{{ j.name }}</strong><div class="name-ico-sub">{{ t('firewall.total_banned', { n: j.total_banned }, j.total_banned) }}</div></td>
                   <td class="num">{{ j.failed }}</td>
                   <td>
                     <span v-if="!(j.banned || []).length" class="muted">—</span>

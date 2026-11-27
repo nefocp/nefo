@@ -127,6 +127,48 @@ func Remove(ctx context.Context, r run.Runner, lg Logger, purge bool, pkgs ...st
 		lg.Logf("No packages to remove")
 		return nil
 	}
+	if err := validPackages(pkgs); err != nil {
+		return err
+	}
+	before, orphErr := orphans(ctx, r)
+	if err := RemoveOnly(ctx, r, lg, purge, pkgs...); err != nil {
+		return err
+	}
+	if orphErr != nil {
+		lg.Logf("Warning: could not list unused packages, so none are cleaned up: %v", orphErr)
+		return nil
+	}
+	return CleanUp(ctx, r, lg, purge, before)
+}
+
+// Orphans returns the packages "apt-get autoremove" would remove now, for
+// CleanUp.
+func Orphans(ctx context.Context, r run.Runner) (map[string]bool, error) { return orphans(ctx, r) }
+
+// RemoveOnly is Remove without the clean-up of what only those packages
+// needed: a caller that installs them (or others) again right away runs
+// CleanUp afterwards, if at all.
+func RemoveOnly(ctx context.Context, r run.Runner, lg Logger, purge bool, pkgs ...string) error {
+	if len(pkgs) == 0 {
+		lg.Logf("No packages to remove")
+		return nil
+	}
+	if err := validPackages(pkgs); err != nil {
+		return err
+	}
+	verb := "remove"
+	if purge {
+		verb = "purge"
+	}
+	if err := check(ctx, r, verb, pkgs); err != nil {
+		return err
+	}
+	lg.Logf("Removing %s", strings.Join(pkgs, " "))
+	return run.Apt(ctx, r, lg, append([]string{verb}, pkgs...)...)
+}
+
+// validPackages refuses patterns, odd names and protected packages.
+func validPackages(pkgs []string) error {
 	for _, p := range pkgs {
 		if !nameRe.MatchString(p) || strings.Contains(p, "*") {
 			return fmt.Errorf("invalid package name %q", p)
@@ -135,21 +177,15 @@ func Remove(ctx context.Context, r run.Runner, lg Logger, purge bool, pkgs ...st
 			return fmt.Errorf("refusing to remove %s", p)
 		}
 	}
+	return nil
+}
+
+// CleanUp removes the packages that became unused since before (Orphans),
+// those that no kept package needs, the same way as Remove.
+func CleanUp(ctx context.Context, r run.Runner, lg Logger, purge bool, before map[string]bool) error {
 	verb := "remove"
 	if purge {
 		verb = "purge"
-	}
-	before, orphErr := orphans(ctx, r)
-	if err := check(ctx, r, verb, pkgs); err != nil {
-		return err
-	}
-	lg.Logf("Removing %s", strings.Join(pkgs, " "))
-	if err := run.Apt(ctx, r, lg, append([]string{verb}, pkgs...)...); err != nil {
-		return err
-	}
-	if orphErr != nil {
-		lg.Logf("Warning: could not list unused packages, so none are cleaned up: %v", orphErr)
-		return nil
 	}
 	after, err := orphans(ctx, r)
 	if err != nil {

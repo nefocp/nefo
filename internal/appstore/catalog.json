@@ -1,7 +1,7 @@
 {
   "schema": 1,
-  "catalog_version": 2026112501,
-  "generated": "2026-11-25",
+  "catalog_version": 2026112701,
+  "generated": "2026-11-26",
   "min_panel": "0.17.0",
   "apps": [
     {
@@ -12,11 +12,21 @@
       "version": "0.13.4",
       "description": {
         "en": "A ChatGPT-style chat interface for models in Ollama or any OpenAI-compatible API.",
-        "vi": "Giao diện trò chuyện kiểu ChatGPT cho mô hình trong Ollama hoặc API tương thích OpenAI."
+        "vi": "Giao diện trò chuyện kiểu ChatGPT cho mô hình trong Ollama hoặc API tương thích OpenAI.",
+        "zh": "类似 ChatGPT 的聊天界面，可使用 Ollama 或任何兼容 OpenAI 的 API 中的模型。",
+        "es": "Una interfaz de chat al estilo de ChatGPT para modelos de Ollama o de cualquier API compatible con OpenAI.",
+        "pt": "Uma interface de chat no estilo do ChatGPT para modelos no Ollama ou em qualquer API compatível com a OpenAI.",
+        "ru": "Чат-интерфейс в стиле ChatGPT для моделей в Ollama или любом API, совместимом с OpenAI.",
+        "id": "Antarmuka chat ala ChatGPT untuk model di Ollama atau API apa pun yang kompatibel dengan OpenAI."
       },
       "notes": {
         "en": "Uses Ollama automatically when it is installed; otherwise add an API key in its admin settings. It needs about 900 MB of memory.",
-        "vi": "Tự dùng Ollama khi đã cài; nếu không, thêm API key trong phần quản trị. Ứng dụng cần khoảng 900 MB bộ nhớ."
+        "vi": "Tự dùng Ollama khi đã cài; nếu không, thêm API key trong phần quản trị. Ứng dụng cần khoảng 900 MB bộ nhớ.",
+        "zh": "安装了 Ollama 时会自动使用它；否则请在它的管理设置中添加 API 密钥。需要约 900 MB 内存。",
+        "es": "Usa Ollama automáticamente si está instalado; si no, agrega una clave de API en su configuración de administración. Necesita unos 900 MB de memoria.",
+        "pt": "Usa o Ollama automaticamente quando ele está instalado; caso contrário, adicione uma chave de API nas configurações de administração dele. Precisa de cerca de 900 MB de memória.",
+        "ru": "Если Ollama установлен, использует его автоматически; иначе добавьте API-ключ в настройках администратора. Нужно около 900 MB памяти.",
+        "id": "Otomatis memakai Ollama jika sudah terinstal; jika tidak, tambahkan kunci API di pengaturan admin-nya. Aplikasi ini butuh memori sekitar 900 MB."
       },
       "license": "Open WebUI License (BSD-3-Clause with a branding clause)",
       "source_available": true,
@@ -102,7 +112,12 @@
             "show": true,
             "label": {
               "en": "Administrator password",
-              "vi": "Mật khẩu quản trị"
+              "vi": "Mật khẩu quản trị",
+              "zh": "管理员密码",
+              "es": "Contraseña del administrador",
+              "pt": "Senha do administrador",
+              "ru": "Пароль администратора",
+              "id": "Kata sandi administrator"
             }
           },
           "secret_key": {
@@ -123,11 +138,21 @@
       "version": "0.40.18",
       "description": {
         "en": "Runs open language models (Llama, Qwen, Gemma…) on this server's CPU, for Open WebUI and your own code.",
-        "vi": "Chạy các mô hình ngôn ngữ mở (Llama, Qwen, Gemma…) bằng CPU của máy chủ, cho Open WebUI và mã của bạn."
+        "vi": "Chạy các mô hình ngôn ngữ mở (Llama, Qwen, Gemma…) bằng CPU của máy chủ, cho Open WebUI và mã của bạn.",
+        "zh": "在这台服务器的 CPU 上运行开放的语言模型（Llama、Qwen、Gemma…），供 Open WebUI 和你自己的代码使用。",
+        "es": "Ejecuta modelos de lenguaje abiertos (Llama, Qwen, Gemma…) en la CPU de este servidor, para Open WebUI y tu propio código.",
+        "pt": "Roda modelos de linguagem abertos (Llama, Qwen, Gemma…) na CPU deste servidor, para o Open WebUI e o seu próprio código.",
+        "ru": "Запускает открытые языковые модели (Llama, Qwen, Gemma…) на CPU этого сервера, для Open WebUI и вашего собственного кода.",
+        "id": "Menjalankan model bahasa terbuka (Llama, Qwen, Gemma…) dengan CPU server ini, untuk Open WebUI dan kode Anda sendiri."
       },
       "notes": {
         "en": "Listens on 127.0.0.1 only and has no password. Download models from Open WebUI (Admin → Models) or with \"docker exec panel-ollama ollama pull <model>\". A model needs about its file size in memory.",
-        "vi": "Chỉ nghe trên 127.0.0.1 và không có mật khẩu. Tải mô hình trong Open WebUI (Quản trị → Mô hình) hoặc bằng \"docker exec panel-ollama ollama pull <mô hình>\". Mỗi mô hình cần bộ nhớ khoảng bằng dung lượng tệp của nó."
+        "vi": "Chỉ nghe trên 127.0.0.1 và không có mật khẩu. Tải mô hình trong Open WebUI (Quản trị → Mô hình) hoặc bằng \"docker exec panel-ollama ollama pull <mô hình>\". Mỗi mô hình cần bộ nhớ khoảng bằng dung lượng tệp của nó.",
+        "zh": "只监听 127.0.0.1，没有密码。可以在 Open WebUI（Admin → Models）中下载模型，或使用“docker exec panel-ollama ollama pull <model>”。一个模型大约需要与其文件大小相当的内存。",
+        "es": "Solo escucha en 127.0.0.1 y no tiene contraseña. Descarga modelos desde Open WebUI (Admin → Models) o con \"docker exec panel-ollama ollama pull <model>\". Un modelo necesita en memoria más o menos el tamaño de su archivo.",
+        "pt": "Escuta só em 127.0.0.1 e não tem senha. Baixe modelos pelo Open WebUI (Admin → Models) ou com \"docker exec panel-ollama ollama pull <model>\". Um modelo precisa de mais ou menos o tamanho do arquivo dele em memória.",
+        "ru": "Слушает только 127.0.0.1 и не имеет пароля. Скачивайте модели в Open WebUI (Admin → Models) или командой «docker exec panel-ollama ollama pull <model>». Модели нужно примерно столько памяти, сколько весит её файл.",
+        "id": "Hanya mendengarkan di 127.0.0.1 dan tidak punya kata sandi. Unduh model dari Open WebUI (Admin → Models) atau dengan \"docker exec panel-ollama ollama pull <model>\". Sebuah model butuh memori kira-kira sebesar ukuran file-nya."
       },
       "license": "MIT",
       "homepage": "https://ollama.com",
@@ -199,11 +224,21 @@
       "version": "1.37.5",
       "description": {
         "en": "A light password manager server that works with the official Bitwarden apps and browser extensions.",
-        "vi": "Máy chủ quản lý mật khẩu nhẹ, dùng được với ứng dụng và tiện ích trình duyệt Bitwarden."
+        "vi": "Máy chủ quản lý mật khẩu nhẹ, dùng được với ứng dụng và tiện ích trình duyệt Bitwarden.",
+        "zh": "轻量的密码管理服务器，可配合官方 Bitwarden 应用和浏览器扩展使用。",
+        "es": "Un servidor ligero de gestión de contraseñas que funciona con las aplicaciones oficiales de Bitwarden y sus extensiones para el navegador.",
+        "pt": "Um servidor leve de gerenciador de senhas que funciona com os apps oficiais e as extensões de navegador do Bitwarden.",
+        "ru": "Лёгкий сервер менеджера паролей, который работает с официальными приложениями и расширениями браузера Bitwarden.",
+        "id": "Server pengelola kata sandi yang ringan, bekerja dengan aplikasi resmi Bitwarden dan ekstensi browser-nya."
       },
       "notes": {
         "en": "Needs HTTPS: issue a certificate for the site. Sign-ups are closed; the panel invites your e-mail address, then create your account with it at /#/signup.",
-        "vi": "Cần HTTPS: hãy cấp chứng chỉ cho website. Đăng ký tự do bị tắt; panel mời e-mail của bạn, sau đó tạo tài khoản bằng e-mail đó tại /#/signup."
+        "vi": "Cần HTTPS: hãy cấp chứng chỉ cho website. Đăng ký tự do bị tắt; panel mời e-mail của bạn, sau đó tạo tài khoản bằng e-mail đó tại /#/signup.",
+        "zh": "需要 HTTPS：请为网站签发证书。注册已关闭；面板会邀请你的邮箱地址，然后在 /#/signup 用它创建账户。",
+        "es": "Necesita HTTPS: emite un certificado para el sitio. Los registros están cerrados; el panel invita a tu dirección de correo y luego creas tu cuenta con ella en /#/signup.",
+        "pt": "Precisa de HTTPS: emita um certificado para o site. Os cadastros ficam fechados; o painel convida o seu endereço de e-mail, e depois você cria a sua conta com ele em /#/signup.",
+        "ru": "Нужен HTTPS: выпустите сертификат для сайта. Регистрация закрыта; панель отправляет приглашение на ваш адрес электронной почты, затем создайте с ним учётную запись на странице /#/signup.",
+        "id": "Memerlukan HTTPS: dapatkan sertifikat untuk situs. Pendaftaran ditutup; panel mengundang alamat email Anda, lalu buat akun Anda dengan alamat itu di /#/signup."
       },
       "license": "AGPL-3.0-only",
       "homepage": "https://github.com/dani-garcia/vaultwarden",
@@ -269,7 +304,12 @@
             "show": true,
             "label": {
               "en": "Admin page token",
-              "vi": "Token trang quản trị"
+              "vi": "Token trang quản trị",
+              "zh": "管理页面令牌",
+              "es": "Token de la página de administración",
+              "pt": "Token da página de admin",
+              "ru": "Токен страницы администратора",
+              "id": "Token halaman admin"
             }
           },
           "admin_token_hash": {
@@ -318,11 +358,21 @@
       "version": "1.0.6",
       "description": {
         "en": "S3-compatible object storage with a web console, in place of MinIO. Use it as a backup target or for app uploads.",
-        "vi": "Lưu trữ đối tượng tương thích S3 có giao diện web, thay cho MinIO. Dùng làm nơi sao lưu hoặc lưu tệp của ứng dụng."
+        "vi": "Lưu trữ đối tượng tương thích S3 có giao diện web, thay cho MinIO. Dùng làm nơi sao lưu hoặc lưu tệp của ứng dụng.",
+        "zh": "带 Web 控制台的 S3 兼容对象存储，可替代 MinIO。可用作备份目标或存放应用上传的文件。",
+        "es": "Almacenamiento de objetos compatible con S3, con consola web, en lugar de MinIO. Úsalo como destino de copias de seguridad o para las subidas de tus aplicaciones.",
+        "pt": "Armazenamento de objetos compatível com S3, com um console web, no lugar do MinIO. Use-o como destino de backup ou para uploads de apps.",
+        "ru": "S3-совместимое объектное хранилище с веб-консолью, замена MinIO. Используйте его как хранилище резервных копий или для загрузок приложений.",
+        "id": "Penyimpanan objek yang kompatibel dengan S3, dengan konsol web, sebagai pengganti MinIO. Gunakan sebagai tujuan pencadangan atau untuk unggahan aplikasi."
       },
       "notes": {
         "en": "The website shows the console; the S3 API listens on 127.0.0.1 (port in the credentials).",
-        "vi": "Website hiển thị bảng điều khiển; API S3 nghe trên 127.0.0.1 (cổng xem trong thông tin đăng nhập)."
+        "vi": "Website hiển thị bảng điều khiển; API S3 nghe trên 127.0.0.1 (cổng xem trong thông tin đăng nhập).",
+        "zh": "网站显示的是控制台；S3 API 监听 127.0.0.1（端口见凭据）。",
+        "es": "El sitio web muestra la consola; la API S3 escucha en 127.0.0.1 (el puerto está en las credenciales).",
+        "pt": "O site mostra o console; a API S3 escuta em 127.0.0.1 (a porta está nas credenciais).",
+        "ru": "Сайт показывает консоль; S3 API слушает 127.0.0.1 (порт указан в данных для входа).",
+        "id": "Situs web menampilkan konsol; API S3 mendengarkan di 127.0.0.1 (port-nya ada di kredensial)."
       },
       "license": "Apache-2.0",
       "homepage": "https://rustfs.com",
@@ -401,7 +451,12 @@
             "show": true,
             "label": {
               "en": "Access key",
-              "vi": "Access key"
+              "vi": "Access key",
+              "zh": "访问密钥",
+              "es": "Clave de acceso",
+              "pt": "Chave de acesso",
+              "ru": "Ключ доступа",
+              "id": "Access key"
             }
           },
           "secret_key": {
@@ -410,7 +465,12 @@
             "show": true,
             "label": {
               "en": "Secret key",
-              "vi": "Secret key"
+              "vi": "Secret key",
+              "zh": "秘密密钥",
+              "es": "Clave secreta",
+              "pt": "Chave secreta",
+              "ru": "Секретный ключ",
+              "id": "Secret key"
             }
           }
         },
@@ -427,11 +487,21 @@
       "version": "2.1.0",
       "description": {
         "en": "Upload, share, preview and edit files in a folder from the browser.",
-        "vi": "Tải lên, chia sẻ, xem và sửa tệp trong một thư mục ngay trên trình duyệt."
+        "vi": "Tải lên, chia sẻ, xem và sửa tệp trong một thư mục ngay trên trình duyệt.",
+        "zh": "在浏览器中上传、分享、预览和编辑某个文件夹中的文件。",
+        "es": "Sube, comparte, previsualiza y edita archivos de una carpeta desde el navegador.",
+        "pt": "Envie, compartilhe, visualize e edite arquivos de uma pasta pelo navegador.",
+        "ru": "Загрузка, общий доступ, просмотр и редактирование файлов в папке прямо из браузера.",
+        "id": "Unggah, bagikan, pratinjau, dan edit file di sebuah folder dari browser."
       },
       "notes": {
         "en": "The password shown is used once: FileBrowser asks for a new one at the first sign-in.",
-        "vi": "Mật khẩu hiển thị chỉ dùng một lần: FileBrowser yêu cầu đổi ở lần đăng nhập đầu."
+        "vi": "Mật khẩu hiển thị chỉ dùng một lần: FileBrowser yêu cầu đổi ở lần đăng nhập đầu.",
+        "zh": "显示的密码只能使用一次：首次登录时 FileBrowser 会要求设置新密码。",
+        "es": "La contraseña que se muestra solo sirve una vez: FileBrowser pide una nueva en el primer inicio de sesión.",
+        "pt": "A senha exibida é usada uma vez: o FileBrowser pede uma nova no primeiro login.",
+        "ru": "Показанный пароль действует один раз: при первом входе FileBrowser попросит новый.",
+        "id": "Kata sandi yang ditampilkan hanya berlaku sekali: FileBrowser meminta kata sandi baru saat pertama kali masuk."
       },
       "license": "Apache-2.0",
       "homepage": "https://filebrowserquantum.com",
@@ -510,7 +580,12 @@
       "version": "18.7",
       "description": {
         "en": "The PostgreSQL database server for your own sites and apps, on 127.0.0.1 only.",
-        "vi": "Máy chủ cơ sở dữ liệu PostgreSQL cho website và ứng dụng của bạn, chỉ trên 127.0.0.1."
+        "vi": "Máy chủ cơ sở dữ liệu PostgreSQL cho website và ứng dụng của bạn, chỉ trên 127.0.0.1.",
+        "zh": "PostgreSQL 数据库服务器，供你自己的网站和应用使用，只监听 127.0.0.1。",
+        "es": "El servidor de bases de datos PostgreSQL para tus propios sitios y aplicaciones, solo en 127.0.0.1.",
+        "pt": "O servidor de banco de dados PostgreSQL para os seus próprios sites e apps, só em 127.0.0.1.",
+        "ru": "Сервер баз данных PostgreSQL для ваших собственных сайтов и приложений, только на 127.0.0.1.",
+        "id": "Server basis data PostgreSQL untuk situs dan aplikasi Anda sendiri, hanya di 127.0.0.1."
       },
       "license": "PostgreSQL",
       "homepage": "https://www.postgresql.org",
@@ -584,7 +659,12 @@
             "show": true,
             "label": {
               "en": "Password of postgres",
-              "vi": "Mật khẩu của postgres"
+              "vi": "Mật khẩu của postgres",
+              "zh": "postgres 的密码",
+              "es": "Contraseña de postgres",
+              "pt": "Senha do postgres",
+              "ru": "Пароль postgres",
+              "id": "Kata sandi postgres"
             }
           }
         },
@@ -624,7 +704,12 @@
       "version": "8.0.38",
       "description": {
         "en": "The MongoDB document database for your own apps, on 127.0.0.1 only.",
-        "vi": "Cơ sở dữ liệu tài liệu MongoDB cho ứng dụng của bạn, chỉ trên 127.0.0.1."
+        "vi": "Cơ sở dữ liệu tài liệu MongoDB cho ứng dụng của bạn, chỉ trên 127.0.0.1.",
+        "zh": "MongoDB 文档数据库，供你自己的应用使用，只监听 127.0.0.1。",
+        "es": "La base de datos de documentos MongoDB para tus propias aplicaciones, solo en 127.0.0.1.",
+        "pt": "O banco de dados de documentos MongoDB para os seus próprios apps, só em 127.0.0.1.",
+        "ru": "Документная база данных MongoDB для ваших собственных приложений, только на 127.0.0.1.",
+        "id": "Basis data dokumen MongoDB untuk aplikasi Anda sendiri, hanya di 127.0.0.1."
       },
       "license": "SSPL-1.0",
       "source_available": true,
@@ -664,7 +749,12 @@
         "breaking": "minor",
         "note": {
           "en": "Moving to another release series (8.0 to 8.2) needs featureCompatibilityVersion steps; the panel only updates within 8.0.",
-          "vi": "Chuyển sang dòng phát hành khác (8.0 lên 8.2) cần các bước featureCompatibilityVersion; panel chỉ cập nhật trong dòng 8.0."
+          "vi": "Chuyển sang dòng phát hành khác (8.0 lên 8.2) cần các bước featureCompatibilityVersion; panel chỉ cập nhật trong dòng 8.0.",
+          "zh": "升级到另一个发布系列（8.0 到 8.2）需要执行 featureCompatibilityVersion 步骤；面板只在 8.0 系列内更新。",
+          "es": "Pasar a otra serie de versiones (de 8.0 a 8.2) requiere los pasos de featureCompatibilityVersion; el panel solo actualiza dentro de la 8.0.",
+          "pt": "Passar para outra série de versões (de 8.0 para 8.2) exige as etapas de featureCompatibilityVersion; o painel só atualiza dentro da 8.0.",
+          "ru": "Переход на другую серию выпусков (с 8.0 на 8.2) требует шагов с featureCompatibilityVersion; панель обновляет только в пределах 8.0.",
+          "id": "Pindah ke seri rilis lain (8.0 ke 8.2) memerlukan langkah featureCompatibilityVersion; panel hanya memperbarui di dalam 8.0."
         }
       },
       "docker": {
@@ -732,7 +822,12 @@
             "show": true,
             "label": {
               "en": "Password of admin",
-              "vi": "Mật khẩu của admin"
+              "vi": "Mật khẩu của admin",
+              "zh": "admin 的密码",
+              "es": "Contraseña de admin",
+              "pt": "Senha do admin",
+              "ru": "Пароль admin",
+              "id": "Kata sandi admin"
             }
           }
         },
@@ -777,11 +872,21 @@
       "version": "4.146.0",
       "description": {
         "en": "VS Code in the browser, with a terminal, in its own container.",
-        "vi": "VS Code trên trình duyệt, có terminal, trong container riêng."
+        "vi": "VS Code trên trình duyệt, có terminal, trong container riêng.",
+        "zh": "浏览器中的 VS Code，带终端，运行在独立的容器中。",
+        "es": "VS Code en el navegador, con una terminal, en su propio contenedor.",
+        "pt": "O VS Code no navegador, com um terminal, no próprio contêiner.",
+        "ru": "VS Code в браузере, с терминалом, в собственном контейнере.",
+        "id": "VS Code di browser, dengan terminal, di kontainernya sendiri."
       },
       "notes": {
         "en": "Whoever has the password gets a shell in the container (not on the server).",
-        "vi": "Ai có mật khẩu sẽ có shell trong container (không phải trên máy chủ)."
+        "vi": "Ai có mật khẩu sẽ có shell trong container (không phải trên máy chủ).",
+        "zh": "知道密码的人可以获得容器中的 shell（不是服务器上的）。",
+        "es": "Quien tenga la contraseña obtiene una shell en el contenedor (no en el servidor).",
+        "pt": "Quem tiver a senha recebe um shell no contêiner (não no servidor).",
+        "ru": "Тот, у кого есть пароль, получает командную оболочку в контейнере (не на сервере).",
+        "id": "Siapa pun yang memegang kata sandinya mendapat shell di kontainer (bukan di server)."
       },
       "license": "MIT",
       "homepage": "https://coder.com/docs/code-server",
@@ -848,7 +953,12 @@
             "show": true,
             "label": {
               "en": "Administrator password",
-              "vi": "Mật khẩu quản trị"
+              "vi": "Mật khẩu quản trị",
+              "zh": "管理员密码",
+              "es": "Contraseña del administrador",
+              "pt": "Senha do administrador",
+              "ru": "Пароль администратора",
+              "id": "Kata sandi administrator"
             }
           },
           "password_hash": {
@@ -869,11 +979,21 @@
       "version": "3.5.0",
       "description": {
         "en": "Merge, split, compress, convert and sign PDF files on your own server.",
-        "vi": "Gộp, tách, nén, chuyển đổi và ký tệp PDF trên máy chủ của bạn."
+        "vi": "Gộp, tách, nén, chuyển đổi và ký tệp PDF trên máy chủ của bạn.",
+        "zh": "在你自己的服务器上合并、拆分、压缩、转换和签署 PDF 文件。",
+        "es": "Combina, divide, comprime, convierte y firma archivos PDF en tu propio servidor.",
+        "pt": "Junte, divida, comprima, converta e assine arquivos PDF no seu próprio servidor.",
+        "ru": "Объединяйте, разделяйте, сжимайте, конвертируйте и подписывайте PDF-файлы на своём сервере.",
+        "id": "Gabungkan, pisahkan, kompres, konversi, dan tanda tangani file PDF di server Anda sendiri."
       },
       "notes": {
         "en": "The ultra-lite build: no OCR or Office conversion, and no accounts, so the panel protects the site with a password.",
-        "vi": "Bản ultra-lite: không có OCR và chuyển đổi Office, không có tài khoản, nên panel bảo vệ website bằng mật khẩu."
+        "vi": "Bản ultra-lite: không có OCR và chuyển đổi Office, không có tài khoản, nên panel bảo vệ website bằng mật khẩu.",
+        "zh": "超轻量版本：没有 OCR 和 Office 转换，也没有账户，因此面板用密码保护该网站。",
+        "es": "La versión ultraligera: sin OCR ni conversión de Office, y sin cuentas, por eso el panel protege el sitio con una contraseña.",
+        "pt": "A build ultra-lite: sem OCR nem conversão de Office, e sem contas, então o painel protege o site com uma senha.",
+        "ru": "Сборка ultra-lite: без OCR и конвертации документов Office и без учётных записей, поэтому панель защищает сайт паролем.",
+        "id": "Build ultra-lite: tanpa OCR atau konversi Office, dan tanpa akun, jadi panel melindungi situs dengan kata sandi."
       },
       "license": "MIT",
       "homepage": "https://www.stirlingpdf.com",
@@ -947,7 +1067,12 @@
             "show": true,
             "label": {
               "en": "Website password (user admin)",
-              "vi": "Mật khẩu website (người dùng admin)"
+              "vi": "Mật khẩu website (người dùng admin)",
+              "zh": "网站密码（用户 admin）",
+              "es": "Contraseña del sitio web (usuario admin)",
+              "pt": "Senha do site (usuário admin)",
+              "ru": "Пароль сайта (пользователь admin)",
+              "id": "Kata sandi situs web (pengguna admin)"
             }
           }
         },
@@ -964,11 +1089,21 @@
       "version": "2024.10.22",
       "description": {
         "en": "Over 80 handy developer tools (hashes, encoders, converters, generators) that run in the browser.",
-        "vi": "Hơn 80 công cụ tiện dụng cho lập trình viên (hash, mã hoá, chuyển đổi, tạo dữ liệu) chạy trên trình duyệt."
+        "vi": "Hơn 80 công cụ tiện dụng cho lập trình viên (hash, mã hoá, chuyển đổi, tạo dữ liệu) chạy trên trình duyệt.",
+        "zh": "80 多个实用的开发者工具（哈希、编码、转换、生成器），在浏览器中运行。",
+        "es": "Más de 80 herramientas prácticas para desarrolladores (hashes, codificadores, conversores, generadores) que se ejecutan en el navegador.",
+        "pt": "Mais de 80 ferramentas úteis para desenvolvedores (hashes, codificadores, conversores, geradores) que rodam no navegador.",
+        "ru": "Более 80 удобных инструментов разработчика (хеши, кодировщики, конвертеры, генераторы), которые работают в браузере.",
+        "id": "Lebih dari 80 alat praktis untuk pengembang (hash, encoder, konverter, generator) yang berjalan di browser."
       },
       "notes": {
         "en": "Static pages: every tool runs in the visitor's browser. Add a site password if you want it private.",
-        "vi": "Trang tĩnh: mọi công cụ chạy trên trình duyệt người xem. Đặt mật khẩu website nếu muốn riêng tư."
+        "vi": "Trang tĩnh: mọi công cụ chạy trên trình duyệt người xem. Đặt mật khẩu website nếu muốn riêng tư.",
+        "zh": "静态页面：所有工具都在访客的浏览器中运行。如果不想公开，可以添加网站密码。",
+        "es": "Páginas estáticas: cada herramienta se ejecuta en el navegador del visitante. Agrega una contraseña al sitio si quieres que sea privado.",
+        "pt": "Páginas estáticas: toda ferramenta roda no navegador do visitante. Adicione uma senha ao site se quiser deixá-lo privado.",
+        "ru": "Статические страницы: каждый инструмент работает в браузере посетителя. Добавьте пароль сайта, если хотите закрыть доступ.",
+        "id": "Halaman statis: setiap alat berjalan di browser pengunjung. Tambahkan kata sandi situs jika Anda ingin membuatnya privat."
       },
       "license": "GPL-3.0",
       "homepage": "https://it-tools.tech",
@@ -1020,11 +1155,21 @@
       "version": "12.7.0",
       "description": {
         "en": "A headless CMS: build content models in the browser and get REST and GraphQL APIs.",
-        "vi": "Headless CMS: tạo mô hình nội dung trên trình duyệt và có ngay API REST và GraphQL."
+        "vi": "Headless CMS: tạo mô hình nội dung trên trình duyệt và có ngay API REST và GraphQL.",
+        "zh": "无头 CMS：在浏览器中建立内容模型，获得 REST 和 GraphQL API。",
+        "es": "Un CMS headless: crea modelos de contenido en el navegador y obtén API REST y GraphQL.",
+        "pt": "Um CMS headless: monte modelos de conteúdo no navegador e receba APIs REST e GraphQL.",
+        "ru": "Headless CMS: создавайте модели контента в браузере и получайте REST и GraphQL API.",
+        "id": "CMS headless: buat model konten di browser dan dapatkan API REST dan GraphQL."
       },
       "notes": {
         "en": "Free for organisations with less than US$5 million in total yearly finances (BUSL-1.1).",
-        "vi": "Miễn phí cho tổ chức có tổng tài chính dưới 5 triệu USD mỗi năm (BUSL-1.1)."
+        "vi": "Miễn phí cho tổ chức có tổng tài chính dưới 5 triệu USD mỗi năm (BUSL-1.1).",
+        "zh": "对年度财务总额低于 500 万美元的组织免费（BUSL-1.1）。",
+        "es": "Gratuito para organizaciones con menos de 5 millones de dólares estadounidenses de finanzas anuales totales (BUSL-1.1).",
+        "pt": "Gratuito para organizações com menos de US$ 5 milhões em finanças anuais totais (BUSL-1.1).",
+        "ru": "Бесплатно для организаций с общим годовым бюджетом меньше 5 млн долларов США (BUSL-1.1).",
+        "id": "Gratis untuk organisasi dengan total keuangan tahunan kurang dari US$5 juta (BUSL-1.1)."
       },
       "license": "BUSL-1.1",
       "source_available": true,
@@ -1105,7 +1250,12 @@
             "show": true,
             "label": {
               "en": "Administrator password",
-              "vi": "Mật khẩu quản trị"
+              "vi": "Mật khẩu quản trị",
+              "zh": "管理员密码",
+              "es": "Contraseña del administrador",
+              "pt": "Senha do administrador",
+              "ru": "Пароль администратора",
+              "id": "Kata sandi administrator"
             }
           },
           "key": {
@@ -1130,7 +1280,12 @@
       "version": "3.6.1",
       "description": {
         "en": "A modern wiki with visual and Markdown editors, search and page history.",
-        "vi": "Wiki hiện đại với trình soạn thảo trực quan và Markdown, tìm kiếm và lịch sử trang."
+        "vi": "Wiki hiện đại với trình soạn thảo trực quan và Markdown, tìm kiếm và lịch sử trang.",
+        "zh": "现代化的 Wiki，提供可视化和 Markdown 编辑器、搜索和页面历史。",
+        "es": "Una wiki moderna con editores visual y Markdown, búsqueda e historial de páginas.",
+        "pt": "Um wiki moderno com editores visual e Markdown, pesquisa e histórico de páginas.",
+        "ru": "Современная вики с визуальным редактором и редактором Markdown, поиском и историей страниц.",
+        "id": "Wiki modern dengan editor visual dan Markdown, pencarian, dan riwayat halaman."
       },
       "license": "AGPL-3.0",
       "homepage": "https://js.wiki",
@@ -1241,7 +1396,12 @@
             "show": true,
             "label": {
               "en": "Administrator password",
-              "vi": "Mật khẩu quản trị"
+              "vi": "Mật khẩu quản trị",
+              "zh": "管理员密码",
+              "es": "Contraseña del administrador",
+              "pt": "Senha do administrador",
+              "ru": "Пароль администратора",
+              "id": "Kata sandi administrator"
             }
           },
           "db_password": {
@@ -1281,12 +1441,17 @@
     {
       "id": "umami",
       "name": "Umami",
-      "category": "analytics",
+      "category": "monitoring",
       "kind": "docker",
       "version": "3.5.0",
       "description": {
         "en": "Simple, privacy-friendly website analytics without cookies, an alternative to Google Analytics.",
-        "vi": "Thống kê truy cập website đơn giản, tôn trọng quyền riêng tư, không dùng cookie; thay thế Google Analytics."
+        "vi": "Thống kê truy cập website đơn giản, tôn trọng quyền riêng tư, không dùng cookie; thay thế Google Analytics.",
+        "zh": "简单、注重隐私、不用 Cookie 的网站分析工具，可替代 Google Analytics。",
+        "es": "Analítica web sencilla y respetuosa con la privacidad, sin cookies, una alternativa a Google Analytics.",
+        "pt": "Análise de sites simples e respeitosa com a privacidade, sem cookies, uma alternativa ao Google Analytics.",
+        "ru": "Простая веб-аналитика без cookie, бережная к приватности, — альтернатива Google Analytics.",
+        "id": "Analitik situs web yang sederhana dan menjaga privasi, tanpa cookie, sebagai alternatif Google Analytics."
       },
       "license": "MIT",
       "homepage": "https://umami.is",
@@ -1379,7 +1544,12 @@
             "show": true,
             "label": {
               "en": "Administrator password",
-              "vi": "Mật khẩu quản trị"
+              "vi": "Mật khẩu quản trị",
+              "zh": "管理员密码",
+              "es": "Contraseña del administrador",
+              "pt": "Senha do administrador",
+              "ru": "Пароль администратора",
+              "id": "Kata sandi administrator"
             }
           },
           "admin_password_bcrypt": {
@@ -1446,16 +1616,26 @@
     {
       "id": "adguard-home",
       "name": "AdGuard Home",
-      "category": "network",
+      "category": "security",
       "kind": "docker",
       "version": "1.0.0",
       "description": {
         "en": "Blocks ads and trackers for your devices through your own private DNS-over-HTTPS address.",
-        "vi": "Chặn quảng cáo và trình theo dõi cho thiết bị của bạn qua địa chỉ DNS-over-HTTPS riêng."
+        "vi": "Chặn quảng cáo và trình theo dõi cho thiết bị của bạn qua địa chỉ DNS-over-HTTPS riêng.",
+        "zh": "通过你自己的私有 DNS-over-HTTPS 地址，为你的设备拦截广告和跟踪器。",
+        "es": "Bloquea anuncios y rastreadores en tus dispositivos mediante tu propia dirección privada de DNS-over-HTTPS.",
+        "pt": "Bloqueia anúncios e rastreadores nos seus dispositivos por meio do seu próprio endereço privado de DNS-over-HTTPS.",
+        "ru": "Блокирует рекламу и трекеры на ваших устройствах через ваш собственный закрытый адрес DNS-over-HTTPS.",
+        "id": "Memblokir iklan dan pelacak untuk perangkat Anda lewat alamat DNS-over-HTTPS privat milik Anda sendiri."
       },
       "notes": {
         "en": "Only DNS-over-HTTPS, and only for the private address in the credentials: it is never an open resolver. Needs HTTPS for the site.",
-        "vi": "Chỉ DNS-over-HTTPS, và chỉ cho địa chỉ riêng trong thông tin đăng nhập: không bao giờ là resolver mở. Website cần HTTPS."
+        "vi": "Chỉ DNS-over-HTTPS, và chỉ cho địa chỉ riêng trong thông tin đăng nhập: không bao giờ là resolver mở. Website cần HTTPS.",
+        "zh": "只提供 DNS-over-HTTPS，且只服务凭据中的私有地址：它绝不会成为开放解析器。网站需要 HTTPS。",
+        "es": "Solo DNS-over-HTTPS, y solo para la dirección privada que figura en las credenciales: nunca es un resolvedor abierto. El sitio necesita HTTPS.",
+        "pt": "Só DNS-over-HTTPS, e só para o endereço privado que está nas credenciais: nunca é um resolver aberto. Precisa de HTTPS no site.",
+        "ru": "Только DNS-over-HTTPS и только для закрытого адреса из данных для входа: это никогда не открытый резолвер. Сайту нужен HTTPS.",
+        "id": "Hanya DNS-over-HTTPS, dan hanya untuk alamat privat di kredensial: tidak pernah menjadi resolver terbuka. Memerlukan HTTPS untuk situs."
       },
       "license": "GPL-3.0",
       "homepage": "https://adguard.com/adguard-home/overview.html",
@@ -1528,7 +1708,12 @@
             "show": true,
             "label": {
               "en": "Administrator password",
-              "vi": "Mật khẩu quản trị"
+              "vi": "Mật khẩu quản trị",
+              "zh": "管理员密码",
+              "es": "Contraseña del administrador",
+              "pt": "Senha do administrador",
+              "ru": "Пароль администратора",
+              "id": "Kata sandi administrator"
             }
           },
           "admin_password_bcrypt": {
@@ -1543,7 +1728,12 @@
             "show": true,
             "label": {
               "en": "Private DoH ClientID",
-              "vi": "ClientID DoH riêng"
+              "vi": "ClientID DoH riêng",
+              "zh": "私有 DoH ClientID",
+              "es": "ClientID privado de DoH",
+              "pt": "ClientID privado do DoH",
+              "ru": "Закрытый ClientID для DoH",
+              "id": "ClientID DoH privat"
             }
           }
         },
@@ -1555,16 +1745,26 @@
     {
       "id": "odoo",
       "name": "Odoo",
-      "category": "business",
+      "category": "ecommerce",
       "kind": "docker",
       "version": "19.0-20261123",
       "description": {
         "en": "Open-source ERP: CRM, sales, invoicing, inventory, website and more (Community edition).",
-        "vi": "ERP mã nguồn mở: CRM, bán hàng, hoá đơn, kho, website và nhiều hơn (bản Community)."
+        "vi": "ERP mã nguồn mở: CRM, bán hàng, hoá đơn, kho, website và nhiều hơn (bản Community).",
+        "zh": "开源 ERP：CRM、销售、开票、库存、网站等（社区版）。",
+        "es": "ERP de código abierto: CRM, ventas, facturación, inventario, sitio web y más (edición Community).",
+        "pt": "ERP de código aberto: CRM, vendas, faturamento, estoque, site e mais (edição Community).",
+        "ru": "ERP с открытым исходным кодом: CRM, продажи, выставление счетов, склад, сайт и многое другое (Community edition).",
+        "id": "ERP sumber terbuka: CRM, penjualan, faktur, inventaris, situs web, dan lainnya (edisi Community)."
       },
       "notes": {
         "en": "The database manager is turned off; the master password is in the credentials. Each business module you add needs more memory.",
-        "vi": "Trình quản lý cơ sở dữ liệu bị tắt; mật khẩu chính nằm trong thông tin đăng nhập. Mỗi phân hệ bạn thêm cần thêm bộ nhớ."
+        "vi": "Trình quản lý cơ sở dữ liệu bị tắt; mật khẩu chính nằm trong thông tin đăng nhập. Mỗi phân hệ bạn thêm cần thêm bộ nhớ.",
+        "zh": "数据库管理器已关闭；主密码在凭据中。每添加一个业务模块都需要更多内存。",
+        "es": "El gestor de bases de datos está desactivado; la contraseña maestra está en las credenciales. Cada módulo de negocio que agregues necesita más memoria.",
+        "pt": "O gerenciador de bancos de dados fica desativado; a senha mestra está nas credenciais. Cada módulo de negócio que você adiciona precisa de mais memória.",
+        "ru": "Менеджер баз данных выключен; мастер-пароль указан в данных для входа. Каждый добавленный бизнес-модуль требует больше памяти.",
+        "id": "Pengelola basis data dinonaktifkan; kata sandi master ada di kredensial. Setiap modul bisnis yang Anda tambahkan butuh lebih banyak memori."
       },
       "license": "LGPL-3.0",
       "homepage": "https://www.odoo.com",
@@ -1688,7 +1888,12 @@
             "show": true,
             "label": {
               "en": "Administrator password",
-              "vi": "Mật khẩu quản trị"
+              "vi": "Mật khẩu quản trị",
+              "zh": "管理员密码",
+              "es": "Contraseña del administrador",
+              "pt": "Senha do administrador",
+              "ru": "Пароль администратора",
+              "id": "Kata sandi administrator"
             }
           },
           "db_password": {
@@ -1701,7 +1906,12 @@
             "show": true,
             "label": {
               "en": "Master password",
-              "vi": "Mật khẩu chính"
+              "vi": "Mật khẩu chính",
+              "zh": "主密码",
+              "es": "Contraseña maestra",
+              "pt": "Senha mestra",
+              "ru": "Мастер-пароль",
+              "id": "Kata sandi master"
             }
           }
         },
@@ -1777,7 +1987,12 @@
       "version": "6.79.0",
       "description": {
         "en": "A fast publishing platform for blogs and newsletters.",
-        "vi": "Nền tảng xuất bản nhanh cho blog và bản tin."
+        "vi": "Nền tảng xuất bản nhanh cho blog và bản tin.",
+        "zh": "快速的博客和电子报发布平台。",
+        "es": "Una plataforma de publicación rápida para blogs y boletines.",
+        "pt": "Uma plataforma de publicação rápida para blogs e newsletters.",
+        "ru": "Быстрая платформа для блогов и рассылок.",
+        "id": "Platform publikasi yang cepat untuk blog dan newsletter."
       },
       "license": "MIT",
       "homepage": "https://ghost.org",
@@ -1802,7 +2017,12 @@
         "url_path": "/ghost/",
         "note": {
           "en": "Create the administrator account in the app right after the install.",
-          "vi": "Tạo tài khoản quản trị trong ứng dụng ngay sau khi cài."
+          "vi": "Tạo tài khoản quản trị trong ứng dụng ngay sau khi cài.",
+          "zh": "安装后请立即在应用中创建管理员账户。",
+          "es": "Crea la cuenta de administrador en la aplicación justo después de la instalación.",
+          "pt": "Crie a conta de administrador no app logo depois da instalação.",
+          "ru": "Создайте учётную запись администратора в приложении сразу после установки.",
+          "id": "Buat akun administrator di aplikasi segera setelah instalasi."
         }
       },
       "updates": {
@@ -1852,7 +2072,12 @@
       "version": "2.5.12",
       "description": {
         "en": "Watches your websites and services and alerts you when they go down.",
-        "vi": "Theo dõi website và dịch vụ, báo cho bạn khi chúng ngừng hoạt động."
+        "vi": "Theo dõi website và dịch vụ, báo cho bạn khi chúng ngừng hoạt động.",
+        "zh": "监视你的网站和服务，在它们宕机时向你发出告警。",
+        "es": "Vigila tus sitios web y servicios y te avisa cuando dejan de responder.",
+        "pt": "Vigia os seus sites e serviços e avisa você quando eles saem do ar.",
+        "ru": "Следит за вашими сайтами и сервисами и оповещает, когда они перестают работать.",
+        "id": "Memantau situs web dan layanan Anda, dan memberi peringatan saat mati."
       },
       "license": "MIT",
       "homepage": "https://uptime.kuma.pet",
@@ -1876,7 +2101,12 @@
         "method": "signup",
         "note": {
           "en": "Create the administrator account in the app right after the install.",
-          "vi": "Tạo tài khoản quản trị trong ứng dụng ngay sau khi cài."
+          "vi": "Tạo tài khoản quản trị trong ứng dụng ngay sau khi cài.",
+          "zh": "安装后请立即在应用中创建管理员账户。",
+          "es": "Crea la cuenta de administrador en la aplicación justo después de la instalación.",
+          "pt": "Crie a conta de administrador no app logo depois da instalação.",
+          "ru": "Создайте учётную запись администратора в приложении сразу после установки.",
+          "id": "Buat akun administrator di aplikasi segera setelah instalasi."
         }
       },
       "updates": {
@@ -1917,12 +2147,17 @@
     {
       "id": "n8n",
       "name": "n8n",
-      "category": "automation",
+      "category": "devtools",
       "kind": "docker",
       "version": "2.49.5",
       "description": {
         "en": "Workflow automation: connect apps and APIs with a visual editor.",
-        "vi": "Tự động hoá quy trình: kết nối ứng dụng và API bằng trình soạn thảo trực quan."
+        "vi": "Tự động hoá quy trình: kết nối ứng dụng và API bằng trình soạn thảo trực quan.",
+        "zh": "工作流自动化：用可视化编辑器连接应用和 API。",
+        "es": "Automatización de flujos de trabajo: conecta aplicaciones y API con un editor visual.",
+        "pt": "Automação de workflows: conecte apps e APIs com um editor visual.",
+        "ru": "Автоматизация рабочих процессов: связывайте приложения и API в визуальном редакторе.",
+        "id": "Otomatisasi alur kerja: hubungkan aplikasi dan API dengan editor visual."
       },
       "license": "Sustainable Use License",
       "source_available": true,
@@ -1947,7 +2182,12 @@
         "method": "signup",
         "note": {
           "en": "Create the administrator account in the app right after the install.",
-          "vi": "Tạo tài khoản quản trị trong ứng dụng ngay sau khi cài."
+          "vi": "Tạo tài khoản quản trị trong ứng dụng ngay sau khi cài.",
+          "zh": "安装后请立即在应用中创建管理员账户。",
+          "es": "Crea la cuenta de administrador en la aplicación justo después de la instalación.",
+          "pt": "Crie a conta de administrador no app logo depois da instalação.",
+          "ru": "Создайте учётную запись администратора в приложении сразу после установки.",
+          "id": "Buat akun administrator di aplikasi segera setelah instalasi."
         }
       },
       "updates": {
@@ -2001,7 +2241,12 @@
       "version": "28.4.0",
       "description": {
         "en": "Your own Git server with pull requests, issues and CI.",
-        "vi": "Máy chủ Git riêng có pull request, issue và CI."
+        "vi": "Máy chủ Git riêng có pull request, issue và CI.",
+        "zh": "你自己的 Git 服务器，支持拉取请求、议题和 CI。",
+        "es": "Tu propio servidor Git con pull requests, issues y CI.",
+        "pt": "O seu próprio servidor Git, com pull requests, issues e CI.",
+        "ru": "Ваш собственный Git-сервер с pull request, issue и CI.",
+        "id": "Server Git Anda sendiri dengan pull request, issue, dan CI."
       },
       "license": "MIT",
       "homepage": "https://about.gitea.com",
@@ -2025,14 +2270,24 @@
         "method": "signup",
         "note": {
           "en": "The first account registered becomes the administrator: register it right after the install (the web installer is skipped).",
-          "vi": "Tài khoản đăng ký đầu tiên trở thành quản trị viên: hãy đăng ký ngay sau khi cài (bỏ qua trình cài đặt web)."
+          "vi": "Tài khoản đăng ký đầu tiên trở thành quản trị viên: hãy đăng ký ngay sau khi cài (bỏ qua trình cài đặt web).",
+          "zh": "第一个注册的账户会成为管理员：请在安装后立即注册（已跳过网页安装程序）。",
+          "es": "La primera cuenta registrada se convierte en administradora: regístrala justo después de la instalación (se omite el instalador web).",
+          "pt": "A primeira conta cadastrada vira a de administrador: cadastre-a logo depois da instalação (o instalador web é pulado).",
+          "ru": "Первая зарегистрированная учётная запись становится администратором: зарегистрируйте её сразу после установки (веб-установщик пропускается).",
+          "id": "Akun pertama yang didaftarkan menjadi administrator: daftarkan segera setelah instalasi (penginstal web dilewati)."
         }
       },
       "updates": {
         "strategy": "recreate",
         "note": {
           "en": "Installs made before this catalog used gitea/gitea:1, which stopped at 1.27.3; updating moves them to 28.x after a backup.",
-          "vi": "Bản cài trước catalog này dùng gitea/gitea:1, đã dừng ở 1.27.3; cập nhật sẽ chuyển lên 28.x sau khi sao lưu."
+          "vi": "Bản cài trước catalog này dùng gitea/gitea:1, đã dừng ở 1.27.3; cập nhật sẽ chuyển lên 28.x sau khi sao lưu.",
+          "zh": "在此目录之前安装的实例使用 gitea/gitea:1，它停留在 1.27.3；更新会在备份后将其迁移到 28.x。",
+          "es": "Las instalaciones anteriores a este catálogo usaban gitea/gitea:1, que se detuvo en la 1.27.3; al actualizar pasan a la 28.x después de una copia de seguridad.",
+          "pt": "As instalações feitas antes deste catálogo usavam gitea/gitea:1, que parou na 1.27.3; a atualização as leva para a 28.x depois de um backup.",
+          "ru": "Установки, сделанные до этого каталога, использовали gitea/gitea:1, который остановился на 1.27.3; обновление после резервного копирования переводит их на 28.x.",
+          "id": "Instalasi yang dibuat sebelum katalog ini memakai gitea/gitea:1, yang berhenti di 1.27.3; pembaruan memindahkannya ke 28.x setelah pencadangan."
         }
       },
       "docker": {
@@ -2085,6 +2340,1880 @@
       }
     },
     {
+      "id": "grafana",
+      "name": "Grafana",
+      "category": "monitoring",
+      "kind": "docker",
+      "version": "13.3.2",
+      "description": {
+        "en": "Dashboards and alerts for metrics, logs and databases such as Prometheus, Loki, MySQL and PostgreSQL.",
+        "vi": "Bảng biểu đồ và cảnh báo cho số liệu, log và cơ sở dữ liệu như Prometheus, Loki, MySQL, PostgreSQL.",
+        "zh": "为 Prometheus、Loki、MySQL 和 PostgreSQL 等的指标、日志和数据库提供仪表盘和告警。",
+        "es": "Paneles y alertas para métricas, registros y bases de datos como Prometheus, Loki, MySQL y PostgreSQL.",
+        "pt": "Dashboards e alertas para métricas, logs e bancos de dados como Prometheus, Loki, MySQL e PostgreSQL.",
+        "ru": "Панели мониторинга и оповещения для метрик, журналов и баз данных, таких как Prometheus, Loki, MySQL и PostgreSQL.",
+        "id": "Dasbor dan peringatan untuk metrik, log, dan basis data seperti Prometheus, Loki, MySQL, dan PostgreSQL."
+      },
+      "license": "AGPL-3.0-only",
+      "homepage": "https://grafana.com/oss/grafana/",
+      "source": "https://github.com/grafana/grafana",
+      "logo": "grafana",
+      "resources": {
+        "memory_limit_mb": 512,
+        "min_ram_mb": 900,
+        "recommended_ram_mb": 1800,
+        "disk_mb": 512,
+        "image_mb": 1470,
+        "idle_ram_mb": 310
+      },
+      "requires": {
+        "arch": [
+          "amd64",
+          "arm64"
+        ]
+      },
+      "admin": {
+        "method": "generated",
+        "user": "admin",
+        "password_secret": "admin_password"
+      },
+      "updates": {
+        "strategy": "recreate",
+        "breaking": "major"
+      },
+      "docker": {
+        "web": {
+          "service": "app",
+          "port": 3000,
+          "health": "/api/health",
+          "upload_mb": 16
+        },
+        "services": {
+          "app": {
+            "image": "grafana/grafana:13.3.2",
+            "digest": "sha256:81556409ba48b2b922e0adb69a2511337d8ba7578f11962eefa6149a2d815101",
+            "user": "site",
+            "memory_mb": 512,
+            "env": {
+              "GF_ANALYTICS_CHECK_FOR_PLUGIN_UPDATES": "false",
+              "GF_ANALYTICS_CHECK_FOR_UPDATES": "false",
+              "GF_ANALYTICS_REPORTING_ENABLED": "false",
+              "GF_NEWS_NEWS_FEED_ENABLED": "false",
+              "GF_PLUGINS_PREINSTALL_DISABLED": "true",
+              "GF_SECURITY_ADMIN_PASSWORD__FILE": "/run/secrets/admin_password",
+              "GF_SECURITY_ADMIN_USER": "admin",
+              "GF_SECURITY_COOKIE_SECURE": "${https}",
+              "GF_SERVER_DOMAIN": "${domain}",
+              "GF_SERVER_ROOT_URL": "${url}/",
+              "GF_USERS_ALLOW_SIGN_UP": "false"
+            },
+            "secret_files": {
+              "/run/secrets/admin_password": "admin_password"
+            },
+            "volumes": [
+              {
+                "source": "data",
+                "target": "/var/lib/grafana",
+                "owner": "site"
+              }
+            ]
+          }
+        },
+        "secrets": {
+          "admin_password": {
+            "gen": "random",
+            "length": 20,
+            "show": true,
+            "label": {
+              "en": "Administrator password",
+              "vi": "Mật khẩu quản trị",
+              "zh": "管理员密码",
+              "es": "Contraseña del administrador",
+              "pt": "Senha do administrador",
+              "ru": "Пароль администратора",
+              "id": "Kata sandi administrator"
+            }
+          }
+        },
+        "backup": {
+          "consistency": "pause"
+        }
+      }
+    },
+    {
+      "id": "ntfy",
+      "name": "ntfy",
+      "category": "communication",
+      "kind": "docker",
+      "version": "2.38.2",
+      "description": {
+        "en": "Send push notifications to your phone or desktop from scripts, cron jobs and monitoring with a simple HTTP request.",
+        "vi": "Gửi thông báo đẩy tới điện thoại hoặc máy tính từ script, cron và công cụ giám sát chỉ bằng một lệnh HTTP.",
+        "zh": "通过简单的 HTTP 请求，从脚本、定时任务和监控向你的手机或电脑发送推送通知。",
+        "es": "Envía notificaciones push a tu teléfono o tu escritorio desde scripts, tareas cron y herramientas de monitoreo con una simple solicitud HTTP.",
+        "pt": "Envie notificações push para o seu celular ou computador a partir de scripts, tarefas cron e monitoramento, com uma simples requisição HTTP.",
+        "ru": "Отправляйте push-уведомления на телефон или компьютер из скриптов, заданий cron и мониторинга простым HTTP-запросом.",
+        "id": "Kirim notifikasi push ke ponsel atau desktop Anda dari skrip, tugas cron, dan pemantauan dengan permintaan HTTP sederhana."
+      },
+      "notes": {
+        "en": "Nobody can read or send messages without signing in. The admin account is kept in the app's settings: change its password from the panel's credentials, not in ntfy.",
+        "vi": "Không đăng nhập thì không ai đọc hay gửi được tin. Tài khoản admin nằm trong cấu hình của ứng dụng, nên mật khẩu của nó xem trong Thông tin đăng nhập của panel.",
+        "zh": "不登录就无法读取或发送消息。管理员账户保存在应用的设置中：请通过面板中的凭据修改它的密码，而不是在 ntfy 中修改。",
+        "es": "Nadie puede leer ni enviar mensajes sin iniciar sesión. La cuenta de administrador se guarda en la configuración de la aplicación: cambia su contraseña desde las credenciales del panel, no en ntfy.",
+        "pt": "Ninguém pode ler nem enviar mensagens sem fazer login. A conta de admin fica nas configurações do app: troque a senha dela pelas credenciais do painel, não no ntfy.",
+        "ru": "Без входа никто не может читать или отправлять сообщения. Учётная запись администратора хранится в настройках приложения: меняйте её пароль в данных для входа панели, а не в ntfy.",
+        "id": "Tidak ada yang bisa membaca atau mengirim pesan tanpa masuk. Akun admin disimpan di pengaturan aplikasi: ganti kata sandinya dari kredensial di panel, bukan di ntfy."
+      },
+      "license": "Apache-2.0 OR GPL-2.0",
+      "homepage": "https://ntfy.sh",
+      "source": "https://github.com/binwiederhier/ntfy",
+      "logo": "ntfy",
+      "resources": {
+        "memory_limit_mb": 128,
+        "min_ram_mb": 230,
+        "recommended_ram_mb": 450,
+        "disk_mb": 256,
+        "image_mb": 86,
+        "idle_ram_mb": 52
+      },
+      "requires": {
+        "arch": [
+          "amd64",
+          "arm64"
+        ]
+      },
+      "admin": {
+        "method": "generated",
+        "user": "admin",
+        "password_secret": "admin_password"
+      },
+      "updates": {
+        "strategy": "recreate"
+      },
+      "docker": {
+        "web": {
+          "service": "app",
+          "port": 80,
+          "health": "/v1/health",
+          "upload_mb": 16
+        },
+        "services": {
+          "app": {
+            "image": "binwiederhier/ntfy:v2.38.2",
+            "digest": "sha256:ca35419d29a834824db2440fa9320897fbe40b026c5fc2360c76ed3501b5e716",
+            "user": "site",
+            "memory_mb": 128,
+            "command": [
+              "serve"
+            ],
+            "env": {
+              "NTFY_ATTACHMENT_CACHE_DIR": "/var/lib/ntfy/attachments",
+              "NTFY_AUTH_DEFAULT_ACCESS": "deny-all",
+              "NTFY_AUTH_FILE": "/var/lib/ntfy/auth.db",
+              "NTFY_AUTH_USERS": "admin:${secret.admin_password_bcrypt}:admin",
+              "NTFY_BASE_URL": "${url}",
+              "NTFY_BEHIND_PROXY": "true",
+              "NTFY_CACHE_FILE": "/var/lib/ntfy/cache.db",
+              "NTFY_ENABLE_LOGIN": "true",
+              "NTFY_ENABLE_SIGNUP": "false"
+            },
+            "volumes": [
+              {
+                "source": "data",
+                "target": "/var/lib/ntfy",
+                "owner": "site"
+              }
+            ]
+          }
+        },
+        "secrets": {
+          "admin_password": {
+            "gen": "random",
+            "length": 20,
+            "show": true,
+            "label": {
+              "en": "Administrator password",
+              "vi": "Mật khẩu quản trị",
+              "zh": "管理员密码",
+              "es": "Contraseña del administrador",
+              "pt": "Senha do administrador",
+              "ru": "Пароль администратора",
+              "id": "Kata sandi administrator"
+            }
+          },
+          "admin_password_bcrypt": {
+            "gen": "bcrypt",
+            "from": "admin_password",
+            "cost": 10
+          }
+        },
+        "backup": {
+          "consistency": "pause"
+        }
+      }
+    },
+    {
+      "id": "gotify",
+      "name": "Gotify",
+      "category": "communication",
+      "kind": "docker",
+      "version": "3.1.1",
+      "description": {
+        "en": "A small server for sending and receiving notifications, with a web interface and an Android app.",
+        "vi": "Máy chủ nhỏ gọn để gửi và nhận thông báo, có giao diện web và ứng dụng Android.",
+        "zh": "收发通知的小型服务器，带 Web 界面和 Android 应用。",
+        "es": "Un pequeño servidor para enviar y recibir notificaciones, con una interfaz web y una aplicación para Android.",
+        "pt": "Um pequeno servidor para enviar e receber notificações, com interface web e um app Android.",
+        "ru": "Небольшой сервер для отправки и получения уведомлений, с веб-интерфейсом и приложением для Android.",
+        "id": "Server kecil untuk mengirim dan menerima notifikasi, dengan antarmuka web dan aplikasi Android."
+      },
+      "license": "MIT",
+      "homepage": "https://gotify.net",
+      "source": "https://github.com/gotify/server",
+      "logo": "gotify",
+      "resources": {
+        "memory_limit_mb": 128,
+        "min_ram_mb": 230,
+        "recommended_ram_mb": 450,
+        "disk_mb": 256,
+        "image_mb": 143,
+        "idle_ram_mb": 46
+      },
+      "requires": {
+        "arch": [
+          "amd64",
+          "arm64"
+        ]
+      },
+      "admin": {
+        "method": "generated",
+        "user": "admin",
+        "password_secret": "admin_password"
+      },
+      "updates": {
+        "strategy": "recreate",
+        "breaking": "major"
+      },
+      "docker": {
+        "web": {
+          "service": "app",
+          "port": 80,
+          "health": "/health"
+        },
+        "services": {
+          "app": {
+            "image": "gotify/server:3.1.1",
+            "digest": "sha256:44fc5bbd1c0618878e33073d38c2c13126b48f245c3fe12236b1da48eb203b86",
+            "user": "site",
+            "memory_mb": 128,
+            "env": {
+              "GOTIFY_DEFAULTUSER_NAME": "admin",
+              "GOTIFY_REGISTRATION": "false",
+              "GOTIFY_SERVER_TRUSTEDPROXIES": "[172.16.0.0/12]"
+            },
+            "env_bootstrap": {
+              "GOTIFY_DEFAULTUSER_PASS": "${secret.admin_password}"
+            },
+            "volumes": [
+              {
+                "source": "data",
+                "target": "/app/data",
+                "owner": "site"
+              }
+            ]
+          }
+        },
+        "secrets": {
+          "admin_password": {
+            "gen": "random",
+            "length": 20,
+            "show": true,
+            "label": {
+              "en": "Administrator password",
+              "vi": "Mật khẩu quản trị",
+              "zh": "管理员密码",
+              "es": "Contraseña del administrador",
+              "pt": "Senha do administrador",
+              "ru": "Пароль администратора",
+              "id": "Kata sandi administrator"
+            }
+          }
+        },
+        "backup": {
+          "consistency": "pause"
+        }
+      }
+    },
+    {
+      "id": "memos",
+      "name": "Memos",
+      "category": "productivity",
+      "kind": "docker",
+      "version": "26.11.2",
+      "description": {
+        "en": "Quick notes and a personal timeline in Markdown, like a private Twitter for your thoughts and links.",
+        "vi": "Ghi chú nhanh bằng Markdown theo dòng thời gian, như một trang mạng xã hội riêng cho ý tưởng và đường link.",
+        "zh": "用 Markdown 记录速记和个人时间线，就像一个只属于你的 Twitter，存放想法和链接。",
+        "es": "Notas rápidas y una línea de tiempo personal en Markdown, como un Twitter privado para tus ideas y enlaces.",
+        "pt": "Notas rápidas e uma linha do tempo pessoal em Markdown, como um Twitter privado para as suas ideias e links.",
+        "ru": "Быстрые заметки и личная лента в Markdown, как закрытый Twitter для ваших мыслей и ссылок.",
+        "id": "Catatan cepat dan linimasa pribadi dalam Markdown, seperti Twitter privat untuk pikiran dan tautan Anda."
+      },
+      "notes": {
+        "en": "The panel creates the administrator and closes sign-ups; you can open them again in the app's settings.",
+        "vi": "Panel tạo tài khoản quản trị và tắt đăng ký mới; bạn có thể mở lại trong phần cài đặt của ứng dụng.",
+        "zh": "面板会创建管理员并关闭注册；你可以在应用的设置中重新开放注册。",
+        "es": "El panel crea el administrador y cierra los registros; puedes volver a abrirlos en la configuración de la aplicación.",
+        "pt": "O painel cria o administrador e fecha os cadastros; você pode abri-los de novo nas configurações do app.",
+        "ru": "Панель создаёт администратора и закрывает регистрацию; открыть её снова можно в настройках приложения.",
+        "id": "Panel membuat administrator dan menutup pendaftaran; Anda bisa membukanya lagi di pengaturan aplikasi."
+      },
+      "license": "MIT",
+      "homepage": "https://usememos.com",
+      "source": "https://github.com/usememos/memos",
+      "logo": "memos",
+      "min_panel": "0.24.0",
+      "resources": {
+        "memory_limit_mb": 192,
+        "min_ram_mb": 230,
+        "recommended_ram_mb": 450,
+        "disk_mb": 512,
+        "image_mb": 74,
+        "idle_ram_mb": 58
+      },
+      "requires": {
+        "arch": [
+          "amd64",
+          "arm64"
+        ]
+      },
+      "admin": {
+        "method": "generated",
+        "user": "admin",
+        "password_secret": "admin_password"
+      },
+      "updates": {
+        "strategy": "recreate"
+      },
+      "docker": {
+        "web": {
+          "service": "app",
+          "port": 5230,
+          "health": "/healthz",
+          "upload_mb": 32
+        },
+        "services": {
+          "app": {
+            "image": "neosmemo/memos:26.11.2",
+            "digest": "sha256:3c7bd779510403350465ecabb7e6fbc0887206f9d55b8decf51a205613fa5616",
+            "user": "site",
+            "memory_mb": 192,
+            "env": {
+              "MEMOS_PORT": "5230",
+              "TZ": "${tz}"
+            },
+            "volumes": [
+              {
+                "source": "data",
+                "target": "/var/opt/memos",
+                "owner": "site"
+              }
+            ]
+          }
+        },
+        "secrets": {
+          "admin_password": {
+            "gen": "random",
+            "length": 20,
+            "show": true,
+            "label": {
+              "en": "Administrator password",
+              "vi": "Mật khẩu quản trị",
+              "zh": "管理员密码",
+              "es": "Contraseña del administrador",
+              "pt": "Senha do administrador",
+              "ru": "Пароль администратора",
+              "id": "Kata sandi administrator"
+            }
+          }
+        },
+        "after_start": [
+          {
+            "http": {
+              "method": "POST",
+              "path": "/api/users",
+              "json": {
+                "password": "${secret.admin_password}",
+                "username": "admin"
+              },
+              "expect": [
+                200
+              ]
+            }
+          },
+          {
+            "http": {
+              "method": "POST",
+              "path": "/api/auth/signin",
+              "json": {
+                "passwordCredentials": {
+                  "password": "${secret.admin_password}",
+                  "username": "admin"
+                }
+              },
+              "expect": [
+                200
+              ],
+              "save": {
+                "token": "accessToken"
+              }
+            }
+          },
+          {
+            "http": {
+              "method": "PATCH",
+              "path": "/api/instance/settings/GENERAL",
+              "json": {
+                "generalSetting": {
+                  "disallowUserRegistration": true
+                },
+                "name": "instance/settings/GENERAL"
+              },
+              "headers": {
+                "Authorization": "Bearer ${step.token}"
+              },
+              "expect": [
+                200
+              ]
+            }
+          }
+        ],
+        "backup": {
+          "consistency": "pause"
+        }
+      }
+    },
+    {
+      "id": "linkding",
+      "name": "linkding",
+      "category": "productivity",
+      "kind": "docker",
+      "version": "1.47.0",
+      "description": {
+        "en": "A fast bookmark manager with tags, search, a browser extension and an archive of the pages you save.",
+        "vi": "Quản lý bookmark gọn nhẹ: gắn thẻ, tìm kiếm, tiện ích trình duyệt và lưu bản sao các trang đã đánh dấu.",
+        "zh": "快速的书签管理器，支持标签、搜索、浏览器扩展，并能存档你保存的页面。",
+        "es": "Un gestor de marcadores rápido con etiquetas, búsqueda, una extensión para el navegador y un archivo de las páginas que guardas.",
+        "pt": "Um gerenciador de favoritos rápido, com tags, pesquisa, uma extensão de navegador e um arquivo das páginas que você salva.",
+        "ru": "Быстрый менеджер закладок с тегами, поиском, расширением для браузера и архивом сохранённых страниц.",
+        "id": "Pengelola bookmark yang cepat dengan tag, pencarian, ekstensi browser, dan arsip halaman yang Anda simpan."
+      },
+      "license": "MIT",
+      "homepage": "https://linkding.link",
+      "source": "https://github.com/sissbruecker/linkding",
+      "logo": "linkding",
+      "resources": {
+        "memory_limit_mb": 384,
+        "min_ram_mb": 450,
+        "recommended_ram_mb": 900,
+        "disk_mb": 512,
+        "image_mb": 391,
+        "idle_ram_mb": 233
+      },
+      "requires": {
+        "arch": [
+          "amd64",
+          "arm64"
+        ]
+      },
+      "admin": {
+        "method": "generated",
+        "user": "admin",
+        "password_secret": "admin_password"
+      },
+      "updates": {
+        "strategy": "recreate"
+      },
+      "docker": {
+        "web": {
+          "service": "app",
+          "port": 9090,
+          "health": "/health"
+        },
+        "services": {
+          "app": {
+            "image": "sissbruecker/linkding:1.47.0",
+            "digest": "sha256:e35cb50e0581178f245125ffaa909c565416c94c9f22ace305a7d234a4345522",
+            "memory_mb": 384,
+            "env": {
+              "LD_CSRF_TRUSTED_ORIGINS": "${url}"
+            },
+            "env_bootstrap": {
+              "LD_SUPERUSER_NAME": "admin",
+              "LD_SUPERUSER_PASSWORD": "${secret.admin_password}"
+            },
+            "volumes": [
+              {
+                "source": "data",
+                "target": "/etc/linkding/data",
+                "owner": "33:33"
+              }
+            ],
+            "health": [
+              "curl",
+              "-fsS",
+              "-o",
+              "/dev/null",
+              "http://localhost:9090/health"
+            ]
+          }
+        },
+        "secrets": {
+          "admin_password": {
+            "gen": "random",
+            "length": 20,
+            "show": true,
+            "label": {
+              "en": "Administrator password",
+              "vi": "Mật khẩu quản trị",
+              "zh": "管理员密码",
+              "es": "Contraseña del administrador",
+              "pt": "Senha do administrador",
+              "ru": "Пароль администратора",
+              "id": "Kata sandi administrator"
+            }
+          }
+        },
+        "backup": {
+          "consistency": "pause"
+        }
+      }
+    },
+    {
+      "id": "navidrome",
+      "name": "Navidrome",
+      "category": "media",
+      "kind": "docker",
+      "version": "0.64.2",
+      "description": {
+        "en": "Stream your own music collection from the browser or any Subsonic app on your phone.",
+        "vi": "Nghe kho nhạc của riêng bạn trên trình duyệt hoặc ứng dụng Subsonic trên điện thoại.",
+        "zh": "在浏览器或手机上的任何 Subsonic 应用中播放你自己的音乐收藏。",
+        "es": "Escucha tu propia colección de música en streaming desde el navegador o desde cualquier aplicación Subsonic en tu teléfono.",
+        "pt": "Ouça a sua própria coleção de músicas pelo navegador ou por qualquer app Subsonic no celular.",
+        "ru": "Слушайте свою музыкальную коллекцию в браузере или в любом приложении Subsonic на телефоне.",
+        "id": "Streaming koleksi musik Anda sendiri dari browser atau aplikasi Subsonic apa pun di ponsel Anda."
+      },
+      "notes": {
+        "en": "Put your music in the music folder of the website (with Files or SFTP); Navidrome scans it on its own.",
+        "vi": "Chép nhạc vào thư mục music của website (qua Quản lý tệp hoặc SFTP); Navidrome sẽ tự quét.",
+        "zh": "把音乐放进网站的 music 文件夹（通过文件管理或 SFTP）；Navidrome 会自动扫描。",
+        "es": "Pon tu música en la carpeta music del sitio web (con Archivos o SFTP); Navidrome la analiza por su cuenta.",
+        "pt": "Coloque as suas músicas na pasta music do site (pelo Arquivos ou por SFTP); o Navidrome as verifica sozinho.",
+        "ru": "Положите музыку в папку music сайта (через «Файлы» или SFTP); Navidrome сам её просканирует.",
+        "id": "Letakkan musik Anda di folder music situs web (dengan File atau SFTP); Navidrome memindainya sendiri."
+      },
+      "license": "GPL-3.0",
+      "homepage": "https://www.navidrome.org",
+      "source": "https://github.com/navidrome/navidrome",
+      "logo": "navidrome",
+      "min_panel": "0.24.0",
+      "resources": {
+        "memory_limit_mb": 384,
+        "min_ram_mb": 450,
+        "recommended_ram_mb": 900,
+        "disk_mb": 512,
+        "image_mb": 249,
+        "idle_ram_mb": 46
+      },
+      "requires": {
+        "arch": [
+          "amd64",
+          "arm64"
+        ]
+      },
+      "admin": {
+        "method": "generated",
+        "user": "admin",
+        "password_secret": "admin_password"
+      },
+      "updates": {
+        "strategy": "recreate"
+      },
+      "docker": {
+        "web": {
+          "service": "app",
+          "port": 4533,
+          "health": "/ping"
+        },
+        "services": {
+          "app": {
+            "image": "deluan/navidrome:0.64.2",
+            "digest": "sha256:38dc2727bfcfd5ede290f8ada114fc90368146f265ae4701ddddbcbe2a44ee52",
+            "user": "site",
+            "memory_mb": 384,
+            "env": {
+              "ND_ENABLEINSIGHTSCOLLECTOR": "false",
+              "ND_LOGLEVEL": "info",
+              "ND_SCANNER_SCHEDULE": "1h"
+            },
+            "env_bootstrap": {
+              "ND_DEVAUTOCREATEADMINPASSWORD": "${secret.admin_password}"
+            },
+            "volumes": [
+              {
+                "source": "data",
+                "target": "/data",
+                "owner": "site"
+              },
+              {
+                "source": "music",
+                "target": "/music",
+                "owner": "site",
+                "read_only": true,
+                "site": true
+              }
+            ]
+          }
+        },
+        "secrets": {
+          "admin_password": {
+            "gen": "random",
+            "length": 20,
+            "show": true,
+            "label": {
+              "en": "Administrator password",
+              "vi": "Mật khẩu quản trị",
+              "zh": "管理员密码",
+              "es": "Contraseña del administrador",
+              "pt": "Senha do administrador",
+              "ru": "Пароль администратора",
+              "id": "Kata sandi administrator"
+            }
+          }
+        },
+        "backup": {
+          "consistency": "pause"
+        }
+      }
+    },
+    {
+      "id": "vikunja",
+      "name": "Vikunja",
+      "category": "productivity",
+      "kind": "docker",
+      "version": "2.8.0",
+      "description": {
+        "en": "To-do lists and projects with lists, Kanban boards, Gantt charts and shared tasks.",
+        "vi": "Quản lý việc cần làm và dự án: danh sách, bảng Kanban, biểu đồ Gantt và chia sẻ công việc.",
+        "zh": "待办清单和项目管理，支持列表、看板、甘特图和共享任务。",
+        "es": "Listas de tareas y proyectos con listas, tableros Kanban, diagramas de Gantt y tareas compartidas.",
+        "pt": "Listas de tarefas e projetos, com listas, quadros Kanban, gráficos de Gantt e tarefas compartilhadas.",
+        "ru": "Списки дел и проекты: списки, канбан-доски, диаграммы Ганта и общие задачи.",
+        "id": "Daftar tugas dan proyek dengan daftar, papan Kanban, diagram Gantt, dan tugas bersama."
+      },
+      "notes": {
+        "en": "Sign-ups are closed once the panel has created your account.",
+        "vi": "Panel tạo tài khoản của bạn xong thì đóng đăng ký mới.",
+        "zh": "面板创建你的账户后，注册即关闭。",
+        "es": "Los registros se cierran en cuanto el panel crea tu cuenta.",
+        "pt": "Os cadastros são fechados assim que o painel cria a sua conta.",
+        "ru": "Регистрация закрывается, как только панель создаст вашу учётную запись.",
+        "id": "Pendaftaran ditutup setelah panel membuat akun Anda."
+      },
+      "license": "AGPL-3.0",
+      "homepage": "https://vikunja.io",
+      "source": "https://github.com/go-vikunja/vikunja",
+      "logo": "vikunja",
+      "min_panel": "0.24.0",
+      "resources": {
+        "memory_limit_mb": 256,
+        "min_ram_mb": 450,
+        "recommended_ram_mb": 900,
+        "disk_mb": 512,
+        "image_mb": 123,
+        "idle_ram_mb": 98
+      },
+      "requires": {
+        "arch": [
+          "amd64",
+          "arm64"
+        ]
+      },
+      "admin": {
+        "method": "generated",
+        "user": "admin",
+        "password_secret": "admin_password"
+      },
+      "updates": {
+        "strategy": "recreate",
+        "breaking": "major"
+      },
+      "docker": {
+        "web": {
+          "service": "app",
+          "port": 3456,
+          "health": "/api/v1/info",
+          "upload_mb": 20
+        },
+        "services": {
+          "app": {
+            "image": "vikunja/vikunja:2.8.0",
+            "digest": "sha256:35d937baf3b5d5803bed6b9e11d007448b7b536df9e4346dc35551e1072636c3",
+            "user": "site",
+            "memory_mb": 256,
+            "env": {
+              "VIKUNJA_DATABASE_PATH": "/db/vikunja.db",
+              "VIKUNJA_DATABASE_TYPE": "sqlite",
+              "VIKUNJA_FILES_BASEPATH": "/app/vikunja/files",
+              "VIKUNJA_SERVICE_ENABLEREGISTRATION": "false",
+              "VIKUNJA_SERVICE_PUBLICURL": "${url}/",
+              "VIKUNJA_SERVICE_SECRET": "${secret.service_secret}",
+              "VIKUNJA_SERVICE_TIMEZONE": "${tz}"
+            },
+            "env_bootstrap": {
+              "VIKUNJA_SERVICE_ENABLEREGISTRATION": "true"
+            },
+            "volumes": [
+              {
+                "source": "db",
+                "target": "/db",
+                "owner": "site"
+              },
+              {
+                "source": "files",
+                "target": "/app/vikunja/files",
+                "owner": "site"
+              }
+            ]
+          }
+        },
+        "secrets": {
+          "admin_password": {
+            "gen": "random",
+            "length": 20,
+            "show": true,
+            "label": {
+              "en": "Administrator password",
+              "vi": "Mật khẩu quản trị",
+              "zh": "管理员密码",
+              "es": "Contraseña del administrador",
+              "pt": "Senha do administrador",
+              "ru": "Пароль администратора",
+              "id": "Kata sandi administrator"
+            }
+          },
+          "service_secret": {
+            "gen": "random",
+            "length": 48
+          }
+        },
+        "after_start": [
+          {
+            "http": {
+              "method": "POST",
+              "path": "/api/v1/register",
+              "json": {
+                "email": "${admin_email}",
+                "password": "${secret.admin_password}",
+                "username": "admin"
+              },
+              "expect": [
+                200
+              ]
+            }
+          }
+        ],
+        "backup": {
+          "consistency": "pause"
+        }
+      }
+    },
+    {
+      "id": "actual",
+      "name": "Actual Budget",
+      "category": "productivity",
+      "kind": "docker",
+      "version": "26.11.0",
+      "description": {
+        "en": "Personal budgeting with envelope budgets, accounts and reports, synced between your devices.",
+        "vi": "Quản lý chi tiêu cá nhân theo phương pháp phong bì, có tài khoản, báo cáo và đồng bộ giữa các thiết bị.",
+        "zh": "个人预算工具，支持信封预算、账户和报表，在你的设备之间同步。",
+        "es": "Presupuesto personal con el método de sobres, cuentas e informes, sincronizado entre tus dispositivos.",
+        "pt": "Orçamento pessoal com o método de envelopes, contas e relatórios, sincronizado entre os seus dispositivos.",
+        "ru": "Личный бюджет с конвертами, счетами и отчётами, синхронизируется между вашими устройствами.",
+        "id": "Penganggaran pribadi dengan anggaran amplop, rekening, dan laporan, disinkronkan antarperangkat Anda."
+      },
+      "notes": {
+        "en": "It needs HTTPS to open in the browser: issue a certificate for the website first.",
+        "vi": "Cần HTTPS mới mở được trên trình duyệt: hãy cấp chứng chỉ cho website trước.",
+        "zh": "需要 HTTPS 才能在浏览器中打开：请先为网站签发证书。",
+        "es": "Necesita HTTPS para abrirse en el navegador: primero emite un certificado para el sitio web.",
+        "pt": "Ele precisa de HTTPS para abrir no navegador: emita antes um certificado para o site.",
+        "ru": "Чтобы приложение открывалось в браузере, нужен HTTPS: сначала выпустите сертификат для сайта.",
+        "id": "Aplikasi ini memerlukan HTTPS agar bisa dibuka di browser: dapatkan sertifikat untuk situs web dulu."
+      },
+      "license": "MIT",
+      "homepage": "https://actualbudget.org",
+      "source": "https://github.com/actualbudget/actual",
+      "logo": "actual",
+      "resources": {
+        "memory_limit_mb": 384,
+        "min_ram_mb": 450,
+        "recommended_ram_mb": 900,
+        "disk_mb": 512,
+        "image_mb": 226,
+        "idle_ram_mb": 90
+      },
+      "requires": {
+        "https": true,
+        "arch": [
+          "amd64",
+          "arm64"
+        ]
+      },
+      "admin": {
+        "method": "generated",
+        "password_secret": "admin_password"
+      },
+      "updates": {
+        "strategy": "recreate"
+      },
+      "docker": {
+        "web": {
+          "service": "app",
+          "port": 5006,
+          "health": "/health",
+          "upload_mb": 64
+        },
+        "services": {
+          "app": {
+            "image": "actualbudget/actual-server:26.11.0-alpine",
+            "digest": "sha256:01ac24a51c6f585aba287c1bf1e96fcda46ab16a05952817c637415213251aa3",
+            "user": "site",
+            "memory_mb": 384,
+            "env": {
+              "ACTUAL_DATA_DIR": "/data",
+              "ACTUAL_LOGIN_METHOD": "password",
+              "ACTUAL_TRUSTED_PROXIES": "172.16.0.0/12"
+            },
+            "volumes": [
+              {
+                "source": "data",
+                "target": "/data",
+                "owner": "site"
+              }
+            ]
+          }
+        },
+        "secrets": {
+          "admin_password": {
+            "gen": "random",
+            "length": 20,
+            "show": true,
+            "label": {
+              "en": "Server password",
+              "vi": "Mật khẩu máy chủ",
+              "zh": "服务器密码",
+              "es": "Contraseña del servidor",
+              "pt": "Senha do servidor",
+              "ru": "Пароль сервера",
+              "id": "Kata sandi server"
+            }
+          }
+        },
+        "after_start": [
+          {
+            "http": {
+              "method": "POST",
+              "path": "/account/bootstrap",
+              "json": {
+                "password": "${secret.admin_password}"
+              },
+              "expect": [
+                200
+              ]
+            }
+          }
+        ],
+        "backup": {
+          "consistency": "pause"
+        }
+      }
+    },
+    {
+      "id": "changedetection",
+      "name": "changedetection.io",
+      "category": "monitoring",
+      "kind": "docker",
+      "version": "0.70.4",
+      "description": {
+        "en": "Watch web pages for changes, price drops and restocks, and get notified by e-mail, Telegram, ntfy and more.",
+        "vi": "Theo dõi thay đổi trên trang web, giá giảm hay hàng về, rồi báo qua e-mail, Telegram, ntfy và nhiều kênh khác.",
+        "zh": "监视网页的变化、降价和补货，并通过邮件、Telegram、ntfy 等发送通知。",
+        "es": "Vigila páginas web para detectar cambios, bajadas de precio y reposiciones, y recibe avisos por correo, Telegram, ntfy y más.",
+        "pt": "Vigie páginas web em busca de alterações, quedas de preço e reposições de estoque, e receba avisos por e-mail, Telegram, ntfy e mais.",
+        "ru": "Следите за изменениями веб-страниц, снижением цен и появлением товаров и получайте уведомления по электронной почте, в Telegram, ntfy и не только.",
+        "id": "Pantau halaman web untuk perubahan, penurunan harga, dan stok yang tersedia kembali, lalu dapatkan notifikasi lewat email, Telegram, ntfy, dan lainnya."
+      },
+      "notes": {
+        "en": "It has no accounts, so the panel protects the website with a password.",
+        "vi": "Ứng dụng không có tài khoản nên panel khóa website bằng mật khẩu.",
+        "zh": "它没有账户，因此面板用密码保护该网站。",
+        "es": "No tiene cuentas, por eso el panel protege el sitio web con una contraseña.",
+        "pt": "Ele não tem contas, então o painel protege o site com uma senha.",
+        "ru": "В приложении нет учётных записей, поэтому панель защищает сайт паролем.",
+        "id": "Aplikasi ini tidak punya akun, jadi panel melindungi situs web dengan kata sandi."
+      },
+      "license": "Apache-2.0",
+      "homepage": "https://changedetection.io",
+      "source": "https://github.com/dgtlmoon/changedetection.io",
+      "logo": "changedetection",
+      "resources": {
+        "memory_limit_mb": 512,
+        "min_ram_mb": 900,
+        "recommended_ram_mb": 1800,
+        "disk_mb": 1024,
+        "image_mb": 1177,
+        "idle_ram_mb": 143
+      },
+      "requires": {
+        "arch": [
+          "amd64",
+          "arm64"
+        ]
+      },
+      "admin": {
+        "method": "site_password",
+        "user": "admin",
+        "password_secret": "site_password"
+      },
+      "updates": {
+        "strategy": "recreate"
+      },
+      "docker": {
+        "web": {
+          "service": "app",
+          "port": 5000,
+          "health": "/",
+          "basic_auth": true
+        },
+        "services": {
+          "app": {
+            "image": "dgtlmoon/changedetection.io:0.70.4",
+            "digest": "sha256:b6aae2572a0bf1a671b1b202365ddcfe16a31fa8a60be89df606705731b55f8b",
+            "user": "site",
+            "memory_mb": 512,
+            "env": {
+              "BASE_URL": "${url}",
+              "DISABLE_VERSION_CHECK": "true",
+              "FETCH_WORKERS": "2",
+              "TZ": "${tz}",
+              "USE_X_SETTINGS": "1"
+            },
+            "volumes": [
+              {
+                "source": "data",
+                "target": "/datastore",
+                "owner": "site"
+              }
+            ]
+          }
+        },
+        "secrets": {
+          "site_password": {
+            "gen": "random",
+            "length": 20,
+            "show": true,
+            "label": {
+              "en": "Website password (user admin)",
+              "vi": "Mật khẩu website (người dùng admin)",
+              "zh": "网站密码（用户 admin）",
+              "es": "Contraseña del sitio web (usuario admin)",
+              "pt": "Senha do site (usuário admin)",
+              "ru": "Пароль сайта (пользователь admin)",
+              "id": "Kata sandi situs web (pengguna admin)"
+            }
+          }
+        },
+        "backup": {
+          "consistency": "pause"
+        }
+      }
+    },
+    {
+      "id": "healthchecks",
+      "name": "Healthchecks",
+      "category": "monitoring",
+      "kind": "docker",
+      "version": "5.0.3",
+      "description": {
+        "en": "Know when your cron jobs and backups stop running: each job pings a URL, and silence raises an alert.",
+        "vi": "Biết ngay khi cron hay tác vụ sao lưu ngừng chạy: mỗi tác vụ gọi một URL, quá hạn không gọi là có cảnh báo.",
+        "zh": "在定时任务和备份停止运行时通知你：每个任务定期请求一个 URL，一旦没有动静就发出告警。",
+        "es": "Entérate de cuándo tus tareas cron y tus copias de seguridad dejan de ejecutarse: cada tarea hace ping a una URL y el silencio genera una alerta.",
+        "pt": "Saiba quando as suas tarefas cron e os seus backups param de rodar: cada tarefa acessa uma URL, e o silêncio gera um alerta.",
+        "ru": "Узнайте, когда задания cron и резервное копирование перестают выполняться: каждое задание обращается к URL, а тишина вызывает оповещение.",
+        "id": "Ketahui saat tugas cron dan pencadangan Anda berhenti berjalan: setiap tugas melakukan ping ke URL, dan jika tidak ada ping, peringatan dikirim."
+      },
+      "notes": {
+        "en": "Without an SMTP server it cannot send e-mail, but alerts to ntfy, Telegram, Slack, webhooks and more work.",
+        "vi": "Không có máy chủ SMTP thì không gửi được e-mail, nhưng vẫn cảnh báo qua ntfy, Telegram, Slack, webhook…",
+        "zh": "没有 SMTP 服务器就无法发送邮件，但发往 ntfy、Telegram、Slack、Webhook 等的告警都可以使用。",
+        "es": "Sin un servidor SMTP no puede enviar correos, pero sí funcionan las alertas a ntfy, Telegram, Slack, webhooks y más.",
+        "pt": "Sem um servidor SMTP ele não consegue enviar e-mails, mas os alertas para ntfy, Telegram, Slack, webhooks e mais funcionam.",
+        "ru": "Без SMTP-сервера приложение не может отправлять электронную почту, но оповещения в ntfy, Telegram, Slack, вебхуки и не только работают.",
+        "id": "Tanpa server SMTP aplikasi ini tidak bisa mengirim email, tetapi peringatan ke ntfy, Telegram, Slack, webhook, dan lainnya tetap berfungsi."
+      },
+      "license": "BSD-3-Clause",
+      "homepage": "https://healthchecks.io",
+      "source": "https://github.com/healthchecks/healthchecks",
+      "logo": "healthchecks",
+      "resources": {
+        "memory_limit_mb": 384,
+        "min_ram_mb": 450,
+        "recommended_ram_mb": 900,
+        "disk_mb": 512,
+        "image_mb": 302,
+        "idle_ram_mb": 207
+      },
+      "requires": {
+        "arch": [
+          "amd64",
+          "arm64"
+        ]
+      },
+      "admin": {
+        "method": "bootstrap_env",
+        "password_secret": "admin_password",
+        "email_login": true
+      },
+      "updates": {
+        "strategy": "recreate",
+        "breaking": "major"
+      },
+      "docker": {
+        "web": {
+          "service": "app",
+          "port": 8000,
+          "health": "/health"
+        },
+        "services": {
+          "app": {
+            "image": "healthchecks/healthchecks:v5.0.3",
+            "digest": "sha256:5eb96eb72dc63ac24743f1c0fc4469931155329e05c9781a0809320de0ae479c",
+            "user": "site",
+            "memory_mb": 384,
+            "env": {
+              "ALLOWED_HOSTS": "${domain}",
+              "DB": "sqlite",
+              "DB_NAME": "/data/hc.sqlite",
+              "DEBUG": "False",
+              "DEFAULT_FROM_EMAIL": "healthchecks@${domain}",
+              "REGISTRATION_OPEN": "False",
+              "SECRET_KEY_FILE": "/run/secrets/secret_key",
+              "SITE_NAME": "Healthchecks",
+              "SITE_ROOT": "${url}"
+            },
+            "secret_files": {
+              "/run/secrets/secret_key": "secret_key"
+            },
+            "volumes": [
+              {
+                "source": "data",
+                "target": "/data",
+                "owner": "site"
+              }
+            ],
+            "health": [
+              "/opt/healthchecks/fetchstatus.py"
+            ]
+          }
+        },
+        "secrets": {
+          "admin_password": {
+            "gen": "random",
+            "length": 20,
+            "show": true,
+            "label": {
+              "en": "Administrator password",
+              "vi": "Mật khẩu quản trị",
+              "zh": "管理员密码",
+              "es": "Contraseña del administrador",
+              "pt": "Senha do administrador",
+              "ru": "Пароль администратора",
+              "id": "Kata sandi administrator"
+            }
+          },
+          "secret_key": {
+            "gen": "random",
+            "length": 50
+          }
+        },
+        "after_start": [
+          {
+            "exec": {
+              "service": "app",
+              "argv": [
+                "python",
+                "-"
+              ],
+              "stdin": "import os, django\nos.environ.setdefault('DJANGO_SETTINGS_MODULE', 'hc.settings')\ndjango.setup()\nfrom django.contrib.auth.models import User\nUser.objects.create_superuser('admin', '${admin_email}', '${secret.admin_password}')\nprint('panel-ok')\n",
+              "expect_stdout": "panel-ok"
+            }
+          }
+        ],
+        "backup": {
+          "consistency": "pause"
+        }
+      }
+    },
+    {
+      "id": "listmonk",
+      "name": "listmonk",
+      "category": "communication",
+      "kind": "docker",
+      "version": "6.2.0",
+      "description": {
+        "en": "Newsletters and mailing lists: subscribers, templates, campaigns and statistics, sent through your SMTP service.",
+        "vi": "Gửi bản tin và quản lý danh sách e-mail: người đăng ký, mẫu thư, chiến dịch, thống kê, gửi qua dịch vụ SMTP của bạn.",
+        "zh": "电子报和邮件列表：订阅者、模板、营销活动和统计，通过你的 SMTP 服务发送。",
+        "es": "Boletines y listas de correo: suscriptores, plantillas, campañas y estadísticas, enviados a través de tu servicio SMTP.",
+        "pt": "Newsletters e listas de e-mail: assinantes, modelos, campanhas e estatísticas, enviados pelo seu serviço SMTP.",
+        "ru": "Рассылки и списки рассылки: подписчики, шаблоны, кампании и статистика, отправка через ваш SMTP-сервис.",
+        "id": "Newsletter dan milis: pelanggan, template, kampanye, dan statistik, dikirim lewat layanan SMTP Anda."
+      },
+      "notes": {
+        "en": "listmonk sends through an SMTP service you add in its settings (Amazon SES, Brevo, Mailgun…): this server does not send mail itself.",
+        "vi": "listmonk gửi thư qua dịch vụ SMTP bạn khai báo trong phần cài đặt (Amazon SES, Brevo, Mailgun…): máy chủ này không tự gửi thư.",
+        "zh": "listmonk 通过你在其设置中添加的 SMTP 服务发送邮件（Amazon SES、Brevo、Mailgun…）：这台服务器本身不发送邮件。",
+        "es": "listmonk envía a través de un servicio SMTP que agregas en su configuración (Amazon SES, Brevo, Mailgun…): este servidor no envía correo por sí mismo.",
+        "pt": "O listmonk envia por um serviço SMTP que você adiciona nas configurações dele (Amazon SES, Brevo, Mailgun…): este servidor não envia e-mails por conta própria.",
+        "ru": "listmonk отправляет почту через SMTP-сервис, который вы добавляете в его настройках (Amazon SES, Brevo, Mailgun…): этот сервер сам почту не отправляет.",
+        "id": "listmonk mengirim lewat layanan SMTP yang Anda tambahkan di pengaturannya (Amazon SES, Brevo, Mailgun…): server ini tidak mengirim email sendiri."
+      },
+      "license": "AGPL-3.0",
+      "homepage": "https://listmonk.app",
+      "source": "https://github.com/knadh/listmonk",
+      "logo": "listmonk",
+      "resources": {
+        "memory_limit_mb": 384,
+        "min_ram_mb": 450,
+        "recommended_ram_mb": 900,
+        "disk_mb": 1024,
+        "image_mb": 336,
+        "idle_ram_mb": 120
+      },
+      "requires": {
+        "arch": [
+          "amd64",
+          "arm64"
+        ]
+      },
+      "admin": {
+        "method": "generated",
+        "user": "admin",
+        "password_secret": "admin_password"
+      },
+      "updates": {
+        "strategy": "recreate",
+        "breaking": "major"
+      },
+      "docker": {
+        "web": {
+          "service": "app",
+          "port": 9000,
+          "health": "/health",
+          "upload_mb": 32
+        },
+        "services": {
+          "app": {
+            "image": "listmonk/listmonk:v6.2.0",
+            "digest": "sha256:f535d59e14991337a9f2d570273685378ae86b0d7698c3e00da444e3bc205286",
+            "memory_mb": 128,
+            "command": [
+              "sh",
+              "-c",
+              "./listmonk --install --idempotent --yes --config '' && ./listmonk --upgrade --yes --config '' && exec ./listmonk --config ''"
+            ],
+            "env": {
+              "LISTMONK_app__address": "0.0.0.0:9000",
+              "LISTMONK_db__database": "listmonk",
+              "LISTMONK_db__host": "db",
+              "LISTMONK_db__password_FILE": "/run/secrets/db_password",
+              "LISTMONK_db__port": "5432",
+              "LISTMONK_db__ssl_mode": "disable",
+              "LISTMONK_db__user": "listmonk",
+              "PGID": "${site_gid}",
+              "PUID": "${site_uid}",
+              "TZ": "${tz}"
+            },
+            "env_bootstrap": {
+              "LISTMONK_ADMIN_PASSWORD_FILE": "/run/secrets/admin_password",
+              "LISTMONK_ADMIN_USER": "admin"
+            },
+            "secret_files": {
+              "/run/secrets/admin_password": "admin_password",
+              "/run/secrets/db_password": "db_password"
+            },
+            "volumes": [
+              {
+                "source": "uploads",
+                "target": "/listmonk/uploads",
+                "owner": "site"
+              }
+            ],
+            "depends_on": [
+              "db"
+            ]
+          },
+          "db": {
+            "image": "postgres:18.7-alpine",
+            "digest": "sha256:0115267ab5a509022df9319c77be365cef335adb71556c75f60f5360ee247e71",
+            "memory_mb": 256,
+            "shm_mb": 64,
+            "command": [
+              "postgres",
+              "-c",
+              "shared_buffers=32MB",
+              "-c",
+              "max_connections=40"
+            ],
+            "env": {
+              "POSTGRES_DB": "listmonk",
+              "POSTGRES_PASSWORD_FILE": "/run/secrets/db_password",
+              "POSTGRES_USER": "listmonk"
+            },
+            "secret_files": {
+              "/run/secrets/db_password": "db_password"
+            },
+            "volumes": [
+              {
+                "source": "db",
+                "target": "/var/lib/postgresql",
+                "owner": "70:70",
+                "mode": "0700"
+              }
+            ],
+            "health": [
+              "sh",
+              "-c",
+              "[ \"$(cat /proc/1/comm)\" = postgres ] && pg_isready -U listmonk -d listmonk"
+            ]
+          }
+        },
+        "secrets": {
+          "admin_password": {
+            "gen": "random",
+            "length": 20,
+            "show": true,
+            "label": {
+              "en": "Administrator password",
+              "vi": "Mật khẩu quản trị",
+              "zh": "管理员密码",
+              "es": "Contraseña del administrador",
+              "pt": "Senha do administrador",
+              "ru": "Пароль администратора",
+              "id": "Kata sandi administrator"
+            }
+          },
+          "db_password": {
+            "gen": "random",
+            "length": 32
+          }
+        },
+        "after_start": [
+          {
+            "exec": {
+              "service": "db",
+              "argv": [
+                "psql",
+                "-U",
+                "listmonk",
+                "-d",
+                "listmonk",
+                "-v",
+                "ON_ERROR_STOP=1"
+              ],
+              "stdin": "UPDATE settings SET value = '\"${url}\"' WHERE key = 'app.root_url';\n",
+              "expect_stdout": "UPDATE 1"
+            }
+          }
+        ],
+        "backup": {
+          "consistency": "dump",
+          "dumps": [
+            {
+              "service": "db",
+              "argv": [
+                "pg_dump",
+                "-U",
+                "listmonk",
+                "--clean",
+                "--if-exists",
+                "listmonk"
+              ],
+              "file": "listmonk.sql",
+              "restore_argv": [
+                "psql",
+                "-U",
+                "listmonk",
+                "-d",
+                "listmonk"
+              ]
+            }
+          ],
+          "exclude": [
+            "db"
+          ]
+        }
+      }
+    },
+    {
+      "id": "kanboard",
+      "name": "Kanboard",
+      "category": "productivity",
+      "kind": "docker",
+      "version": "1.2.58",
+      "description": {
+        "en": "A simple Kanban board for projects: tasks, swimlanes, due dates and time tracking.",
+        "vi": "Bảng Kanban đơn giản cho dự án: công việc, làn, hạn chót và theo dõi thời gian.",
+        "zh": "简单的项目看板：任务、泳道、截止日期和时间跟踪。",
+        "es": "Un tablero Kanban sencillo para proyectos: tareas, carriles, fechas de vencimiento y control del tiempo.",
+        "pt": "Um quadro Kanban simples para projetos: tarefas, raias, prazos e controle de tempo.",
+        "ru": "Простая канбан-доска для проектов: задачи, дорожки, сроки и учёт времени.",
+        "id": "Papan Kanban sederhana untuk proyek: tugas, swimlane, tenggat, dan pelacakan waktu."
+      },
+      "license": "MIT",
+      "homepage": "https://kanboard.org",
+      "source": "https://github.com/kanboard/kanboard",
+      "logo": "kanboard",
+      "resources": {
+        "memory_limit_mb": 192,
+        "min_ram_mb": 230,
+        "recommended_ram_mb": 450,
+        "disk_mb": 256,
+        "image_mb": 102,
+        "idle_ram_mb": 65
+      },
+      "requires": {
+        "arch": [
+          "amd64",
+          "arm64"
+        ]
+      },
+      "admin": {
+        "method": "generated",
+        "user": "admin",
+        "password_secret": "admin_password"
+      },
+      "updates": {
+        "strategy": "recreate"
+      },
+      "docker": {
+        "web": {
+          "service": "app",
+          "port": 80,
+          "health": "/healthcheck.php",
+          "upload_mb": 32
+        },
+        "services": {
+          "app": {
+            "image": "kanboard/kanboard:v1.2.58",
+            "digest": "sha256:51a912ecd3b6df0cca2cfb521edb2cb92462c59fff427a4938465178b1f54d19",
+            "memory_mb": 192,
+            "env": {
+              "TZ": "${tz}"
+            },
+            "volumes": [
+              {
+                "source": "data",
+                "target": "/var/www/app/data",
+                "owner": "100:101"
+              },
+              {
+                "source": "plugins",
+                "target": "/var/www/app/plugins",
+                "owner": "100:101"
+              }
+            ]
+          }
+        },
+        "secrets": {
+          "admin_password": {
+            "gen": "random",
+            "length": 20,
+            "show": true,
+            "label": {
+              "en": "Administrator password",
+              "vi": "Mật khẩu quản trị",
+              "zh": "管理员密码",
+              "es": "Contraseña del administrador",
+              "pt": "Senha do administrador",
+              "ru": "Пароль администратора",
+              "id": "Kata sandi administrator"
+            }
+          }
+        },
+        "after_start": [
+          {
+            "exec": {
+              "service": "app",
+              "argv": [
+                "s6-setuidgid",
+                "nginx",
+                "php"
+              ],
+              "stdin": "<?php\n$db = new PDO('sqlite:/var/www/app/data/db.sqlite');\n$q = $db->prepare(\"UPDATE users SET password = ? WHERE username = 'admin'\");\n$q->execute([password_hash('${secret.admin_password}', PASSWORD_BCRYPT)]);\necho $q->rowCount() === 1 ? \"panel-ok\\n\" : \"no admin user\\n\";\n",
+              "expect_stdout": "panel-ok"
+            }
+          }
+        ],
+        "backup": {
+          "consistency": "pause"
+        }
+      }
+    },
+    {
+      "id": "freshrss",
+      "name": "FreshRSS",
+      "category": "productivity",
+      "kind": "docker",
+      "version": "1.31.0",
+      "description": {
+        "en": "Read all your news sites and blogs in one place; works with mobile RSS apps through its API.",
+        "vi": "Đọc tin từ mọi trang báo và blog ở một nơi; dùng được với ứng dụng RSS trên điện thoại qua API.",
+        "zh": "在一个地方阅读你关注的所有新闻网站和博客；通过它的 API 可配合手机 RSS 应用使用。",
+        "es": "Lee todos tus sitios de noticias y blogs en un solo lugar; funciona con aplicaciones RSS móviles a través de su API.",
+        "pt": "Leia todos os seus sites de notícias e blogs em um só lugar; funciona com apps de RSS para celular pela API dele.",
+        "ru": "Читайте все свои новостные сайты и блоги в одном месте; работает с мобильными RSS-приложениями через свой API.",
+        "id": "Baca semua situs berita dan blog Anda di satu tempat; bekerja dengan aplikasi RSS seluler lewat API-nya."
+      },
+      "license": "AGPL-3.0",
+      "homepage": "https://freshrss.org",
+      "source": "https://github.com/FreshRSS/FreshRSS",
+      "logo": "freshrss",
+      "resources": {
+        "memory_limit_mb": 256,
+        "min_ram_mb": 450,
+        "recommended_ram_mb": 900,
+        "disk_mb": 512,
+        "image_mb": 85,
+        "idle_ram_mb": 58
+      },
+      "requires": {
+        "arch": [
+          "amd64",
+          "arm64"
+        ]
+      },
+      "admin": {
+        "method": "generated",
+        "user": "admin",
+        "password_secret": "admin_password"
+      },
+      "updates": {
+        "strategy": "recreate"
+      },
+      "docker": {
+        "web": {
+          "service": "app",
+          "port": 80,
+          "health": "/i/",
+          "upload_mb": 32
+        },
+        "services": {
+          "app": {
+            "image": "freshrss/freshrss:1.31.0-alpine",
+            "digest": "sha256:2cf8cb46b968cd39f0690938c66c3bf6604404b5125904a35d439c68c006991e",
+            "memory_mb": 256,
+            "env": {
+              "CRON_MIN": "7,37",
+              "FRESHRSS_INSTALL": "--api-enabled --auth-type form --base-url ${url} --db-type sqlite --default-user admin --language en",
+              "TRUSTED_PROXY": "172.16.0.0/12",
+              "TZ": "${tz}"
+            },
+            "volumes": [
+              {
+                "source": "data",
+                "target": "/var/www/FreshRSS/data",
+                "owner": "0:82"
+              },
+              {
+                "source": "extensions",
+                "target": "/var/www/FreshRSS/extensions",
+                "owner": "0:82"
+              }
+            ]
+          }
+        },
+        "secrets": {
+          "admin_password": {
+            "gen": "random",
+            "length": 20,
+            "show": true,
+            "label": {
+              "en": "Administrator password",
+              "vi": "Mật khẩu quản trị",
+              "zh": "管理员密码",
+              "es": "Contraseña del administrador",
+              "pt": "Senha do administrador",
+              "ru": "Пароль администратора",
+              "id": "Kata sandi administrator"
+            }
+          }
+        },
+        "after_start": [
+          {
+            "exec": {
+              "service": "app",
+              "argv": [
+                "php"
+              ],
+              "stdin": "<?php\nrequire '/var/www/FreshRSS/cli/_cli.php';\n$ok = FreshRSS_user_Controller::createUser('admin', '${admin_email}', '${secret.admin_password}', ['language' => 'en']);\necho $ok ? \"panel-ok\\n\" : \"panel-failed\\n\";\n",
+              "expect_stdout": "panel-ok"
+            }
+          },
+          {
+            "exec": {
+              "service": "app",
+              "argv": [
+                "./cli/access-permissions.sh",
+                "--only-userdirs"
+              ]
+            }
+          }
+        ],
+        "backup": {
+          "consistency": "pause"
+        }
+      }
+    },
+    {
+      "id": "jellyfin",
+      "name": "Jellyfin",
+      "category": "media",
+      "kind": "docker",
+      "version": "12.4",
+      "description": {
+        "en": "Your own Netflix: films, series and music from your server, on the web, phones and TVs.",
+        "vi": "Netflix của riêng bạn: phim, phim bộ và nhạc từ máy chủ, xem trên web, điện thoại và TV.",
+        "zh": "你自己的 Netflix：在网页、手机和电视上观看服务器中的电影、剧集和音乐。",
+        "es": "Tu propio Netflix: películas, series y música desde tu servidor, en la web, teléfonos y televisores.",
+        "pt": "O seu próprio Netflix: filmes, séries e músicas do seu servidor, na web, em celulares e TVs.",
+        "ru": "Свой Netflix: фильмы, сериалы и музыка с вашего сервера — в браузере, на телефонах и телевизорах.",
+        "id": "Netflix Anda sendiri: film, serial, dan musik dari server Anda, di web, ponsel, dan TV."
+      },
+      "notes": {
+        "en": "Put your videos in the media folder of the website (with Files or SFTP). Converting video on the fly takes a lot of CPU on a small server: prefer files your devices can play as they are.",
+        "vi": "Chép phim vào thư mục media của website (qua Quản lý tệp hoặc SFTP). Chuyển mã video trực tiếp rất tốn CPU trên máy chủ nhỏ: nên dùng tệp mà thiết bị phát được ngay.",
+        "zh": "把视频放进网站的 media 文件夹（通过文件管理或 SFTP）。在小服务器上实时转码视频非常耗 CPU：尽量使用设备可以直接播放的文件。",
+        "es": "Pon tus videos en la carpeta media del sitio web (con Archivos o SFTP). Convertir video sobre la marcha consume mucha CPU en un servidor pequeño: es mejor usar archivos que tus dispositivos puedan reproducir tal cual.",
+        "pt": "Coloque os seus vídeos na pasta media do site (pelo Arquivos ou por SFTP). Converter vídeo na hora consome muita CPU em um servidor pequeno: prefira arquivos que os seus dispositivos consigam reproduzir como estão.",
+        "ru": "Положите видео в папку media сайта (через «Файлы» или SFTP). Перекодирование видео на лету сильно нагружает CPU небольшого сервера: лучше используйте файлы, которые ваши устройства могут воспроизвести как есть.",
+        "id": "Letakkan video Anda di folder media situs web (dengan File atau SFTP). Mengonversi video secara langsung memakan banyak CPU di server kecil: utamakan file yang bisa diputar perangkat Anda apa adanya."
+      },
+      "license": "GPL-2.0",
+      "homepage": "https://jellyfin.org",
+      "source": "https://github.com/jellyfin/jellyfin",
+      "logo": "jellyfin",
+      "min_panel": "0.24.0",
+      "resources": {
+        "memory_limit_mb": 1024,
+        "min_ram_mb": 1800,
+        "recommended_ram_mb": 3600,
+        "disk_mb": 2048,
+        "image_mb": 1717,
+        "idle_ram_mb": 393
+      },
+      "requires": {
+        "arch": [
+          "amd64",
+          "arm64"
+        ]
+      },
+      "admin": {
+        "method": "generated",
+        "user": "admin",
+        "password_secret": "admin_password"
+      },
+      "updates": {
+        "strategy": "recreate",
+        "breaking": "major"
+      },
+      "docker": {
+        "web": {
+          "service": "app",
+          "port": 8096,
+          "health": "/health",
+          "upload_mb": 64
+        },
+        "services": {
+          "app": {
+            "image": "jellyfin/jellyfin:12.4.20261026-211555",
+            "digest": "sha256:fea863d0cd9ec445985d9c75fc6ed64e38a1d2766cf0c250a33d553f4fc1b771",
+            "user": "site",
+            "memory_mb": 1024,
+            "env": {
+              "JELLYFIN_PublishedServerUrl": "${url}",
+              "TZ": "${tz}"
+            },
+            "volumes": [
+              {
+                "source": "config",
+                "target": "/config",
+                "owner": "site"
+              },
+              {
+                "source": "cache",
+                "target": "/cache",
+                "owner": "site"
+              },
+              {
+                "source": "media",
+                "target": "/media",
+                "owner": "site",
+                "read_only": true,
+                "site": true
+              }
+            ],
+            "health": [
+              "curl",
+              "-fsS",
+              "-o",
+              "/dev/null",
+              "http://localhost:8096/health"
+            ]
+          }
+        },
+        "secrets": {
+          "admin_password": {
+            "gen": "random",
+            "length": 20,
+            "show": true,
+            "label": {
+              "en": "Administrator password",
+              "vi": "Mật khẩu quản trị",
+              "zh": "管理员密码",
+              "es": "Contraseña del administrador",
+              "pt": "Senha do administrador",
+              "ru": "Пароль администратора",
+              "id": "Kata sandi administrator"
+            }
+          }
+        },
+        "after_start": [
+          {
+            "http": {
+              "method": "GET",
+              "path": "/Startup/User",
+              "expect": [
+                200
+              ]
+            }
+          },
+          {
+            "http": {
+              "method": "POST",
+              "path": "/Startup/Configuration",
+              "json": {
+                "MetadataCountryCode": "US",
+                "PreferredMetadataLanguage": "en",
+                "UICulture": "en-US"
+              },
+              "expect": [
+                200,
+                204
+              ]
+            }
+          },
+          {
+            "http": {
+              "method": "POST",
+              "path": "/Startup/User",
+              "json": {
+                "Name": "admin",
+                "Password": "${secret.admin_password}"
+              },
+              "expect": [
+                200,
+                204
+              ]
+            }
+          },
+          {
+            "http": {
+              "method": "POST",
+              "path": "/Startup/RemoteAccess",
+              "json": {
+                "EnableAutomaticPortMapping": false,
+                "EnableRemoteAccess": true
+              },
+              "expect": [
+                200,
+                204
+              ]
+            }
+          },
+          {
+            "http": {
+              "method": "POST",
+              "path": "/Startup/Complete",
+              "expect": [
+                200,
+                204
+              ]
+            }
+          }
+        ],
+        "backup": {
+          "consistency": "pause"
+        }
+      }
+    },
+    {
+      "id": "mealie",
+      "name": "Mealie",
+      "category": "productivity",
+      "kind": "docker",
+      "version": "3.31.0",
+      "description": {
+        "en": "Save recipes from any website, plan meals for the week and build the shopping list from them.",
+        "vi": "Lưu công thức nấu ăn từ bất kỳ trang web nào, lên thực đơn cả tuần và tự tạo danh sách đi chợ.",
+        "zh": "从任何网站保存菜谱，规划一周的餐食，并据此生成购物清单。",
+        "es": "Guarda recetas de cualquier sitio web, planifica las comidas de la semana y arma la lista de compras a partir de ellas.",
+        "pt": "Salve receitas de qualquer site, planeje as refeições da semana e monte a lista de compras a partir delas.",
+        "ru": "Сохраняйте рецепты с любых сайтов, планируйте меню на неделю и составляйте по нему список покупок.",
+        "id": "Simpan resep dari situs web mana pun, rencanakan menu untuk seminggu, dan buat daftar belanja dari resep itu."
+      },
+      "notes": {
+        "en": "Sign in with changeme@example.com and the password under Credentials, then set your own e-mail address in your profile.",
+        "vi": "Đăng nhập bằng changeme@example.com và mật khẩu trong Thông tin đăng nhập, rồi đổi sang e-mail của bạn trong hồ sơ.",
+        "zh": "用 changeme@example.com 和“凭据”中的密码登录，然后在个人资料中设置你自己的邮箱地址。",
+        "es": "Inicia sesión con changeme@example.com y la contraseña que aparece en Credenciales; luego define tu propia dirección de correo en tu perfil.",
+        "pt": "Entre com changeme@example.com e a senha que está em Credenciais e depois defina o seu próprio endereço de e-mail no seu perfil.",
+        "ru": "Войдите с changeme@example.com и паролем из раздела «Данные для входа», затем укажите в профиле свой адрес электронной почты.",
+        "id": "Masuk dengan changeme@example.com dan kata sandi di Kredensial, lalu atur alamat email Anda sendiri di profil Anda."
+      },
+      "license": "AGPL-3.0",
+      "homepage": "https://mealie.io",
+      "source": "https://github.com/mealie-recipes/mealie",
+      "logo": "mealie",
+      "min_panel": "0.24.0",
+      "resources": {
+        "memory_limit_mb": 512,
+        "min_ram_mb": 900,
+        "recommended_ram_mb": 1800,
+        "disk_mb": 1024,
+        "image_mb": 1053,
+        "idle_ram_mb": 375
+      },
+      "requires": {
+        "arch": [
+          "amd64",
+          "arm64"
+        ]
+      },
+      "admin": {
+        "method": "generated",
+        "user": "changeme@example.com",
+        "password_secret": "admin_password"
+      },
+      "updates": {
+        "strategy": "recreate",
+        "breaking": "major"
+      },
+      "docker": {
+        "web": {
+          "service": "app",
+          "port": 9000,
+          "health": "/api/app/about",
+          "upload_mb": 64
+        },
+        "services": {
+          "app": {
+            "image": "ghcr.io/mealie-recipes/mealie:v3.31.0",
+            "digest": "sha256:97e21ac96e9a8d1ee15aaf558ba3f14998936b9d6f334e40ebb4c6c2127dc12f",
+            "memory_mb": 512,
+            "env": {
+              "ALLOW_SIGNUP": "false",
+              "BASE_URL": "${url}",
+              "PGID": "${site_gid}",
+              "PUID": "${site_uid}",
+              "TZ": "${tz}"
+            },
+            "volumes": [
+              {
+                "source": "data",
+                "target": "/app/data",
+                "owner": "site"
+              }
+            ],
+            "health": [
+              "curl",
+              "-fsS",
+              "-o",
+              "/dev/null",
+              "http://localhost:9000/api/app/about"
+            ]
+          }
+        },
+        "secrets": {
+          "admin_password": {
+            "gen": "random",
+            "length": 20,
+            "show": true,
+            "label": {
+              "en": "Administrator password",
+              "vi": "Mật khẩu quản trị",
+              "zh": "管理员密码",
+              "es": "Contraseña del administrador",
+              "pt": "Senha do administrador",
+              "ru": "Пароль администратора",
+              "id": "Kata sandi administrator"
+            }
+          }
+        },
+        "after_start": [
+          {
+            "http": {
+              "method": "POST",
+              "path": "/api/auth/token",
+              "form": {
+                "password": "MyPassword",
+                "username": "changeme@example.com"
+              },
+              "expect": [
+                200
+              ],
+              "save": {
+                "token": "access_token"
+              }
+            }
+          },
+          {
+            "http": {
+              "method": "PUT",
+              "path": "/api/users/password",
+              "json": {
+                "currentPassword": "MyPassword",
+                "newPassword": "${secret.admin_password}"
+              },
+              "headers": {
+                "Authorization": "Bearer ${step.token}"
+              },
+              "expect": [
+                200
+              ]
+            }
+          }
+        ],
+        "backup": {
+          "consistency": "pause"
+        }
+      }
+    },
+    {
       "id": "wordpress",
       "name": "WordPress",
       "category": "cms",
@@ -2092,7 +4221,12 @@
       "version": "7.1.5",
       "description": {
         "en": "The most popular website and blog builder.",
-        "vi": "Công cụ tạo website và blog phổ biến nhất."
+        "vi": "Công cụ tạo website và blog phổ biến nhất.",
+        "zh": "最流行的网站和博客搭建工具。",
+        "es": "El creador de sitios web y blogs más popular.",
+        "pt": "O criador de sites e blogs mais popular.",
+        "ru": "Самый популярный конструктор сайтов и блогов.",
+        "id": "Pembuat situs web dan blog paling populer."
       },
       "license": "GPL-2.0-or-later",
       "homepage": "https://wordpress.org",
@@ -2135,11 +4269,21 @@
       "version": "11.3.1",
       "description": {
         "en": "WordPress with WooCommerce installed and activated: a ready online shop.",
-        "vi": "WordPress kèm WooCommerce đã cài và kích hoạt: cửa hàng trực tuyến sẵn sàng."
+        "vi": "WordPress kèm WooCommerce đã cài và kích hoạt: cửa hàng trực tuyến sẵn sàng.",
+        "zh": "已安装并启用 WooCommerce 的 WordPress：现成的网上商店。",
+        "es": "WordPress con WooCommerce instalado y activado: una tienda en línea lista para usar.",
+        "pt": "WordPress com o WooCommerce instalado e ativado: uma loja virtual pronta.",
+        "ru": "WordPress с установленным и активированным WooCommerce: готовый интернет-магазин.",
+        "id": "WordPress dengan WooCommerce terinstal dan aktif: toko online yang siap pakai."
       },
       "notes": {
         "en": "Checkout needs HTTPS: issue a certificate for the site.",
-        "vi": "Thanh toán cần HTTPS: hãy cấp chứng chỉ cho website."
+        "vi": "Thanh toán cần HTTPS: hãy cấp chứng chỉ cho website.",
+        "zh": "结账需要 HTTPS：请为网站签发证书。",
+        "es": "El proceso de pago necesita HTTPS: emite un certificado para el sitio.",
+        "pt": "O checkout precisa de HTTPS: emita um certificado para o site.",
+        "ru": "Для оформления заказов нужен HTTPS: выпустите сертификат для сайта.",
+        "id": "Checkout memerlukan HTTPS: dapatkan sertifikat untuk situs."
       },
       "license": "GPL-3.0-or-later",
       "homepage": "https://woocommerce.com",
@@ -2197,7 +4341,12 @@
             "default": "US",
             "label": {
               "en": "Store country",
-              "vi": "Quốc gia của cửa hàng"
+              "vi": "Quốc gia của cửa hàng",
+              "zh": "商店所在国家/地区",
+              "es": "País de la tienda",
+              "pt": "País da loja",
+              "ru": "Страна магазина",
+              "id": "Negara toko"
             }
           },
           "currency": {
@@ -2205,7 +4354,12 @@
             "default": "USD",
             "label": {
               "en": "Currency",
-              "vi": "Đơn vị tiền tệ"
+              "vi": "Đơn vị tiền tệ",
+              "zh": "货币",
+              "es": "Moneda",
+              "pt": "Moeda",
+              "ru": "Валюта",
+              "id": "Mata uang"
             }
           }
         },
@@ -2223,7 +4377,12 @@
       "version": "6.2.1",
       "description": {
         "en": "A flexible CMS for websites and portals.",
-        "vi": "CMS linh hoạt cho website và cổng thông tin."
+        "vi": "CMS linh hoạt cho website và cổng thông tin.",
+        "zh": "灵活的 CMS，适用于网站和门户。",
+        "es": "Un CMS flexible para sitios web y portales.",
+        "pt": "Um CMS flexível para sites e portais.",
+        "ru": "Гибкая CMS для сайтов и порталов.",
+        "id": "CMS fleksibel untuk situs web dan portal."
       },
       "license": "GPL-2.0-or-later",
       "homepage": "https://www.joomla.org",
@@ -2265,7 +4424,12 @@
       "version": "35.0.3",
       "description": {
         "en": "Your own cloud for files, calendars and contacts.",
-        "vi": "Đám mây riêng cho tệp, lịch và danh bạ."
+        "vi": "Đám mây riêng cho tệp, lịch và danh bạ.",
+        "zh": "你自己的云，存放文件、日历和联系人。",
+        "es": "Tu propia nube para archivos, calendarios y contactos.",
+        "pt": "A sua própria nuvem para arquivos, agendas e contatos.",
+        "ru": "Ваше собственное облако для файлов, календарей и контактов.",
+        "id": "Cloud Anda sendiri untuk file, kalender, dan kontak."
       },
       "license": "AGPL-3.0-or-later",
       "homepage": "https://nextcloud.com",
@@ -2310,7 +4474,12 @@
       "version": "11.4.13",
       "description": {
         "en": "A powerful CMS for structured content, built with Composer.",
-        "vi": "CMS mạnh cho nội dung có cấu trúc, dựng bằng Composer."
+        "vi": "CMS mạnh cho nội dung có cấu trúc, dựng bằng Composer.",
+        "zh": "强大的结构化内容 CMS，使用 Composer 构建。",
+        "es": "Un CMS potente para contenido estructurado, creado con Composer.",
+        "pt": "Um CMS poderoso para conteúdo estruturado, montado com o Composer.",
+        "ru": "Мощная CMS для структурированного контента, собирается через Composer.",
+        "id": "CMS andal untuk konten terstruktur, dibangun dengan Composer."
       },
       "license": "GPL-2.0-or-later",
       "homepage": "https://www.drupal.org",
@@ -2350,11 +4519,21 @@
       "version": "13.11.0",
       "description": {
         "en": "A fresh Laravel project with its database, ready for your code.",
-        "vi": "Dự án Laravel mới kèm cơ sở dữ liệu, sẵn sàng cho mã của bạn."
+        "vi": "Dự án Laravel mới kèm cơ sở dữ liệu, sẵn sàng cho mã của bạn.",
+        "zh": "全新的 Laravel 项目，带数据库，等你写代码。",
+        "es": "Un proyecto de Laravel nuevo con su base de datos, listo para tu código.",
+        "pt": "Um projeto Laravel novo com o banco de dados dele, pronto para o seu código.",
+        "ru": "Новый проект Laravel с базой данных, готовый для вашего кода.",
+        "id": "Proyek Laravel baru dengan basis datanya, siap untuk kode Anda."
       },
       "notes": {
         "en": "Laravel 13 needs PHP 8.3; on a PHP 8.2 site Composer installs Laravel 12.",
-        "vi": "Laravel 13 cần PHP 8.3; trên website PHP 8.2, Composer sẽ cài Laravel 12."
+        "vi": "Laravel 13 cần PHP 8.3; trên website PHP 8.2, Composer sẽ cài Laravel 12.",
+        "zh": "Laravel 13 需要 PHP 8.3；在 PHP 8.2 网站上，Composer 会安装 Laravel 12。",
+        "es": "Laravel 13 necesita PHP 8.3; en un sitio con PHP 8.2, Composer instala Laravel 12.",
+        "pt": "O Laravel 13 precisa do PHP 8.3; em um site PHP 8.2, o Composer instala o Laravel 12.",
+        "ru": "Laravel 13 нужен PHP 8.3; на сайте с PHP 8.2 Composer устанавливает Laravel 12.",
+        "id": "Laravel 13 memerlukan PHP 8.3; di situs PHP 8.2, Composer menginstal Laravel 12."
       },
       "license": "MIT",
       "homepage": "https://laravel.com",
@@ -2392,11 +4571,21 @@
       "version": "4.1.0.4",
       "description": {
         "en": "A free, light open-source shopping cart with many extensions.",
-        "vi": "Giỏ hàng mã nguồn mở miễn phí, nhẹ, nhiều tiện ích mở rộng."
+        "vi": "Giỏ hàng mã nguồn mở miễn phí, nhẹ, nhiều tiện ích mở rộng.",
+        "zh": "免费、轻量的开源购物车，扩展丰富。",
+        "es": "Un carrito de compras gratuito, ligero y de código abierto con muchas extensiones.",
+        "pt": "Um carrinho de compras gratuito, leve e de código aberto, com muitas extensões.",
+        "ru": "Бесплатная лёгкая корзина покупок с открытым исходным кодом и множеством расширений.",
+        "id": "Keranjang belanja sumber terbuka yang gratis dan ringan, dengan banyak ekstensi."
       },
       "notes": {
         "en": "Updates are manual: follow OpenCart's upgrade guide after a backup.",
-        "vi": "Cập nhật thủ công: làm theo hướng dẫn nâng cấp của OpenCart sau khi sao lưu."
+        "vi": "Cập nhật thủ công: làm theo hướng dẫn nâng cấp của OpenCart sau khi sao lưu.",
+        "zh": "需要手动更新：备份后按照 OpenCart 的升级指南操作。",
+        "es": "Las actualizaciones son manuales: sigue la guía de actualización de OpenCart después de hacer una copia de seguridad.",
+        "pt": "As atualizações são manuais: siga o guia de atualização do OpenCart depois de um backup.",
+        "ru": "Обновления выполняются вручную: после резервного копирования следуйте руководству по обновлению OpenCart.",
+        "id": "Pembaruan dilakukan manual: ikuti panduan upgrade OpenCart setelah pencadangan."
       },
       "license": "GPL-3.0",
       "homepage": "https://www.opencart.com",
@@ -2450,11 +4639,21 @@
       "version": "5.2.5",
       "description": {
         "en": "The open-source learning platform for courses, quizzes and grades.",
-        "vi": "Nền tảng học tập mã nguồn mở cho khoá học, bài kiểm tra và điểm số."
+        "vi": "Nền tảng học tập mã nguồn mở cho khoá học, bài kiểm tra và điểm số.",
+        "zh": "开源学习平台，提供课程、测验和成绩管理。",
+        "es": "La plataforma de aprendizaje de código abierto para cursos, cuestionarios y calificaciones.",
+        "pt": "A plataforma de aprendizado de código aberto para cursos, questionários e notas.",
+        "ru": "Платформа обучения с открытым исходным кодом для курсов, тестов и оценок.",
+        "id": "Platform pembelajaran sumber terbuka untuk kursus, kuis, dan nilai."
       },
       "notes": {
         "en": "Moodle 5.3 is installed when MariaDB is 11.4 or newer, otherwise 5.2. A cron job runs every minute. The installer takes several minutes.",
-        "vi": "Cài Moodle 5.3 khi MariaDB từ 11.4 trở lên, nếu không thì 5.2. Một tác vụ cron chạy mỗi phút. Quá trình cài mất vài phút."
+        "vi": "Cài Moodle 5.3 khi MariaDB từ 11.4 trở lên, nếu không thì 5.2. Một tác vụ cron chạy mỗi phút. Quá trình cài mất vài phút.",
+        "zh": "MariaDB 为 11.4 或更新版本时安装 Moodle 5.3，否则安装 5.2。会有一个每分钟运行的定时任务。安装程序需要几分钟。",
+        "es": "Se instala Moodle 5.3 cuando MariaDB es 11.4 o posterior; si no, la 5.2. Una tarea cron se ejecuta cada minuto. El instalador tarda varios minutos.",
+        "pt": "O Moodle 5.3 é instalado quando o MariaDB é 11.4 ou mais novo; caso contrário, o 5.2. Uma tarefa cron roda a cada minuto. O instalador leva vários minutos.",
+        "ru": "Если версия MariaDB 11.4 или новее, устанавливается Moodle 5.3, иначе 5.2. Каждую минуту выполняется задание cron. Установщик работает несколько минут.",
+        "id": "Moodle 5.3 diinstal jika MariaDB versi 11.4 atau lebih baru, jika tidak 5.2. Tugas cron berjalan setiap menit. Penginstal memerlukan beberapa menit."
       },
       "license": "GPL-3.0-or-later",
       "homepage": "https://moodle.org",

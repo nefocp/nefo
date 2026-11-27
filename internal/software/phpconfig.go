@@ -14,6 +14,7 @@ import (
 	"github.com/nefocp/nefo/internal/fsutil"
 	"github.com/nefocp/nefo/internal/run"
 	"github.com/nefocp/nefo/internal/usererr"
+	"github.com/nefocp/nefo/internal/validate"
 	"github.com/nefocp/nefo/internal/version"
 )
 
@@ -22,7 +23,7 @@ import (
 // Per-site limits (memory, upload size, time) stay in each site's pool.
 
 // OptionalExtensions can be installed and removed from the panel; the base
-// set in PHPExtensions is always installed.
+// set for each version (phpExtensionsFor) is always installed.
 var OptionalExtensions = []string{"apcu", "gmp", "igbinary", "imagick", "imap", "ldap", "memcached", "mongodb",
 	"msgpack", "pgsql", "redis", "soap", "sqlite3", "ssh2", "tidy", "xdebug", "xsl", "yaml"}
 
@@ -94,7 +95,7 @@ var fileExists = func(p string) bool { _, err := os.Stat(p); return err == nil }
 func panelIni(v string) string { return filepath.Join("/etc/php", v, "fpm", "conf.d", "99-panel.ini") }
 
 func (m *Manager) checkPHP(v string) error {
-	if !slices.Contains(PHPVersions, v) || !phpInstalled(v) {
+	if validate.PHPVersion(v) != nil || !phpInstalled(v) {
 		return usererr.New("php_not_installed", v)
 	}
 	return nil

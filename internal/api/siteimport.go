@@ -635,6 +635,11 @@ func (s *Server) handleImportRun(w http.ResponseWriter, r *http.Request, a *auth
 				s.opError(w, r, usererr.New("import_site_not_empty", site.Domain))
 				return
 			}
+			// An import writes the whole site: unlock its files first.
+			if err := s.hosting.RefuseLocked(ctx, site); err != nil {
+				s.opError(w, r, err)
+				return
+			}
 			target = site
 		} else {
 			domain := strings.TrimSuffix(strings.ToLower(strings.TrimSpace(sel.Domain)), ".")

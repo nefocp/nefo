@@ -481,6 +481,7 @@ func (m *Manager) appEnv(app *appstore.App, inst *store.App, site *store.Site, s
 			return nil, err
 		}
 		e.Domain, e.HTTPS, e.PublicHost, e.SiteUID, e.SiteGID = site.Domain, site.SSL, site.Domain, uid, gid
+		e.SiteDir = filepath.ToSlash(m.paths.siteRoot(site.Domain))
 	}
 	if app.Resources.MemoryAuto {
 		e.MemoryMB = appstore.AutoMemoryMB(appstore.ReadSystem("").MemTotalMB)
@@ -542,6 +543,12 @@ func ensureLayout(app *appstore.App, env *appstore.Env) error {
 		return err
 	}
 	for _, d := range dirs {
+		if d.Site {
+			if err := siteVolumeDir(env.SiteDir, d); err != nil {
+				return err
+			}
+			continue
+		}
 		if err := mkdir(d.Path, os.FileMode(d.Mode)); err != nil {
 			return err
 		}
@@ -561,6 +568,32 @@ func ensureLayout(app *appstore.App, env *appstore.Env) error {
 		}
 	}
 	return nil
+}
+
+// siteVolumeDir creates a site volume's folder in the website's folder,
+// which its user can write to: inside an os.Root, so a link the user put
+// there cannot make the panel create or chown anything elsewhere. A folder
+// that exists keeps its files and permissions.
+func siteVolumeDir(siteDir string, d appstore.Dir) error {
+	name, ok := strings.CutPrefix(d.Path, strings.TrimRight(siteDir, "/")+"/")
+	if !ok || name == "" || strings.Contains(name, "/") {
+		return fmt.Errorf("invalid site volume %s", d.Path)
+	}
+	root, err := os.OpenRoot(filepath.FromSlash(siteDir))
+	if err != nil {
+		return err
+	}
+	defer root.Close()
+	if fi, err := root.Lstat(name); err == nil {
+		if !fi.IsDir() {
+			return fmt.Errorf("%s exists and is not a folder", d.Path)
+		}
+		return nil
+	}
+	if err := root.Mkdir(name, os.FileMode(d.Mode)); err != nil {
+		return err
+	}
+	return chmodChown(root, name, os.FileMode(d.Mode), d.UID, d.GID)
 }
 
 // writeCompose renders compose.json and has Compose check it with the

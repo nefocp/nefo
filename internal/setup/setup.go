@@ -37,8 +37,36 @@ const (
 var WebServers = []string{Nginx, Apache, OpenLiteSpeed}
 
 // Databases are the database servers a server can have one of, by their
-// Software page IDs. MariaDB is the recommended one.
+// Software page IDs. MariaDB is the recommended one: the distribution's
+// ("mariadb"), or a series from MariaDB's repository ("mariadb-11.4"),
+// offered when the Software page lists it (see IsDatabase).
 var Databases = []string{"mariadb", "mysql"}
+
+// IsDatabase reports whether id is a database server: one of Databases or
+// a MariaDB series such as "mariadb-11.4".
+func IsDatabase(id string) bool {
+	return slices.Contains(Databases, id) || strings.HasPrefix(id, "mariadb-")
+}
+
+// databaseIDs are the database servers offered, in the order the setup
+// shows them: MariaDB, its series from the catalog, MySQL.
+func databaseIDs(catalog []string) []string {
+	ids := []string{"mariadb"}
+	for _, id := range catalog {
+		if strings.HasPrefix(id, "mariadb-") && !slices.Contains(ids, id) {
+			ids = append(ids, id)
+		}
+	}
+	return append(ids, Databases[1:]...)
+}
+
+// baseID is the part whose figures a MariaDB series shares ("mariadb").
+func baseID(id string) string {
+	if strings.HasPrefix(id, "mariadb-") {
+		return "mariadb"
+	}
+	return id
+}
 
 // Extras are the other parts, by their Software page IDs, in the order a
 // plan installs them: Adminer and the web firewall after the web server
@@ -69,6 +97,9 @@ func Name(id string) string {
 	if n, ok := names[id]; ok {
 		return n
 	}
+	if v, ok := strings.CutPrefix(id, "mariadb-"); ok {
+		return "MariaDB " + v
+	}
 	return id
 }
 
@@ -76,19 +107,49 @@ func Name(id string) string {
 // page's figures (web/src/webservers.js for the web servers), which Facts.RAM
 // overrides where the Software page has one for this server (MariaDB,
 // Redis…). The web firewall's is the measured growth of Nginx when it
-// loads the rules. Disk is roughly what the packages take once installed on
-// Ubuntu 24.04 (amd64), rounded up, with the database servers' first data
-// files, the unpacked Node.js release and ClamAV's virus databases.
+// loads the rules.
+//
+// Disk is what a part added to the root file system when it was installed
+// in a fresh sandbox of Ubuntu 24.04 (amd64) on 2026-11-27, rounded up: the
+// installed packages, the copies of the downloaded packages that apt keeps
+// in /var/cache/apt/archives (until "apt-get clean" or the System page's
+// cleanup), apt's grown caches, the database servers' first data files, the
+// unpacked Node.js release and ClamAV's virus databases. diskByRelease has
+// the releases whose figures differ by more than about 10%. The
+// measurements are in the runtimes agent's NOTES (batch 5).
 var (
 	ramMB = map[string]int{
 		Nginx: 15, Apache: 40, OpenLiteSpeed: 26, "php": 25,
 		"mariadb": 228, "mysql": 360, "postgresql": 40, "redis": 64, "memcached": 64,
 		"docker": 90, "waf": 115, "clamav": 15,
 	}
+	// diskMB is what each part adds to the disk (apt's download and the
+	// installed files), measured in sandboxes of the five releases on
+	// 2026-11-27; a minimal server image needs about 130 MB for PHP.
 	diskMB = map[string]int{
-		Nginx: 5, Apache: 15, OpenLiteSpeed: 120, "php": 50,
-		"mariadb": 300, "mysql": 450, "postgresql": 70, "redis": 10, "memcached": 2,
-		"nodejs": 200, "python": 20, "docker": 350, "adminer": 1, "waf": 20, "clamav": 400,
+		Nginx: 5, Apache: 75, OpenLiteSpeed: 150, "php": 130,
+		"mariadb": 400, "mysql": 470, "postgresql": 280, "redis": 12, "memcached": 3,
+		"nodejs": 230, "python": 35, "docker": 420, "adminer": 1, "waf": 15, "clamav": 180,
+	}
+	// diskByRelease are the releases whose figure differs from diskMB by
+	// more than about 10% (Ubuntu 24.04 images usually have PHP's libraries
+	// already).
+	diskByRelease = map[string]map[string]int{
+		"jammy":    {"mariadb": 300},
+		"noble":    {"php": 60},
+		"resolute": {"mariadb": 360, "postgresql": 100},
+		"bookworm": {"php": 150, "docker": 320},
+		"trixie":   {"php": 145, "postgresql": 340, "docker": 290},
+	}
+	// aptListsMB is what the first "apt-get update" adds on a server whose
+	// package lists were never downloaded (or were deleted), by release,
+	// then by distribution: the Packages and Translation-en lists of the
+	// release's default sources (sizes from their Release files, 2026-11-27)
+	// and apt's caches built from them (measured: 62-78% of the Packages
+	// lists).
+	aptListsMB = map[string]int{
+		"jammy": 450, "noble": 300, "resolute": 250, "bookworm": 155, "trixie": 175,
+		"ubuntu": 300, "debian": 175,
 	}
 	groups = map[string]string{
 		"mariadb": "db", "mysql": "db",
@@ -165,6 +226,16 @@ type Facts struct {
 	// RAMMax which of them are configured upper limits (Redis).
 	RAM    map[string]int
 	RAMMax map[string]bool
+	// OSID and Codename are from /etc/os-release ("ubuntu", "noble"), for
+	// the disk figures of this release. AptListsMissing: apt's package
+	// lists were never downloaded, so the first install downloads them.
+	OSID, Codename  string
+	AptListsMissing bool
+	// Versions are the Software page's versions of the database servers
+	// ("10.11", "11.4"), and Until the end of MariaDB's support for a
+	// series of its repository.
+	Versions map[string]string
+	Until    map[string]string
 }
 
 // Part is one thing the setup can install.
@@ -186,6 +257,9 @@ type Part struct {
 	// NeedsWeb: it can only be installed with a web server.
 	NeedsWeb bool    `json:"needs_web,omitempty"`
 	Blocked  *Reason `json:"blocked,omitempty"`
+	// Until is the end of support of a MariaDB series from MariaDB's
+	// repository (its Version is the series).
+	Until string `json:"until,omitempty"`
 }
 
 // Env is what the setup offers on this server, and what a plan depends on.
@@ -196,6 +270,9 @@ type Env struct {
 	DistroPHP string `json:"distro_php"`
 	PHPRepo   string `json:"php_repo"`
 	Parts     []Part `json:"parts"`
+	// AptListsMB is the disk the first install adds for apt's package
+	// lists, when they were never downloaded (0 otherwise).
+	AptListsMB int `json:"apt_lists_mb,omitempty"`
 }
 
 // NewEnv works out what the setup offers: the Software page's parts that
@@ -208,20 +285,32 @@ func NewEnv(f Facts) Env {
 	if !f.Supported {
 		return e
 	}
+	if f.AptListsMissing {
+		e.AptListsMB = aptListsMB[f.OSID]
+		if mb, ok := aptListsMB[f.Codename]; ok {
+			e.AptListsMB = mb
+		}
+	}
+	disk := func(id string) int {
+		if mb, ok := diskByRelease[f.Codename][id]; ok {
+			return mb
+		}
+		return diskMB[id]
+	}
 	bigCPU := f.Server.Arch == "amd64" || f.Server.Arch == "arm64"
 	listed := func(id string) bool { return f.Catalog == nil || slices.Contains(f.Catalog, id) }
 	ram := func(id string) int {
 		if mb, ok := f.RAM[id]; ok && mb > 0 {
 			return mb
 		}
-		key := id
+		key := baseID(id)
 		if strings.HasPrefix(id, "php") {
 			key = "php"
 		}
 		return ramMB[key]
 	}
 	part := func(id, group string) Part {
-		p := Part{ID: id, Group: group, Installed: f.Installed[id], RAMMB: ram(id), RAMMax: f.RAMMax[id], DiskMB: diskMB[id]}
+		p := Part{ID: id, Group: group, Installed: f.Installed[id], RAMMB: ram(id), RAMMax: f.RAMMax[id], DiskMB: disk(baseID(id))}
 		if r, ok := f.Blocked[id]; ok && r.Code != "" {
 			p.Blocked = &r
 		}
@@ -237,7 +326,7 @@ func NewEnv(f Facts) Env {
 			p.PHP = f.DistroPHP
 			if !distroPHPInstalled && !p.Installed {
 				p.RAMMB += ram("php" + f.DistroPHP)
-				p.DiskMB += diskMB["php"]
+				p.DiskMB += disk("php")
 			}
 		}
 		e.Parts = append(e.Parts, p)
@@ -251,22 +340,24 @@ func NewEnv(f Facts) Env {
 			continue
 		}
 		p := part("php"+v, "php")
-		p.Version, p.DiskMB = v, diskMB["php"]
+		p.Version, p.DiskMB = v, disk("php")
 		p.ThirdParty = f.DistroPHP != "" && v != f.DistroPHP
 		p.EOL = f.EOL[p.ID]
 		e.Parts = append(e.Parts, p)
 	}
 	installedDB := ""
-	for _, id := range Databases {
+	dbs := databaseIDs(f.Catalog)
+	for _, id := range dbs {
 		if f.Installed[id] {
 			installedDB = id
 		}
 	}
-	for _, id := range Databases {
+	for _, id := range dbs {
 		if !listed(id) && !f.Installed[id] {
 			continue
 		}
-		p := part(id, groups[id])
+		p := part(id, "db")
+		p.Version, p.Until = f.Versions[id], f.Until[id]
 		if installedDB != "" && installedDB != id && p.Blocked == nil {
 			p.Blocked = &Reason{Code: "setup_db_conflict", Detail: Name(installedDB)}
 		}
@@ -357,6 +448,8 @@ type Plan struct {
 	// RAMMB and DiskMB add up the steps that are not installed yet.
 	RAMMB  int `json:"ram_mb"`
 	DiskMB int `json:"disk_mb"`
+	// AptListsMB is the part of DiskMB for apt's package lists (Env).
+	AptListsMB int `json:"apt_lists_mb,omitempty"`
 	// Warnings are "ram" and "disk": the plan may not fit. They never stop
 	// an install.
 	Warnings []string `json:"warnings"`
@@ -393,7 +486,7 @@ func (e Env) Plan(c Choice) (Plan, error) {
 	var extras []string
 	for _, id := range c.Extras {
 		switch {
-		case slices.Contains(Databases, id):
+		case IsDatabase(id):
 			if db != "" && db != id {
 				return p, usererr.New("setup_db_conflict", Name(db))
 			}
@@ -460,7 +553,7 @@ func (e Env) Plan(c Choice) (Plan, error) {
 		add(pt, Name(pt.ID))
 	}
 	if db != "" {
-		if !slices.Contains(Databases, db) {
+		if !IsDatabase(db) {
 			return p, usererr.New("unknown_software", db)
 		}
 		pt, err := offered(db)
@@ -488,6 +581,12 @@ func (e Env) Plan(c Choice) (Plan, error) {
 			p.RAMMB += s.RAMMB
 			p.DiskMB += s.DiskMB
 		}
+	}
+	// The first install downloads apt's package lists on a server that
+	// never had them.
+	if p.DiskMB > 0 && e.AptListsMB > 0 {
+		p.AptListsMB = e.AptListsMB
+		p.DiskMB += e.AptListsMB
 	}
 	if b, ok := e.Server.RAMBudgetMB(); ok && p.RAMMB > b {
 		p.Warnings = append(p.Warnings, "ram")
@@ -530,9 +629,9 @@ func (e Env) Defaults() Choice {
 			c.PHP = []string{pt.Version}
 		}
 	}
-	for _, id := range Databases {
-		if pt, ok := e.Part(id); ok && pt.Installed {
-			c.DB = id
+	for _, pt := range e.Parts {
+		if pt.Group == "db" && pt.Installed {
+			c.DB = pt.ID
 		}
 	}
 	if _, ok := e.Part("mariadb"); ok && c.DB == "" {

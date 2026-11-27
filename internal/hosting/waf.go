@@ -60,6 +60,40 @@ func wafEnabledOf(ws webServer) bool {
 	return ws.wafAvailable() && err == nil && st.IsDir()
 }
 
+// aptLists finds apt's package lists (a variable for the tests).
+var aptLists = "/var/lib/apt/lists/*_Packages*"
+
+// WAFPackaged reports whether apt can install the web firewall for the web
+// server kind (ServerNginx, ServerApache, ServerOLS): Ubuntu 22.04 has no
+// ModSecurity module for its Nginx, for one. When apt can't tell (its lists
+// were never downloaded) it says yes, and an install reports the real error.
+// A definite answer is kept: the distribution's packages don't come and go.
+func (m *Manager) WAFPackaged(ctx context.Context, kind string) bool {
+	if v, ok := m.wafPackaged.Load(kind); ok {
+		return v.(bool)
+	}
+	if lists, _ := filepath.Glob(aptLists); len(lists) == 0 {
+		return true
+	}
+	for _, pkg := range m.server(kind).wafPackages() {
+		out, err := m.run.Output(ctx, "apt-cache", "policy", pkg)
+		if err != nil {
+			return true
+		}
+		// A package apt doesn't know prints nothing; one it can't install
+		// says "Candidate: (none)".
+		if !strings.Contains(out, "Candidate:") || strings.Contains(out, "Candidate: (none)") {
+			m.wafPackaged.Store(kind, false)
+			return false
+		}
+	}
+	m.wafPackaged.Store(kind, true)
+	return true
+}
+
+// ServerTitle is the web server's name as people write it ("Nginx").
+func (m *Manager) ServerTitle(kind string) string { return m.server(kind).title() }
+
 // WAFInstalled reports whether the firewall is installed and configured.
 func (m *Manager) WAFInstalled() bool {
 	return m.wafEnabled() && fileExists(filepath.Join(m.wafDir(), "main.conf"))

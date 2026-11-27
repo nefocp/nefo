@@ -17,6 +17,7 @@ import (
 func (s *Server) gitDeploy() *gitdeploy.Manager {
 	g := gitdeploy.New(run.System{}, s.store, s.hosting.Root)
 	g.SetAppPath(s.hosting.RuntimePath)
+	g.SetAppEnv(s.hosting.RuntimeEnv)
 	return g
 }
 
@@ -47,7 +48,12 @@ func (s *Server) startGitDeploy(ctx context.Context, id int64, user, ip, how str
 	}
 	domain := site.Domain
 	return s.jobs.Start("git_deploy", domain, gitdeploy.JobTimeout, func(ctx context.Context, j *jobs.Job) error {
-		commit, err := gd.Deploy(ctx, id, j)
+		// A locked site is unlocked for the deploy (see hosting/filelock.go).
+		var commit string
+		err := s.hosting.WithUnlocked(ctx, id, j, func() (err error) {
+			commit, err = gd.Deploy(ctx, id, j)
+			return err
+		})
 		short := commit
 		if len(short) > 12 {
 			short = short[:12]

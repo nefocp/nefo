@@ -172,6 +172,39 @@ func nginxVhostCases() map[string]vhostData {
 	} {
 		cases[n] = d
 	}
+	// Country blocking, with the fields of every server (each uses its own).
+	geo := func(d vhostData, mode string, cc ...string) vhostData {
+		d.GeoMode, d.GeoRegex = mode, strings.Join(cc, "|")
+		for _, c := range cc {
+			d.GeoFiles = append(d.GeoFiles, "/etc/apache2/panel/geo/"+c+".conf")
+		}
+		d.GeoTrusted = []string{"173.245.48.0/20", "2400:cb00::/32", "2a06:98c0::/29"}
+		d.GeoCF = addrRegex(d.GeoTrusted)
+		d.GeoSelf = addrRegex([]string{"203.0.113.10/32", "2001:db8::10/128"})
+		return d
+	}
+	for n, d := range map[string]vhostData{
+		"country-block":       geo(php(base), GeoBlock, "CN", "RU"),
+		"country-allow-force": geo(force(php(base)), GeoAllow, "VN", "ZZ"),
+		"country-static-ssl":  geo(ssl(base), GeoAllow, "US", "VN", "ZZ"),
+		"country-app":         geo(app(base), GeoBlock, "CN"),
+		"country-suspended":   geo(func() vhostData { d := php(base); d.Disabled = true; return d }(), GeoBlock, "CN"),
+		"country-auth-blocked": geo(func() vhostData {
+			d := php(base)
+			d.AuthFile = "/etc/nginx/panel/auth/example.com.htpasswd"
+			d.BlockedIPs = []string{"203.0.113.7"}
+			return d
+		}(), GeoBlock, "CN"),
+		"country-everything": geo(everythingVhost(php(force(base))), GeoAllow, "VN", "ZZ"),
+	} {
+		cases[n] = d
+	}
+	// Reverse proxy sites (proxysite.go): an IP upstream with the defaults,
+	// a host name over HTTPS with a path and the upstream's Host header,
+	// and a self-signed upstream without WebSocket or X-Forwarded-*.
+	for n, d := range proxyGoldenCases(base, ssl, force) {
+		cases[n] = d
+	}
 	for _, p := range RewritePresets {
 		d := base
 		if p.PHP {
@@ -257,6 +290,15 @@ func TestNginxGoldenShared(t *testing.T) {
 	render1("acme.conf", func() ([]byte, error) {
 		return render(acmeSnippetTmpl, struct{ Webroot string }{"/var/lib/panel-acme"})
 	})
+	// Country blocking's http-level file (sites/_geo.conf, see geo.go).
+	render1("geo.conf", func() ([]byte, error) {
+		return render(nginxGeoTmpl, struct {
+			Header, Attribution, License, Month, V4, V6 string
+			Cloudflare                                  []string
+			Ranges                                      bool
+		}{geoHeader("2026-11", []string{"CN", "VN", "ZZ"}, "memory_kb=2048 ranges=1"), "IP Geolocation by DB-IP", "CC BY 4.0", "2026-11",
+			"/etc/nginx/panel/geo/v4.conf", "/etc/nginx/panel/geo/v6.conf", []string{"173.245.48.0/20", "2400:cb00::/32"}, true})
+	})
 	render1("ssl.conf", func() ([]byte, error) { return render(sslSnippetTmpl, nil) })
 	pool := poolData{Domain: "example.com", User: "example_com", Root: "/var/www/example.com", Socket: "/run/php/panel-example_com.sock"}
 	render1("pool-default.conf", func() ([]byte, error) { return renderPool(pool) })
@@ -300,6 +342,7 @@ func goldenManager(t *testing.T, nginxVersion string) *Manager {
 	}
 	t.Cleanup(func() { st.Close() })
 	p := DefaultPaths("/var/lib/nefo")
+	p.GeoIP = t.TempDir() // never this machine's
 	p.PHP = t.TempDir()
 	for _, v := range []string{"8.3", "8.4"} {
 		dir := filepath.Join(p.PHP, v, "fpm")
@@ -339,6 +382,9 @@ func goldenSites() []*store.Site {
 		{ID: 8, Domain: "drupal.example.com", SysUser: "drupal_example_com", PHPVersion: "8.3", Rewrite: "drupal", PHPUpload: 64, PHPTime: 300},
 		{ID: 9, Domain: "spa.example.com", SysUser: "spa_example_com", Rewrite: "spa"},
 		{ID: 10, Domain: "nophp.example.com", SysUser: "nophp_example_com", Rewrite: "laravel"},
+		// A reverse proxy site (an IP upstream: no resolver read from the machine).
+		{ID: 11, Domain: "proxy.example.com", SysUser: "proxy_example_com", ProxyURL: "https://10.0.0.5:8443/app",
+			ProxyOpts: store.ProxyOptions{WebSocket: true, Forwarded: true, Timeout: 90}, SSL: true, PHPUpload: 64, PHPTime: 300},
 	}
 }
 
@@ -394,5 +440,41 @@ func TestNginxGoldenManager(t *testing.T) {
 		files := []string{m.vhostFile("a.example.com"), m.customFile("a.example.com"), m.authFile("a.example.com"),
 			m.web().hookFile(), strings.TrimPrefix(m.paths.poolFile("8.3", "u"), m.paths.PHP), m.paths.phpSocket("u"), m.wafDir()}
 		checkGolden(t, "nginx-linux", "paths.txt", []byte(fmt.Sprint(files)))
+	}
+}
+
+func proxyGoldenCases(base vhostData, ssl, force func(vhostData) vhostData) map[string]vhostData {
+	plain := func(d vhostData) vhostData {
+		d.Upstream = &proxyVhost{URL: "http://10.0.0.5:8080", Name: "10.0.0.5", OLSAddress: "10.0.0.5:8080",
+			WebSocket: true, Forwarded: true, Timeout: 60, ConnectTimeout: 30}
+		return d
+	}
+	named := func(d vhostData) vhostData {
+		d.Upstream = &proxyVhost{URL: "https://backend.example.net:443/app", HTTPS: true, Path: "/app", Name: "backend.example.net",
+			HostHeader: "backend.example.net", OLSProxyHost: "backend.example.net", RedirectFrom: []string{"https://backend.example.net:443/app/", "https://backend.example.net/app/"},
+			OLSAddress: "https://backend.example.net:443", WebSocket: true, Forwarded: true, Timeout: 120, ConnectTimeout: 30,
+			Resolver: "127.0.0.53 [2001:db8::53]"}
+		return d
+	}
+	selfSigned := func(d vhostData) vhostData {
+		d.Upstream = &proxyVhost{URL: "https://192.168.1.20:8443", HTTPS: true, Name: "192.168.1.20", OLSAddress: "https://192.168.1.20:8443",
+			Insecure: true, Timeout: 300, ConnectTimeout: 30}
+		return d
+	}
+	return map[string]vhostData{
+		"proxy":             plain(base),
+		"proxy-ssl":         ssl(plain(base)),
+		"proxy-force-hsts":  func() vhostData { d := force(plain(base)); d.HSTS = hstsValue; return d }(),
+		"proxy-named-https": named(base),
+		"proxy-named-new":   func() vhostData { d := named(force(base)); d.nginxFeatures = featuresFor("1.26.3", false); return d }(),
+		"proxy-selfsigned":  selfSigned(base),
+		"proxy-suspended":   func() vhostData { d := plain(base); d.Disabled = true; return d }(),
+		"proxy-auth-blocked": func() vhostData {
+			d := plain(base)
+			d.AuthFile = "/etc/nginx/panel/auth/example.com.htpasswd"
+			d.BlockedIPs = []string{"203.0.113.7"}
+			return d
+		}(),
+		"everything-proxy": everythingVhost(named(force(base))),
 	}
 }

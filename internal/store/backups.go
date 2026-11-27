@@ -69,6 +69,13 @@ func (s *Store) CreateBackup(ctx context.Context, b *Backup) error {
 	return err
 }
 
+// SetBackupChecksum records the SHA-256 of a backup's archive, for a
+// backup found on a storage, whose checksum was not known.
+func (s *Store) SetBackupChecksum(ctx context.Context, id int64, sum string) error {
+	_, err := s.db.ExecContext(ctx, `UPDATE backups SET sha256 = ? WHERE id = ?`, sum, id)
+	return err
+}
+
 // SetBackupRemote records where a backup was uploaded.
 func (s *Store) SetBackupRemote(ctx context.Context, id int64, key string) error {
 	_, err := s.db.ExecContext(ctx, `UPDATE backups SET remote_key = ? WHERE id = ?`, key, id)

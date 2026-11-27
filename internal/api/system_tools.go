@@ -15,6 +15,7 @@ import (
 	"github.com/nefocp/nefo/internal/software"
 	"github.com/nefocp/nefo/internal/store"
 	"github.com/nefocp/nefo/internal/usererr"
+	"github.com/nefocp/nefo/internal/validate"
 )
 
 // cronUsers are the accounts a cron job may run as: root and the sites' users.
@@ -168,8 +169,11 @@ func (s *Server) handleServiceLogs(w http.ResponseWriter, r *http.Request, a *au
 // softwareName returns the name a job shows for an item of the Software
 // page, and whether the ID is one.
 func softwareName(id string) (string, bool) {
-	if v, ok := strings.CutPrefix(id, "php"); ok && slices.Contains(software.PHPVersions, v) {
+	if v, ok := strings.CutPrefix(id, "php"); ok && validate.PHPVersion(v) == nil && software.PHPVersionListed(v) {
 		return "PHP " + v, true
+	}
+	if series, ok := database.ParseMariaDBID(id); ok && series != "" {
+		return "MariaDB " + series, true
 	}
 	name, ok := map[string]string{
 		"mariadb": "MariaDB", "redis": "Redis", "adminer": "Adminer", "nodejs": "Node.js", "python": "Python",
@@ -177,6 +181,7 @@ func softwareName(id string) (string, bool) {
 		"composer": "Composer", "wpcli": "WP-CLI",
 		"postgresql": "PostgreSQL", "memcached": "Memcached",
 		"mysql": "MySQL", "phpmyadmin": "phpMyAdmin",
+		"java": "Java", "ioncube": "ionCube Loader",
 	}[id]
 	return name, ok
 }
@@ -206,25 +211,21 @@ func (s *Server) softwareItems(ctx context.Context) ([]software.Item, error) {
 	}
 	items = append(items, s.toolItems(ctx)...) // Composer and WP-CLI (tools.go)
 	st := s.db.Status(ctx)
-	maria := software.Item{ID: "mariadb", Kind: "mariadb", Group: "data", Installed: st.Installed && st.Engine == database.MariaDB,
-		RAMMB: database.MemoryMBFor(database.MariaDB), DataDir: "/var/lib/mysql", HasData: softwarePathExists("/var/lib/mysql")}
-	if maria.Installed {
-		maria.Version = st.Version
-	}
-	if maria.Installed {
-		if dbs, err := s.db.UserDatabases(ctx); err == nil {
-			maria.Usage = map[string]int{"databases": len(dbs)}
-		}
-		maria.Block(s.db.CheckRemove(ctx, false, ""))
-		maria.Stopped = !st.Running
-	}
+	maria, series := s.mariadbItems(ctx, st)         // MariaDB and its series from MariaDB's repository (dbengine.go)
 	items = append(items, s.dbToolItems(ctx, st)...) // MySQL and phpMyAdmin (dbengine.go)
+	items = append(items, series...)
 	adminer := software.Item{ID: "adminer", Kind: "adminer", Group: "data", Version: hosting.AdminerVersion, Installed: s.hosting.AdminerInstalled()}
 	if adminer.Installed {
 		adminer.Block(nil)
 	}
 	waf := software.Item{ID: "waf", Kind: "waf", Group: "security", Version: "OWASP CRS 3", Installed: s.hosting.WAFInstalled(), RAMMB: 40}
 	waf.Block(nil)
+	// Not every distribution packages ModSecurity for every web server
+	// (Ubuntu 22.04 has none for Nginx); the setup then doesn't offer it
+	// either.
+	if kind := s.hosting.WebServer(); kind != "" && !waf.Installed && !s.hosting.WAFPackaged(ctx, kind) {
+		waf.NotOffered, waf.NotOfferedDetail = "waf_not_packaged", s.hosting.ServerTitle(kind)
+	}
 	clam := software.Item{ID: "clamav", Kind: "clamav", Group: "security", Installed: s.hosting.ClamAVInstalled(), RAMMB: 15}
 	clam.Block(nil)
 	return append(items, maria, s.postgresItem(ctx), s.software.MemcachedItem(ctx), adminer, waf, clam), nil
@@ -234,7 +235,7 @@ func (s *Server) softwareItems(ctx context.Context) ([]software.Item, error) {
 func (s *Server) postgresItem(ctx context.Context) software.Item {
 	st := s.pg.Status(ctx)
 	it := software.Item{ID: "postgresql", Kind: "postgresql", Group: "data", Version: st.Version, Installed: st.Installed,
-		RAMMB: postgres.MemoryMB(), DataDir: s.pg.DataDir(), HasData: s.pg.HasData()}
+		RAMMB: postgres.MemoryMB(), DataDir: s.pg.DataDir(), HasData: s.pg.HasData(), ThirdParty: st.Source == "pgdg"}
 	if it.Installed {
 		if dbs, err := s.pg.UserDatabases(ctx); err == nil {
 			it.Usage = map[string]int{"databases": len(dbs)}
@@ -249,9 +250,10 @@ func (s *Server) postgresItem(ctx context.Context) software.Item {
 // server): the job of POST /api/software/{id}/install, and a step of the
 // setup. A new item's install goes here, so the setup can install it too.
 func (s *Server) installSoftware(ctx context.Context, id string, lg software.Logger) error {
+	if series, ok := database.ParseMariaDBID(id); ok {
+		return s.db.InstallMariaDB(ctx, series, lg)
+	}
 	switch id {
-	case "mariadb":
-		return s.db.Install(ctx, lg)
 	case "mysql":
 		return s.db.InstallMySQL(ctx, lg)
 	case "phpmyadmin":
@@ -262,7 +264,7 @@ func (s *Server) installSoftware(ctx context.Context, id string, lg software.Log
 		}
 		return s.adminerPostgres(ctx, lg) // postgres.go
 	case "postgresql":
-		return s.installPostgres(ctx, lg)
+		return s.installPostgres(ctx, "", lg)
 	case "memcached":
 		return s.software.InstallMemcached(ctx, lg)
 	case "waf":
@@ -285,9 +287,12 @@ func (s *Server) handleSoftwareInstall(w http.ResponseWriter, r *http.Request, a
 		return
 	}
 	// {"accept_eol": true}: an old PHP version is installed only after the
-	// administrator confirmed it gets no security updates.
+	// administrator confirmed it gets no security updates. {"version":
+	// "17"}: PostgreSQL's major version from apt.postgresql.org ("" for the
+	// distribution's).
 	var req struct {
-		AcceptEOL bool `json:"accept_eol"`
+		AcceptEOL bool   `json:"accept_eol"`
+		Version   string `json:"version"`
 	}
 	if r.ContentLength != 0 && !decodeJSON(w, r, &req) {
 		return
@@ -300,13 +305,46 @@ func (s *Server) handleSoftwareInstall(w http.ResponseWriter, r *http.Request, a
 		s.opError(w, r, err)
 		return
 	}
+	// The web firewall needs a ModSecurity package for this web server.
+	if id == "waf" {
+		if kind := s.hosting.WebServer(); kind != "" && !s.hosting.WAFPackaged(r.Context(), kind) {
+			s.opError(w, r, usererr.New("waf_not_packaged", s.hosting.ServerTitle(kind)))
+			return
+		}
+	}
 	// MariaDB or MySQL: one per server (dbengine.go).
 	if err := s.checkDBInstall(r.Context(), id); err != nil {
 		s.opError(w, r, err)
 		return
 	}
+	if req.Version != "" {
+		if id != "postgresql" {
+			writeError(w, http.StatusBadRequest, "bad_request") // only PostgreSQL has versions to choose
+			return
+		}
+		if v := s.pg.Versions(r.Context()); !slices.Contains(v.PGDG, req.Version) && req.Version != v.Distribution {
+			if v.PGDGUnavailable != "" {
+				s.opError(w, r, usererr.New(v.PGDGUnavailable, v.PGDGDetail))
+			} else {
+				s.opError(w, r, usererr.New("pg_version_unknown", req.Version))
+			}
+			return
+		}
+		name += " " + req.Version
+	}
+	if id == "postgresql" {
+		if err := s.pg.CheckInstall(req.Version); err != nil {
+			s.opError(w, r, err)
+			return
+		}
+	}
 	job, err := s.jobs.Start("install_software", name, 30*time.Minute, func(ctx context.Context, j *jobs.Job) error {
-		err := s.installSoftware(ctx, id, j)
+		var err error
+		if id == "postgresql" {
+			err = s.installPostgres(ctx, req.Version, j)
+		} else {
+			err = s.installSoftware(ctx, id, j)
+		}
 		if err == nil {
 			s.audit(ctx, user, "software_installed", ip, id)
 		}

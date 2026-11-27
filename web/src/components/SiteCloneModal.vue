@@ -8,8 +8,9 @@ import CopyField from './CopyField.vue'
 import Icon from './Icon.vue'
 import Modal from './Modal.vue'
 
-// SiteCloneModal copies a PHP or static website to a new domain. The copy
-// runs as a job: "started" hands it to the drawer, which shows its log;
+// SiteCloneModal copies a website to a new domain: PHP, static, reverse
+// proxy, app (Node.js, Python…) and Docker app websites. The copy runs as a
+// job: "started" hands it to the drawer, which shows its log;
 // the modal follows it too, and when it is done shows the new site and the
 // connection details of the copied databases.
 const props = defineProps({
@@ -25,6 +26,16 @@ const error = ref('')
 const started = ref('') // the new domain, once the job runs
 const creds = ref([])
 const isWP = computed(() => props.site.app === 'wordpress' && !!props.site.php_version)
+const isDocker = computed(() => (props.site.app || '').startsWith('docker:'))
+const isApp = computed(() => !!props.site.proxy_port && !isDocker.value && !props.site.proxy_url)
+const runtimeName = computed(() => {
+  const rt = props.site.app_runtime || ''
+  if (rt === 'python') return 'Python'
+  if (rt.startsWith('node:')) return 'Node.js ' + rt.slice(5)
+  if (!rt) return 'Node.js'
+  const [name, ver] = rt.split(':')
+  return name.charAt(0).toUpperCase() + name.slice(1) + (ver ? ' ' + ver : '')
+})
 const { job, watch: watchJob } = useJob(onDone)
 
 async function submit() {
@@ -43,7 +54,7 @@ async function submit() {
 }
 
 async function onDone(j) {
-  if (j.status !== 'succeeded' || isWP.value) return
+  if (j.status !== 'succeeded' || isWP.value || isDocker.value) return
   try {
     const { databases } = await api('GET', 'api/databases')
     const mine = (databases || []).filter((d) => d.site_domain === started.value)
@@ -64,13 +75,23 @@ async function onDone(j) {
         <input v-model="domain" class="input mono" placeholder="copy.example.com" autocomplete="off" autocapitalize="off" spellcheck="false" required maxlength="253" />
         <small class="muted">{{ t('clone.domain_hint') }}</small>
       </label>
-      <label v-if="!isWP" class="check"><input v-model="copyDBs" type="checkbox" /><span>{{ t('clone.copy_dbs') }}</span></label>
+      <label v-if="!isWP && !isDocker" class="check"><input v-model="copyDBs" type="checkbox" /><span>{{ t('clone.copy_dbs') }}</span></label>
       <ul class="small muted clone-steps">
-        <li>{{ site.php_version ? t('clone.step_site_php', { v: site.php_version }) : t('clone.step_site_static') }}</li>
-        <li>{{ isWP ? t('clone.step_files_wp') : t('clone.step_files') }}</li>
-        <li v-if="isWP">{{ t('clone.step_wp') }}</li>
-        <li v-else-if="copyDBs">{{ t('clone.step_dbs') }}</li>
-        <li>{{ t('clone.step_not') }}</li>
+        <template v-if="isDocker">
+          <li>{{ t('clone.step_docker') }}</li>
+          <li>{{ t('clone.step_docker_data') }}</li>
+          <li>{{ t('clone.step_docker_url') }}</li>
+        </template>
+        <template v-else>
+          <li v-if="site.proxy_url">{{ t('clone.step_site_proxy', { url: site.proxy_url }) }}</li>
+          <li v-else-if="isApp">{{ t('clone.step_site_app', { runtime: runtimeName }) }}</li>
+          <li v-else>{{ site.php_version ? t('clone.step_site_php', { v: site.php_version }) : t('clone.step_site_static') }}</li>
+          <li>{{ isWP ? t('clone.step_files_wp') : t('clone.step_files') }}</li>
+          <li v-if="isWP">{{ t('clone.step_wp') }}</li>
+          <li v-else-if="copyDBs">{{ t('clone.step_dbs') }}</li>
+          <li v-if="isApp">{{ t('clone.step_app_daemons') }}</li>
+        </template>
+        <li>{{ isApp ? t('clone.step_not_app') : t('clone.step_not') }}</li>
       </ul>
       <div class="modal-actions">
         <button type="button" class="btn btn-ghost" @click="emit('close')">{{ t('common.cancel') }}</button>

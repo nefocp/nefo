@@ -54,7 +54,8 @@ function pickDefaultTarget(form) {
 
 const hasStorage = computed(() => (data.value?.remotes ?? []).length > 0)
 const kindLabel = (kind) => t(`backups.kind_${kind}`)
-const remoteLabel = (r) => (r === 'sftp' ? t('backups.remote_sftp') : t('backups.remote_s3'))
+const remoteLabel = (r) => t(r === 'sftp' ? 'backups.remote_sftp' : r === 'gdrive' ? 'backups.remote_gdrive' : 'backups.remote_s3')
+const isEncrypted = (b, r) => (b.encrypted || []).includes(r)
 // A backup kept here can be uploaded to the remote storages that lack it.
 const missingRemote = (b) => (data.value?.remotes ?? []).some((r) => !(b.remotes || []).includes(r))
 
@@ -74,6 +75,10 @@ async function backupNow() {
 // ---- actions on a backup ----
 const restoring = ref(null)
 const confirmText = ref('')
+const restorePassphrase = ref('')
+// A backup kept only in remote storage, encrypted there: the restore may
+// need the passphrase it was uploaded with.
+const needsPassphrase = (b) => !b.local && (b.encrypted || []).length > 0
 
 async function startJob(path, body) {
   clearMessages()
@@ -90,11 +95,21 @@ function askRestore(b) {
   clearMessages()
   restoring.value = b
   confirmText.value = ''
+  restorePassphrase.value = ''
 }
 
 const restoreBody = (b) =>
-  b.kind === 'site' ? t('backups.restore_site_body') : b.kind === 'folder' ? t('backups.restore_folder_body', { folder: b.target })
-    : b.kind === 'app' ? t('backups.restore_app_body') : t('backups.restore_db_body')
+  b.kind === 'site' ? t(b.exists === false ? 'backups.restore_site_new' : 'backups.restore_site_body')
+    : b.kind === 'folder' ? t('backups.restore_folder_body', { folder: b.target })
+      : b.kind === 'app' ? t('backups.restore_app_body') : t(b.exists === false ? 'backups.restore_db_new' : 'backups.restore_db_body')
+
+// A backup found on a storage and added to the list: restore it now.
+async function restoreFound(id) {
+  await load()
+  setTab('list')
+  const b = backups.value.find((x) => x.id === id)
+  if (b) askRestore(b)
+}
 
 // App backups and schedules (kind "app") name the app's instance. A backup
 // also records its app, so it keeps its name and logo after the app is
@@ -118,7 +133,12 @@ function targetLabel(kind, x) {
 
 async function restore() {
   const b = restoring.value
-  if (await startJob(`api/backups/${b.id}/restore`, { confirm: confirmText.value.trim() })) restoring.value = null
+  const body = { confirm: confirmText.value.trim() }
+  if (needsPassphrase(b) && restorePassphrase.value) body.passphrase = restorePassphrase.value
+  if (await startJob(`api/backups/${b.id}/restore`, body)) {
+    restoring.value = null
+    restorePassphrase.value = ''
+  }
 }
 
 async function remove(b) {
@@ -341,7 +361,7 @@ function nameApps() {
                 <td class="nowrap">{{ formatBytes(b.size) }}</td>
                 <td class="nowrap">
                   <span v-if="b.local" class="status-pill ok">{{ t('backups.local') }}</span>
-                  <span v-for="r in b.remotes || []" :key="r" class="tag tag-info" :title="t('backups.remote')"><Icon name="cloud" :size="12" />{{ remoteLabel(r) }}</span>
+                  <span v-for="r in b.remotes || []" :key="r" class="tag tag-info" :title="isEncrypted(b, r) ? t('backups.encrypted_copy') : t('backups.remote')"><Icon :name="isEncrypted(b, r) ? 'lock' : 'cloud'" :size="12" />{{ remoteLabel(r) }}</span>
                 </td>
                 <td class="actions">
                   <RowActions :actions="[
@@ -416,7 +436,8 @@ function nameApps() {
       </section>
 
       <!-- remote storage -->
-      <BackupStorage v-else :s3="data.storage" :sftp="data.sftp" @changed="load" />
+      <BackupStorage v-else :s3="data.storage" :sftp="data.sftp" :gdrive="data.gdrive" :gdrive-default-folder="data.gdrive_default_folder || ''"
+        :gdrive-builtin="!!data.gdrive_builtin_client" @changed="load" @restore="restoreFound" />
 
       <!-- back up now -->
       <Modal v-if="showNow" :title="t('backups.now_title')" @close="showNow = false">
@@ -494,8 +515,14 @@ function nameApps() {
       <!-- restore confirmation -->
       <Modal v-if="restoring" danger :title="t('backups.restore_title', { name: restoring.name })" @close="restoring = null">
         <p>{{ restoreBody(restoring) }}</p>
-        <p v-if="restoring.kind === 'app'" class="alert alert-info">{{ t('backups.restore_app_passwords') }}</p>
+        <p v-if="restoring.kind === 'app' && restoring.exists === false" class="alert alert-warn">{{ t('backups.restore_app_missing') }}</p>
+        <p v-else-if="restoring.kind === 'app'" class="alert alert-info">{{ t('backups.restore_app_passwords') }}</p>
         <form class="stack" @submit.prevent="restore">
+          <label v-if="needsPassphrase(restoring)" class="field">
+            <span>{{ t('backups.restore_passphrase') }}</span>
+            <input v-model="restorePassphrase" class="input mono" type="password" autocomplete="off" spellcheck="false" />
+            <small class="muted">{{ t('backups.restore_passphrase_hint') }}</small>
+          </label>
           <label class="field">
             <span>{{ t('websites.delete_confirm', { domain: restoring.target }) }}</span>
             <input v-model="confirmText" class="input" autocomplete="off" spellcheck="false" required />

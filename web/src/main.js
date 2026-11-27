@@ -1,7 +1,7 @@
 import { createApp } from 'vue'
 import App from './App.vue'
 import { router } from './router.js'
-import { i18n } from './i18n.js'
+import { i18n, initLocale } from './i18n.js'
 import { setUnauthorizedHandler } from './api.js'
 import { auth } from './auth.js'
 import './theme.js' // sets data-theme before the first paint
@@ -14,4 +14,5 @@ setUnauthorizedHandler(() => {
   if (router.currentRoute.value.name !== 'login') router.replace({ name: 'login' })
 })
 
-createApp(App).use(i18n).use(router).mount('#app')
+// The language's messages come first, so the page doesn't flash English.
+initLocale().finally(() => createApp(App).use(i18n).use(router).mount('#app'))

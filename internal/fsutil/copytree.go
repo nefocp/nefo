@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/fs"
 	"os"
+	"os/user"
 	"path"
 	"slices"
 	"strconv"
@@ -26,7 +27,10 @@ type CopyOptions struct {
 	UID, GID int
 	// SrcUID is the owner of the source folder, or -1 when unknown. Files of
 	// other users that SrcUID could not read are left out: the copy belongs
-	// to another user, who must not get them through it.
+	// to another user, who must not get them through it. SrcUID reads a
+	// file of another owner that is world-readable, or group-readable by
+	// one of its groups (a website whose files are locked: root owns them,
+	// see hosting/filelock.go).
 	SrcUID int
 	// Skip are paths (relative, with slashes) that are not copied. With
 	// Mirror, they are not removed from the destination either.
@@ -39,7 +43,12 @@ type CopyOptions struct {
 	// had), and files with the same size and modification time are left as
 	// they are.
 	Mirror bool
-	Log    Logger // nil for no progress messages
+	// Links, if set, copies symbolic links as links (their targets are
+	// never followed): it gets a link's target and returns the target of
+	// the copy, or "" to leave the link out. A path that already exists in
+	// the destination stays as it is. Nil leaves every link out.
+	Links func(target string) string
+	Log   Logger // nil for no progress messages
 }
 
 // CopyStats counts what CopyTree did.
@@ -53,8 +62,9 @@ type CopyStats struct {
 
 // CopyTree copies the content of srcDir into dstDir, as root, inside two
 // os.Roots: no symbolic link can lead the copy out of either folder.
-// Symbolic links, devices and FIFOs are left out, and so are files of other
-// users that SrcUID could not read (a hard link to a file of root, say).
+// Symbolic links (unless Links is set), devices and FIFOs are left out, and
+// so are files of other users that SrcUID could not read (a hard link to a
+// file of root, say).
 // A path that is a symbolic link in the destination is left as it is.
 //
 // Files are written next to their final name and renamed into place, so a
@@ -72,7 +82,7 @@ func CopyTree(ctx context.Context, srcDir, dstDir string, o CopyOptions) (*CopyS
 		return nil, err
 	}
 	defer dst.Close()
-	c := &copier{src: src, dst: dst, o: o, st: &CopyStats{}}
+	c := &copier{src: src, dst: dst, o: o, st: &CopyStats{}, groups: userGroups(o.SrcUID)}
 	err = fs.WalkDir(src.FS(), ".", func(p string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
@@ -103,6 +113,8 @@ func CopyTree(ctx context.Context, srcDir, dstDir string, o CopyOptions) (*CopyS
 			return nil
 		case d.Type().IsRegular():
 			return c.file(p)
+		case d.Type()&fs.ModeSymlink != 0 && o.Links != nil:
+			return c.link(p)
 		default:
 			c.skip(p)
 			return nil
@@ -116,6 +128,33 @@ type copier struct {
 	o        CopyOptions
 	st       *CopyStats
 	tmpN     int
+	groups   map[int]bool // SrcUID's groups
+}
+
+// userGroups returns the groups of the account uid (none if unknown).
+func userGroups(uid int) map[int]bool {
+	out := map[int]bool{}
+	if uid < 0 {
+		return out
+	}
+	u, err := user.LookupId(strconv.Itoa(uid))
+	if err != nil {
+		return out
+	}
+	ids, _ := u.GroupIds()
+	for _, s := range append(ids, u.Gid) {
+		if g, err := strconv.Atoi(s); err == nil {
+			out[g] = true
+		}
+	}
+	return out
+}
+
+// readable reports whether SrcUID could read the file.
+func (c *copier) readable(fi fs.FileInfo) bool {
+	owner, group := Owner(fi)
+	perm := fi.Mode().Perm()
+	return c.o.SrcUID < 0 || owner == c.o.SrcUID || perm&0o004 != 0 || (perm&0o040 != 0 && c.groups[group])
 }
 
 func (c *copier) skip(p string) { c.st.Skipped = append(c.st.Skipped, p) }
@@ -199,7 +238,7 @@ func (c *copier) file(p string) error {
 		c.skip(p)
 		return nil
 	}
-	if owner, _ := Owner(fi); c.o.SrcUID >= 0 && owner != c.o.SrcUID && fi.Mode().Perm()&0o004 == 0 {
+	if !c.readable(fi) {
 		c.skip(p)
 		return nil
 	}
@@ -286,6 +325,32 @@ func (c *copier) file(p string) error {
 	c.st.Files++
 	c.st.Bytes += n
 	c.progress()
+	return nil
+}
+
+// link makes the symbolic link p in the destination, with the target
+// Links gives, owned like the copied files.
+func (c *copier) link(p string) error {
+	target, err := c.src.Readlink(p)
+	if err != nil {
+		return err
+	}
+	if target = c.o.Links(target); target == "" {
+		c.skip(p)
+		return nil
+	}
+	if _, err := c.dst.Lstat(p); err == nil {
+		c.skip(p)
+		return nil
+	} else if !errors.Is(err, fs.ErrNotExist) {
+		return err
+	}
+	if err := c.dst.Symlink(target, p); err != nil {
+		return err
+	}
+	if c.o.UID >= 0 {
+		return c.dst.Lchown(p, c.o.UID, c.o.GID)
+	}
 	return nil
 }
 

@@ -70,6 +70,8 @@ func (s *Server) handleSoftwareUpdate(w http.ResponseWriter, r *http.Request, a 
 		do = func(ctx context.Context, j *jobs.Job) error { return s.software.UpdateComposer(ctx, j) }
 	case "wpcli":
 		do = func(ctx context.Context, j *jobs.Job) error { return s.wpkit().UpdateCLI(ctx, j) }
+	case "ioncube": // the panel's pinned release (software/ioncube.go)
+		do = func(ctx context.Context, j *jobs.Job) error { return s.software.InstallIoncube(ctx, j) }
 	default:
 		s.opError(w, r, usererr.New("unknown_software", id))
 		return

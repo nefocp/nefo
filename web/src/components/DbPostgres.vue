@@ -7,16 +7,18 @@ import RowActions from './RowActions.vue'
 import Modal from './Modal.vue'
 import JobLog from './JobLog.vue'
 import CopyField from './CopyField.vue'
+import DbPgRemote from './DbPgRemote.vue'
 import { api, ApiError } from '../api.js'
 import { errorMessage } from '../errors.js'
-import { formatBytesL } from '../format.js'
+import { formatBytesL, formatDateTime } from '../format.js'
 import { list } from '../data.js'
 import { toast } from '../toast.js'
 import { useJob } from '../composables/useJob.js'
 
 // DbPostgres is the PostgreSQL tab of the Databases page: databases, each
-// owned by a role of the same name, with their logins, import and export.
-// Installing and removing PostgreSQL is on the Software page.
+// owned by a role of the same name, with their logins, import and export,
+// remote access, and the upgrade to a newer major version. Installing and
+// removing PostgreSQL is on the Software page.
 defineProps({ adminer: { type: Boolean, default: false } })
 const { t, locale } = useI18n()
 
@@ -28,6 +30,8 @@ const error = ref('')
 const notice = ref('')
 const creds = ref(null)
 const busy = ref(false)
+const versions = ref(null) // GET api/postgres/versions: where it comes from, upgrades
+const dumps = ref([]) // GET api/postgres/dumps: what upgrades kept
 
 const { job, running: jobRunning, watch: watchJob, resume, clear: clearJob } = useJob(() => load())
 
@@ -42,6 +46,8 @@ async function load() {
     databases.value = list(dbs.databases)
     sites.value = list(s.sites)
     error.value = ''
+    versions.value = st.installed ? await api('GET', 'api/postgres/versions').catch(() => null) : null
+    dumps.value = list((await api('GET', 'api/postgres/dumps').catch(() => ({ dumps: [] }))).dumps)
   } catch (e) {
     error.value = errorMessage(e)
   } finally {
@@ -54,7 +60,19 @@ function clearMessages() {
   notice.value = ''
 }
 
+async function deleteDump(d) {
+  if (!window.confirm(t('pgv.dump_delete_confirm', { path: d.path }))) return
+  clearMessages()
+  try {
+    await api('DELETE', `api/postgres/dumps/${encodeURIComponent(d.name)}`)
+    dumps.value = dumps.value.filter((x) => x.name !== d.name)
+  } catch (e) {
+    error.value = errorMessage(e)
+  }
+}
+
 const ready = computed(() => status.value?.installed && status.value?.running)
+const remoteCount = computed(() => databases.value.filter((d) => list(d.remote_hosts).length).length)
 const totalSize = computed(() => databases.value.reduce((a, d) => a + (d.size || 0), 0))
 const maxSize = computed(() => Math.max(1, ...databases.value.map((d) => d.size || 0)))
 const formatDate = (v) => new Date(v).toLocaleDateString(locale.value, { year: 'numeric', month: 'short', day: 'numeric' })
@@ -164,10 +182,12 @@ async function remove() {
   const d = deleting.value
   busy.value = true
   try {
-    await api('DELETE', `api/postgres/databases/${d.id}`, { confirm: confirmText.value.trim() })
+    const res = await api('DELETE', `api/postgres/databases/${d.id}`, { confirm: confirmText.value.trim() })
     notice.value = t('databases.deleted', { name: d.name })
     deleting.value = null
     if (creds.value?.id === d.id) creds.value = null
+    // PostgreSQL restarts when the last database with remote access goes.
+    if (res?.job) watchJob(res.job)
     await load()
   } catch (e) {
     error.value = errorMessage(e)
@@ -216,6 +236,51 @@ async function runImport() {
   }
 }
 
+// ---- remote access ----
+const remote = ref(null)
+function openRemote(d) {
+  clearMessages()
+  remote.value = d
+}
+function remoteSaved({ job: j, hosts }) {
+  const d = databases.value.find((x) => x.id === remote.value?.id)
+  if (d) d.remote_hosts = hosts
+  if (j) watchJob(j)
+}
+
+// ---- upgrade to a newer major version ----
+const upgrading = ref(false)
+const upgradeTo = ref('')
+const upgradeAgree = ref(false)
+const upgradeError = ref('')
+
+function openUpgrade() {
+  clearMessages()
+  const ups = list(versions.value?.upgrades)
+  upgradeTo.value = ups[ups.length - 1] || ''
+  upgradeAgree.value = false
+  upgradeError.value = ''
+  upgrading.value = true
+}
+
+async function startUpgrade() {
+  upgradeError.value = ''
+  busy.value = true
+  try {
+    watchJob(await api('POST', 'api/postgres/upgrade', { version: upgradeTo.value }))
+    upgrading.value = false
+  } catch (e) {
+    upgradeError.value = errorMessage(e)
+  } finally {
+    busy.value = false
+  }
+}
+
+const upgradeBlocked = computed(() => {
+  const v = versions.value
+  return v?.upgrade_blocked ? t(`errors.${v.upgrade_blocked}`, { detail: v.upgrade_detail || '' }) : ''
+})
+
 // ---- list ----
 const q = ref('')
 const filtered = computed(() => {
@@ -230,13 +295,14 @@ function actions(d, adminer) {
     { label: t('postgres.export'), icon: 'download', href: `api/postgres/databases/${d.id}/export` },
     { label: t('databases.import'), icon: 'upload', onClick: () => openImport(d) },
     { label: t('databases.change_password'), icon: 'refresh', onClick: () => newPassword(d) },
+    { label: t('databases.remote'), icon: 'globe', disabled: jobRunning.value, onClick: () => openRemote(d) },
     { label: t('websites.delete'), icon: 'trash', danger: true, onClick: () => askDelete(d) },
   ].filter(Boolean)
 }
 
 onMounted(async () => {
   await load()
-  resume(['pg_restart'])
+  resume(['pg_restart', 'pg_upgrade'])
 })
 </script>
 
@@ -267,14 +333,35 @@ onMounted(async () => {
             <div class="svc-meta">
               <span><Icon name="database" :size="14" />{{ t('pg.db_count', { n: databases.length }, databases.length) }}</span>
               <span><Icon name="disk" :size="14" />{{ formatBytesL(totalSize, locale) }}</span>
-              <span><Icon name="lock" :size="14" />{{ t('postgres.local_only', { port: status.port || 5432 }) }}</span>
+              <span v-if="remoteCount"><Icon name="globe" :size="14" />{{ t('pg.db_remote_n', { n: remoteCount }, remoteCount) }}</span>
+              <span v-else><Icon name="lock" :size="14" />{{ t('postgres.local_only', { port: status.port || 5432 }) }}</span>
+              <span><Icon name="package" :size="14" />{{ status.source === 'pgdg' ? t('pgv.source_pgdg') : t('pgv.source_distribution') }}</span>
             </div>
           </div>
           <div class="svc-actions">
             <a v-if="adminer" class="btn" href="adminer/?pgsql=localhost" target="_blank" rel="noopener"><AppLogo name="adminer" size="xs" />{{ t('databases.open_adminer') }}</a>
+            <button v-if="ready && list(versions?.upgrades).length" type="button" class="btn" :disabled="jobRunning" @click="openUpgrade">
+              <Icon name="upload" :size="15" />{{ t('pgv.upgrade') }}
+            </button>
             <button type="button" class="btn" :disabled="jobRunning" @click="restart"><Icon name="refresh" :size="15" />{{ t('pg.restart') }}</button>
             <button v-if="ready" type="button" class="btn btn-primary" :disabled="jobRunning" @click="openForm"><Icon name="plus" :size="15" />{{ t('databases.add') }}</button>
           </div>
+        </section>
+
+        <section v-if="dumps.length" class="card pg-dumps">
+          <div class="pg-dumps-head">
+            <Icon name="archive" :size="15" class="accent-ico" /><strong>{{ t('pgv.dumps_title') }}</strong>
+            <span class="muted small">{{ t('pgv.dumps_hint') }}</span>
+          </div>
+          <ul class="pg-dump-list">
+            <li v-for="d in dumps" :key="d.name">
+              <div class="pg-dump-what">{{ t('pgv.dump_label', { from: d.from, to: d.to }) }}</div>
+              <div class="muted small pg-dump-meta">{{ formatDateTime(d.created, locale) }} · {{ formatBytesL(d.size, locale) }} · <code>{{ d.path }}</code></div>
+              <button type="button" class="icon-btn" :aria-label="t('pgv.dump_delete')" :title="t('pgv.dump_delete')" :disabled="jobRunning" @click="deleteDump(d)">
+                <Icon name="trash" :size="16" />
+              </button>
+            </li>
+          </ul>
         </section>
 
         <div v-if="!status.running" class="card empty">
@@ -335,7 +422,10 @@ onMounted(async () => {
                       <span class="tile"><Icon name="database" :size="16" /></span>
                       <div class="name-ico-text">
                         <div class="mono db-name">{{ d.name }}</div>
-                        <div class="name-ico-sub">{{ t('postgres.owner', { owner: d.owner || d.username }) }}</div>
+                        <div class="name-ico-sub">
+                          {{ t('postgres.owner', { owner: d.owner || d.username }) }}
+                          <span v-if="list(d.remote_hosts).length" class="status-pill warn" :title="d.remote_hosts.join(', ')">{{ t('databases.remote_tag', { n: d.remote_hosts.length }) }}</span>
+                        </div>
                         <div v-if="d.missing" class="small text-crit">{{ t('postgres.missing') }}</div>
                       </div>
                     </div>
@@ -417,6 +507,36 @@ onMounted(async () => {
       </form>
     </Modal>
 
+    <DbPgRemote v-if="remote" :db="remote" @close="remote = null" @saved="remoteSaved" />
+
+    <Modal v-if="upgrading && versions" :title="t('pgv.upgrade_title', { v: versions.installed })" @close="upgrading = false">
+      <p v-if="upgradeError" class="alert alert-crit pre-wrap" role="alert">{{ upgradeError }}</p>
+      <p v-if="upgradeBlocked" class="alert alert-warn pre-wrap" role="alert">{{ upgradeBlocked }}</p>
+      <form class="stack" @submit.prevent="startUpgrade">
+        <label class="field">
+          <span>{{ t('pgv.upgrade_to') }}</span>
+          <select v-model="upgradeTo" class="input">
+            <option v-for="v in versions.upgrades" :key="v" :value="v">{{ t('pgv.option_pgdg', { v }) }}</option>
+          </select>
+        </label>
+        <div class="small">
+          <strong>{{ t('pgv.upgrade_steps_title') }}</strong>
+          <ol class="pgv-steps">
+            <li>{{ t('pgv.upgrade_step_dump') }}</li>
+            <li>{{ t('pgv.upgrade_step_install', { v: upgradeTo }) }}</li>
+            <li>{{ t('pgv.upgrade_step_run', { v: upgradeTo }) }}</li>
+            <li>{{ t('pgv.upgrade_step_check', { old: versions.installed }) }}</li>
+          </ol>
+          <p class="muted">{{ t('pgv.upgrade_rollback', { old: versions.installed }) }}</p>
+        </div>
+        <label class="check"><input v-model="upgradeAgree" type="checkbox" /><span>{{ t('pgv.upgrade_agree') }}</span></label>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" @click="upgrading = false">{{ t('common.cancel') }}</button>
+          <button class="btn btn-primary" :disabled="busy || !upgradeAgree || !upgradeTo || !!upgradeBlocked"><Icon name="upload" />{{ t('pgv.upgrade_start', { v: upgradeTo }) }}</button>
+        </div>
+      </form>
+    </Modal>
+
     <Modal v-if="importing" :title="t('databases.import_title', { name: importing.name })" @close="importing = null">
       <p v-if="importError" class="alert alert-crit pre-wrap" role="alert">{{ importError }}</p>
       <form class="stack" @submit.prevent="runImport">
@@ -439,4 +559,17 @@ onMounted(async () => {
 .db-name { font-weight: 500; }
 .creds-card .card-head h2 { display: flex; align-items: center; gap: 9px; }
 .accent-ico { color: var(--accent); }
+.pgv-steps { margin: 6px 0 8px; padding-left: 20px; display: flex; flex-direction: column; gap: 3px; }
+/* the dumps upgrades kept, like the MariaDB/MySQL card's (DbEngineCard) */
+.pg-dumps { padding: 12px 16px 14px; display: flex; flex-direction: column; gap: 8px; }
+.pg-dumps-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 8px; }
+.pg-dumps-head .icon { align-self: center; }
+.pg-dump-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.pg-dump-list li {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; align-items: center;
+  padding: 8px 10px; border: 1px solid var(--border); border-radius: 10px;
+}
+.pg-dump-what { font-weight: 600; }
+.pg-dump-meta { grid-column: 1; overflow-wrap: anywhere; }
+.pg-dump-list .icon-btn { grid-row: 1 / span 2; grid-column: 2; color: var(--crit); }
 </style>

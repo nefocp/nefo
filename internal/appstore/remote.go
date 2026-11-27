@@ -21,9 +21,11 @@ import (
 // signature over the file's exact bytes made with the release key (the
 // same "openssl pkeyutl -sign -rawin" as checksums.txt). The panel fetches
 // it once a day and accepts it only when the signature is valid, the format
-// is one it reads, every entry passes the same checks as the embedded file,
-// and its catalog_version is higher than both the embedded catalog's and
-// the last one accepted (so an old signed file cannot be replayed).
+// is one it reads, and its catalog_version is higher than both the embedded
+// catalog's and the last one accepted (so an old signed file cannot be
+// replayed). Each entry must pass the same checks as the embedded file;
+// one that does not (a recipe feature of a newer panel) is left out, and
+// the embedded entry of the same app is kept (see ParseRemote).
 //
 // Builds without a release key never fetch anything.
 
@@ -64,11 +66,11 @@ func (r *Remote) LoadCache() error {
 	if err != nil {
 		return err
 	}
-	c, err := r.check(data, sig, true)
+	c, sk, err := r.check(data, sig, true)
 	if err != nil {
 		return err
 	}
-	setCurrent(c, "remote")
+	setCurrent(c, "remote", sk)
 	return nil
 }
 
@@ -87,7 +89,7 @@ func (r *Remote) Refresh(ctx context.Context) (*Catalog, error) {
 	if err != nil {
 		return Current(), err
 	}
-	c, err := r.check(data, sig, false)
+	c, sk, err := r.check(data, sig, false)
 	if err != nil {
 		return Current(), err
 	}
@@ -103,31 +105,31 @@ func (r *Remote) Refresh(ctx context.Context) (*Catalog, error) {
 	if err := fsutil.WriteFileAtomic(filepath.Join(r.CacheDir, acceptedFile), []byte(strconv.FormatInt(c.CatalogVersion, 10)), 0o600); err != nil {
 		return Current(), err
 	}
-	setCurrent(c, "remote")
+	setCurrent(c, "remote", sk)
 	return c, nil
 }
 
 // check verifies a signed catalog. cached allows the version that was
 // last accepted (the file we wrote ourselves); a download must be newer.
-func (r *Remote) check(data, sig []byte, cached bool) (*Catalog, error) {
+func (r *Remote) check(data, sig []byte, cached bool) (*Catalog, []Skipped, error) {
 	if err := r.Verify(data, sig); err != nil {
-		return nil, fmt.Errorf("remote catalog: %w", err)
+		return nil, nil, fmt.Errorf("remote catalog: %w", err)
 	}
-	c, err := Parse(data)
+	c, sk, err := ParseRemote(data, version.Version)
 	if err != nil {
-		return nil, fmt.Errorf("remote catalog: %w", err)
+		return nil, nil, fmt.Errorf("remote catalog: %w", err)
 	}
 	if c.MinPanel != "" && version.Version != "dev" && !versionAtLeast(version.Version, c.MinPanel) {
-		return nil, fmt.Errorf("remote catalog needs panel %s or newer", c.MinPanel)
+		return nil, nil, fmt.Errorf("remote catalog needs panel %s or newer", c.MinPanel)
 	}
 	if c.CatalogVersion <= Embedded().CatalogVersion {
-		return nil, errNotNewer
+		return nil, nil, errNotNewer
 	}
 	last := r.accepted()
 	if c.CatalogVersion < last || (!cached && c.CatalogVersion == last) {
-		return nil, errNotNewer
+		return nil, nil, errNotNewer
 	}
-	return c, nil
+	return c, sk, nil
 }
 
 var errNotNewer = errors.New("the remote catalog is not newer than the one in use")

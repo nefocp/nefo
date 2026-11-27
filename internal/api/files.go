@@ -31,7 +31,10 @@ func (s *Server) fileScope(ctx context.Context, abs string) (files.Scope, error)
 			if err != nil {
 				return files.Scope{}, err
 			}
-			return files.Scope{Root: root, UID: uid, GID: gid, Site: site.Domain}, nil
+			// While the site's files are locked, only its writable
+			// folders change (see hosting/filelock.go).
+			guard := func(rel string, self bool) error { return s.hosting.CheckWritable(ctx, site, rel, self) }
+			return files.Scope{Root: root, UID: uid, GID: gid, Site: site.Domain, Guard: guard}, nil
 		}
 	}
 	return files.Scope{Root: "/", UID: 0, GID: 0}, nil

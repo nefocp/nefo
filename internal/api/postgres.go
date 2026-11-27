@@ -3,9 +3,11 @@ package api
 import (
 	"compress/gzip"
 	"context"
+	"errors"
 	"io"
 	"mime"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -28,6 +30,12 @@ func (s *Server) postgresRoutes(mux *http.ServeMux) {
 	mux.Handle("DELETE /api/postgres/databases/{id}", s.requireAuth(s.handlePGDelete))
 	mux.Handle("GET /api/postgres/databases/{id}/export", s.requireAuth(s.handlePGExport))
 	mux.Handle("POST /api/postgres/databases/{id}/import", s.requireAuth(s.handlePGImport))
+	mux.Handle("GET /api/postgres/databases/{id}/remote", s.requireAuth(s.handlePGRemote))
+	mux.Handle("PUT /api/postgres/databases/{id}/remote", s.requireAuth(s.handleSetPGRemote))
+	mux.Handle("GET /api/postgres/versions", s.requireAuth(s.handlePGVersions))
+	mux.Handle("POST /api/postgres/upgrade", s.requireAuth(s.handlePGUpgrade))
+	mux.Handle("GET /api/postgres/dumps", s.requireAuth(s.handlePGDumps))
+	mux.Handle("DELETE /api/postgres/dumps/{name}", s.requireAuth(s.handleDeletePGDump))
 	mux.Handle("GET /api/memcached", s.requireAuth(s.handleMemcached))
 	mux.Handle("POST /api/memcached/restart", s.requireAuth(s.handleMemcachedRestart))
 }
@@ -37,11 +45,141 @@ func (s *Server) handlePGStatus(w http.ResponseWriter, r *http.Request, a *authe
 }
 
 func (s *Server) handlePGRestart(w http.ResponseWriter, r *http.Request, a *authed) {
-	user, ip := a.user.Username, clientIP(r)
-	job, err := s.jobs.Start("pg_restart", "PostgreSQL", 5*time.Minute, func(ctx context.Context, j *jobs.Job) error {
+	job, err := s.startPGRestart(a.user.Username, clientIP(r), "")
+	if err != nil {
+		s.opError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusAccepted, job.Snapshot())
+}
+
+func (s *Server) startPGRestart(user, ip, why string) (*jobs.Job, error) {
+	return s.jobs.Start("pg_restart", "PostgreSQL", 5*time.Minute, func(ctx context.Context, j *jobs.Job) error {
 		err := s.pg.Restart(ctx, j)
 		if err == nil {
-			s.audit(ctx, user, "pg_restarted", ip, "")
+			s.audit(ctx, user, "pg_restarted", ip, why)
+		}
+		return err
+	})
+}
+
+// restartPGIfNeeded restarts PostgreSQL in a job when its listen setting
+// changed, for example after the last database with remote access was
+// deleted. It returns the job, or nil when no restart is needed or another
+// job is running (PostgreSQL then keeps listening on all interfaces until
+// its next restart; pg_hba.conf and the firewall still keep everyone out).
+func (s *Server) restartPGIfNeeded(ctx context.Context, user, ip string) *jobs.Job {
+	if !s.pg.RestartPending(ctx) {
+		return nil
+	}
+	job, err := s.startPGRestart(user, ip, "listen setting")
+	if err != nil {
+		s.log.Warn("PostgreSQL must restart to apply its listen setting", "err", err)
+		return nil
+	}
+	return job
+}
+
+// ---- remote access ----
+
+func (s *Server) handlePGRemote(w http.ResponseWriter, r *http.Request, a *authed) {
+	id, ok := pathID(r)
+	if !ok {
+		writeError(w, http.StatusNotFound, "not_found")
+		return
+	}
+	ra, err := s.pg.Remote(r.Context(), id)
+	if err != nil {
+		s.opError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, ra)
+}
+
+// handleSetPGRemote replaces the client addresses that may connect to a
+// PostgreSQL database from other machines; an empty list turns remote
+// access off. When PostgreSQL must restart to change where it listens, the
+// restart runs as a job, which the answer includes.
+func (s *Server) handleSetPGRemote(w http.ResponseWriter, r *http.Request, a *authed) {
+	id, ok := pathID(r)
+	if !ok {
+		writeError(w, http.StatusNotFound, "not_found")
+		return
+	}
+	var req struct {
+		Hosts []string `json:"hosts"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	d, err := s.store.PGDatabaseByID(r.Context(), id)
+	if err != nil {
+		s.opError(w, r, err)
+		return
+	}
+	restart, err := s.pg.SetRemote(r.Context(), id, req.Hosts)
+	if err != nil {
+		s.opError(w, r, err)
+		return
+	}
+	user, ip := a.user.Username, clientIP(r)
+	hosts, _ := postgres.ParseRemoteHosts(req.Hosts) // already checked by SetRemote
+	detail := d.Name + ": off"
+	if len(hosts) > 0 {
+		detail = d.Name + ": " + strings.Join(hosts, " ")
+	}
+	s.audit(r.Context(), user, "pg_db_remote_access", ip, detail)
+	ra, err := s.pg.Remote(r.Context(), id)
+	if err != nil {
+		s.opError(w, r, err)
+		return
+	}
+	res := map[string]any{"remote": ra}
+	if restart {
+		job, err := s.startPGRestart(user, ip, "listen setting")
+		switch {
+		case err == nil:
+			res["job"] = job.Snapshot()
+		case errors.Is(err, jobs.ErrBusy):
+			// Another job runs: the state shows the restart as pending, and
+			// the administrator can start it later (POST /api/postgres/restart).
+		default:
+			s.opError(w, r, err)
+			return
+		}
+	}
+	writeJSON(w, http.StatusOK, res)
+}
+
+// ---- versions ----
+
+func (s *Server) handlePGVersions(w http.ResponseWriter, r *http.Request, a *authed) {
+	writeJSON(w, http.StatusOK, s.pg.Versions(r.Context()))
+}
+
+// handlePGUpgrade moves the cluster to a newer major version from
+// apt.postgresql.org, as a job: {"version": "17"}.
+func (s *Server) handlePGUpgrade(w http.ResponseWriter, r *http.Request, a *authed) {
+	var req struct {
+		Version string `json:"version"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	v := s.pg.Versions(r.Context())
+	if !slices.Contains(v.Upgrades, req.Version) {
+		s.opError(w, r, usererr.New("pg_version_unknown", req.Version))
+		return
+	}
+	if v.UpgradeBlocked != "" {
+		s.opError(w, r, usererr.New(v.UpgradeBlocked, v.UpgradeDetail))
+		return
+	}
+	user, ip, from := a.user.Username, clientIP(r), v.Installed
+	job, err := s.jobs.Start("pg_upgrade", "PostgreSQL "+req.Version, 3*time.Hour, func(ctx context.Context, j *jobs.Job) error {
+		err := s.pg.Upgrade(ctx, req.Version, j)
+		if err == nil {
+			s.audit(ctx, user, "pg_upgraded", ip, from+" to "+req.Version)
 		}
 		return err
 	})
@@ -50,6 +188,22 @@ func (s *Server) handlePGRestart(w http.ResponseWriter, r *http.Request, a *auth
 		return
 	}
 	writeJSON(w, http.StatusAccepted, job.Snapshot())
+}
+
+// handlePGDumps lists the dumps upgrades kept (GET /api/postgres/dumps).
+func (s *Server) handlePGDumps(w http.ResponseWriter, r *http.Request, a *authed) {
+	writeJSON(w, http.StatusOK, map[string]any{"dumps": s.pg.UpgradeDumps()})
+}
+
+// handleDeletePGDump deletes one (DELETE /api/postgres/dumps/{name}).
+func (s *Server) handleDeletePGDump(w http.ResponseWriter, r *http.Request, a *authed) {
+	name := r.PathValue("name")
+	if err := s.pg.DeleteUpgradeDump(name); err != nil {
+		s.opError(w, r, err)
+		return
+	}
+	s.audit(r.Context(), a.user.Username, "pg_dump_deleted", clientIP(r), name)
+	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
 }
 
 func (s *Server) handlePGList(w http.ResponseWriter, r *http.Request, a *authed) {
@@ -149,7 +303,12 @@ func (s *Server) handlePGDelete(w http.ResponseWriter, r *http.Request, a *authe
 	}
 	s.audit(r.Context(), a.user.Username, "pg_db_deleted", clientIP(r), req.Confirm)
 	s.store.DeleteSchedulesFor(r.Context(), "database", strings.TrimSpace(req.Confirm))
-	writeJSON(w, http.StatusOK, map[string]bool{"ok": true})
+	res := map[string]any{"ok": true}
+	// PostgreSQL restarts when the last database with remote access goes.
+	if job := s.restartPGIfNeeded(r.Context(), a.user.Username, clientIP(r)); job != nil {
+		res["job"] = job.Snapshot()
+	}
+	writeJSON(w, http.StatusOK, res)
 }
 
 // handlePGExport streams a gzipped plain SQL dump of a database.
@@ -244,9 +403,10 @@ func (s *Server) handlePGImport(w http.ResponseWriter, r *http.Request, a *authe
 	}
 }
 
-// installPostgres installs PostgreSQL, then lets Adminer open its databases.
-func (s *Server) installPostgres(ctx context.Context, lg software.Logger) error {
-	if err := s.pg.Install(ctx, lg); err != nil {
+// installPostgres installs PostgreSQL (major "": the distribution's, or the
+// one installed), then lets Adminer open its databases.
+func (s *Server) installPostgres(ctx context.Context, major string, lg software.Logger) error {
+	if err := s.pg.Install(ctx, major, lg); err != nil {
 		return err
 	}
 	return s.adminerPostgres(ctx, lg)

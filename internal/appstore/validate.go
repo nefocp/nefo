@@ -35,8 +35,11 @@ var (
 	imageRe = regexp.MustCompile(`^([a-z0-9.-]+\.[a-z]{2,}/)?[a-z0-9]+([._/-][a-z0-9]+)*:[A-Za-z0-9][A-Za-z0-9._-]{0,127}$`)
 	// floating tags: latest, stable, main… and a bare major version.
 	floatingRe = regexp.MustCompile(`:(latest|stable|main|master|edge|beta|nightly|dev|rolling|lts|v?[0-9]+)$`)
-	// placeholders: ${name}, ${secret.name}, ${input.name}
+	// placeholders: ${name}, ${secret.name}, ${input.name}, ${step.name}
 	placeholderRe = regexp.MustCompile(`\$\{([a-z_]+)(?:\.([a-z][a-z0-9_]*))?\}`)
+	headerRe      = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9-]{0,63}$`)
+	jsonPathRe    = regexp.MustCompile(`^[A-Za-z0-9_]{1,64}(\.[A-Za-z0-9_]{1,64}){0,7}$`)
+	panelVerRe    = regexp.MustCompile(`^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$`)
 )
 
 // Vars are the plain placeholders a recipe may use.
@@ -44,7 +47,7 @@ var Vars = []string{"domain", "url", "scheme", "https", "port", "public_host", "
 
 var (
 	categories = []string{"cms", "ecommerce", "education", "ai", "security", "storage", "database", "devtools",
-		"productivity", "analytics", "network", "business", "monitoring", "automation"}
+		"productivity", "analytics", "network", "business", "monitoring", "automation", "media", "communication"}
 	// installers compiled into this binary (internal/hosting).
 	installers = []string{"wordpress", "joomla", "nextcloud", "drupal", "laravel", "woocommerce", "opencart", "moodle"}
 	// shared networks the panel creates.
@@ -82,10 +85,18 @@ func (c *Catalog) Validate() error {
 	return nil
 }
 
+// textOK: a catalog text needs English and Vietnamese, and may have other
+// languages (the interface falls back to English; a language this panel
+// doesn't speak is simply not shown).
 func textOK(t Text, max int) bool {
 	for _, lang := range []string{"en", "vi"} {
-		v := t[lang]
-		if strings.TrimSpace(v) == "" || len(v) > max || strings.ContainsAny(v, "\x00") {
+		if v := t[lang]; strings.TrimSpace(v) == "" || len(v) > max {
+			return false
+		}
+	}
+	for _, v := range t {
+		// Chinese takes 3 bytes a character, Russian 2: len counts bytes.
+		if len(v) > 3*max || strings.ContainsAny(v, "\x00") {
 			return false
 		}
 	}
@@ -124,6 +135,8 @@ func (a *App) validate() error {
 		return errors.New("admin/update notes need en and vi")
 	case a.Updates.Breaking != "" && a.Updates.Breaking != "major" && a.Updates.Breaking != "minor":
 		return errors.New("updates.breaking must be major or minor")
+	case a.MinPanel != "" && !panelVerRe.MatchString(a.MinPanel):
+		return errors.New("min_panel must be a version such as 0.24.0")
 	}
 	if a.Admin.LogRegex != "" {
 		re, err := regexp.Compile(a.Admin.LogRegex)
@@ -227,10 +240,21 @@ func (r *Recipe) validate(a *App) error {
 			return fmt.Errorf("service %s: %w", name, err)
 		}
 	}
+	saved := map[string]bool{} // ${step.*} values saved by the steps so far
 	for _, list := range [][]Step{r.BeforeStart, r.AfterStart} {
 		for _, st := range list {
-			if err := st.validate(r); err != nil {
+			if err := st.validate(r, saved); err != nil {
 				return err
+			}
+		}
+	}
+	for name, s := range r.Services {
+		for _, v := range s.Volumes {
+			// The site's user can replace the folder with a link, which
+			// Docker would follow: only a container that runs as that same
+			// user may mount it.
+			if v.Site && (a.Kind != KindDocker || v.Owner != "site" || s.User != "site") {
+				return fmt.Errorf("service %s: a site volume needs an app with a website, owner site and user site", name)
 			}
 		}
 	}
@@ -300,11 +324,6 @@ func (s *Service) validate(r *Recipe) error {
 			}
 		}
 	}
-	for k := range s.EnvBootstrap {
-		if _, ok := s.Env[k]; ok {
-			return fmt.Errorf("%s is both env and env_bootstrap", k)
-		}
-	}
 	for p, name := range s.SecretFiles {
 		if !absPath(p) {
 			return fmt.Errorf("invalid secret file path %q", p)
@@ -367,7 +386,7 @@ func (in *Input) validate(name string) error {
 	return nil
 }
 
-func (st Step) validate(r *Recipe) error {
+func (st Step) validate(r *Recipe, saved map[string]bool) error {
 	n := 0
 	for _, set := range []bool{st.HTTP != nil, st.Exec != nil, st.Run != nil} {
 		if set {
@@ -378,9 +397,35 @@ func (st Step) validate(r *Recipe) error {
 		return errors.New("a step needs exactly one of http, exec, run")
 	}
 	if h := st.HTTP; h != nil {
-		if (h.Method != "GET" && h.Method != "POST") || !strings.HasPrefix(h.Path, "/") || len(h.Expect) == 0 ||
-			(h.Form != nil && h.JSON != nil) {
+		if !slices.Contains([]string{"GET", "POST", "PUT", "PATCH"}, h.Method) || !strings.HasPrefix(h.Path, "/") ||
+			strings.ContainsAny(h.Path, " \n\x00") || len(h.Expect) == 0 || (h.Form != nil && h.JSON != nil) {
 			return errors.New("invalid http step")
+		}
+		for k, v := range h.Headers {
+			if !headerRe.MatchString(k) || strings.ContainsAny(v, "\r\n\x00") || len(v) > 4096 {
+				return fmt.Errorf("http step: invalid header %q", k)
+			}
+		}
+		if err := checkJSONValue(h.JSON, 0); err != nil {
+			return err
+		}
+		// ${step.*} must come from an earlier step.
+		var bad error
+		h.each(func(v string) {
+			for _, m := range placeholderRe.FindAllStringSubmatch(v, -1) {
+				if m[1] == "step" && !saved[m[2]] && bad == nil {
+					bad = fmt.Errorf("http step: ${step.%s} is not saved by an earlier step", m[2])
+				}
+			}
+		})
+		if bad != nil {
+			return bad
+		}
+		for name, p := range h.Save {
+			if !secretRe.MatchString(name) || !jsonPathRe.MatchString(p) {
+				return fmt.Errorf("http step: invalid save %q", name)
+			}
+			saved[name] = true
 		}
 		return nil
 	}
@@ -399,10 +444,67 @@ func (st Step) validate(r *Recipe) error {
 	return nil
 }
 
+// checkJSONValue accepts what encoding/json makes of a JSON body: strings,
+// numbers, booleans, null, and lists and objects of them, not too deep.
+func checkJSONValue(v any, depth int) error {
+	if depth > 8 {
+		return errors.New("http step: json nested too deep")
+	}
+	switch x := v.(type) {
+	case nil, string, float64, bool:
+	case map[string]any:
+		for _, e := range x {
+			if err := checkJSONValue(e, depth+1); err != nil {
+				return err
+			}
+		}
+	case []any:
+		for _, e := range x {
+			if err := checkJSONValue(e, depth+1); err != nil {
+				return err
+			}
+		}
+	default:
+		return fmt.Errorf("http step: unexpected json value %T", v)
+	}
+	return nil
+}
+
+// each calls f with every string of the step that may hold placeholders.
+func (h *HTTPStep) each(f func(string)) {
+	f(h.Path)
+	for _, v := range h.Form {
+		f(v)
+	}
+	for _, v := range h.Headers {
+		f(v)
+	}
+	var walk func(any)
+	walk = func(v any) {
+		switch x := v.(type) {
+		case string:
+			f(x)
+		case map[string]any:
+			for _, e := range x {
+				walk(e)
+			}
+		case []any:
+			for _, e := range x {
+				walk(e)
+			}
+		}
+	}
+	if h.JSON != nil {
+		walk(h.JSON)
+	}
+}
+
 // checkPlaceholders makes sure every ${…} in the recipe names a known
-// variable, secret or input.
+// variable, secret or input (${step.*}: a value an earlier HTTP step saved,
+// checked with the steps).
 func (r *Recipe) checkPlaceholders(a *App) error {
 	var bad error
+	inStep := false
 	check := func(s string) {
 		if bad != nil {
 			return
@@ -418,6 +520,10 @@ func (r *Recipe) checkPlaceholders(a *App) error {
 			case "input":
 				if _, ok := r.Inputs[m[2]]; !ok {
 					bad = fmt.Errorf("unknown input %q", m[2])
+				}
+			case "step":
+				if !inStep {
+					bad = fmt.Errorf("${step.%s} outside an http step", m[2])
 				}
 			default:
 				if m[2] != "" || !slices.Contains(Vars, m[1]) {
@@ -450,13 +556,9 @@ func (r *Recipe) checkPlaceholders(a *App) error {
 		for _, st := range list {
 			switch {
 			case st.HTTP != nil:
-				check(st.HTTP.Path)
-				for _, v := range st.HTTP.Form {
-					check(v)
-				}
-				for _, v := range st.HTTP.JSON {
-					check(v)
-				}
+				inStep = true
+				st.HTTP.each(check)
+				inStep = false
 			case st.Exec != nil:
 				check(st.Exec.Stdin)
 				for _, v := range st.Exec.Argv {

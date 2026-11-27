@@ -85,6 +85,9 @@ func newTest(t *testing.T) (*Manager, *fakeRunner) {
 	m.remoteConf = filepath.Join(dir, "99-panel-remote.cnf")
 	m.slowConf = filepath.Join(dir, "99-panel-slowlog.cnf")
 	m.slowLog = filepath.Join(dir, "mariadb-slow.log")
+	m.mariaKeyring = filepath.Join(dir, "keyrings/panel-mariadb.gpg")
+	m.mariaList = filepath.Join(dir, "sources.list.d/panel-mariadb.list")
+	m.dumpsDir = filepath.Join(dir, "db-server")
 	return m, f
 }
 

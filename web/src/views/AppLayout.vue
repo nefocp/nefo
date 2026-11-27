@@ -51,6 +51,7 @@ const groups = [
   {
     title: 'nav.group_security',
     items: [
+      { name: 'security-check', label: 'nav.security_check', icon: 'shieldCheck' },
       { name: 'firewall', label: 'nav.firewall', icon: 'shield' },
       { name: 'security', label: 'nav.account', icon: 'lock', crit: true },
       { name: 'settings', label: 'nav.settings', icon: 'settings' },

@@ -80,7 +80,7 @@ func parseSetupFlags(args []string, out io.Writer) (*setupOpts, error) {
 	cfgPath := configFlag(fs)
 	web := fs.String("web", "", "web server: nginx, apache, openlitespeed or none")
 	php := fs.String("php", "", `PHP versions, such as "8.3,8.4", or "none" (the web server always brings the distribution's)`)
-	db := fs.String("db", "", "database server: mariadb, mysql or none")
+	db := fs.String("db", "", "database server: mariadb, mysql or none; mariadb-11.4, mariadb-11.8 or mariadb-12.3 for an LTS series from MariaDB's repository")
 	mariadb := fs.Bool("mariadb", false, "the same as --db mariadb")
 	extras := map[string]*bool{}
 	for _, x := range setupExtraFlags {
@@ -117,8 +117,10 @@ func parseSetupFlags(args []string, out io.Writer) (*setupOpts, error) {
 	if p := strings.TrimSpace(*php); p != "" && p != "none" {
 		for _, v := range strings.Split(p, ",") {
 			v = strings.TrimSpace(v)
-			if !slices.Contains(software.PHPVersions, v) {
-				return nil, usageError{fmt.Sprintf("unknown PHP version %q: use %s", v, strings.Join(software.PHPVersions, ", "))}
+			// A known version, or a newer one the PHP repository may have
+			// by now: the plan checks it against what this server offers.
+			if !software.PHPVersionKnownOrNewer(v) {
+				return nil, usageError{fmt.Sprintf("unknown PHP version %q: use one such as %s", v, strings.Join(software.PHPVersions[len(software.PHPVersions)-3:], ", "))}
 			}
 			if !slices.Contains(o.choice.PHP, v) {
 				o.choice.PHP = append(o.choice.PHP, v)
@@ -131,7 +133,7 @@ func parseSetupFlags(args []string, out io.Writer) (*setupOpts, error) {
 	case *mariadb:
 		o.choice.DB = "mariadb"
 	case d == "" || d == "none":
-	case slices.Contains(setup.Databases, d):
+	case setup.IsDatabase(d):
 		o.choice.DB = d
 	default:
 		return nil, usageError{fmt.Sprintf("unknown database server %q: use mariadb, mysql or none", *db)}
@@ -383,6 +385,9 @@ func printSetupPlan(w io.Writer, v setup.View, p setup.Plan) {
 		fmt.Fprintf(w, "  %d. %-*s  %s\n", i+1, width, s.Name, what)
 	}
 	fmt.Fprintf(w, "In all: about %s more RAM and %s of disk.\n", sizeMB(p.RAMMB), sizeMB(p.DiskMB))
+	if p.AptListsMB > 0 {
+		fmt.Fprintf(w, "The disk includes about %s for apt's package lists, which this server hasn't downloaded yet.\n", sizeMB(p.AptListsMB))
+	}
 	for _, warn := range p.Warnings {
 		switch warn {
 		case "ram":
@@ -423,7 +428,7 @@ func setupError(err error) error {
 		"busy":                "another task is running in the panel. Wait until it has finished, then try again",
 		"unsupported":         "this server can't host websites: Nefo needs Debian or Ubuntu with systemd",
 		"setup_empty":         "nothing to install: name a web server, PHP versions, a database or extras, or use --skip",
-		"setup_db_conflict":   detail + " is installed on this server, and a server runs one database server: use --db " + strings.ToLower(detail) + ", or none",
+		"setup_db_conflict":   detail + " is installed on this server, and a server runs one database server: use --db " + strings.ReplaceAll(strings.ToLower(detail), " ", "-") + ", or none",
 		"setup_needs_web":     detail + " needs a web server: add --web nginx (or apache, openlitespeed)",
 		"setup_not_offered":   detail + " can't be installed on this server",
 		"unknown_software":    "unknown software: " + detail,

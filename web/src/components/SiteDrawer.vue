@@ -27,6 +27,9 @@ import SiteHTTPS from './SiteHTTPS.vue'
 import SitePageCache from './SitePageCache.vue'
 import SitePointDNS from './SitePointDNS.vue'
 import SiteMonitor from './SiteMonitor.vue'
+import SiteCountry from './SiteCountry.vue'
+import SiteFileLock from './SiteFileLock.vue'
+import SiteUpstream from './SiteUpstream.vue'
 import { store as cache, list as asList } from '../data.js'
 
 // SiteDrawer holds every setting of one website, in grouped tabs. Each tab
@@ -50,9 +53,11 @@ const fmtDate = (v) => new Date(v).toLocaleDateString(locale.value, { year: 'num
 const s = computed(() => props.site)
 const isApp = computed(() => !!s.value.proxy_port)
 const isDocker = computed(() => (s.value.app || '').startsWith('docker:'))
+// A reverse proxy website: forwards to an address of its own (proxy_url).
+const isProxy = computed(() => !!s.value.proxy_url)
 const serverName = computed(() => SERVER_NAMES[props.server] || 'Nginx')
 const url = computed(() => `${s.value.ssl ? 'https' : 'http'}://${s.value.domain}/`)
-const runtimeLogo = computed(() => (s.value.app_runtime === 'python' ? 'python' : 'nodejs'))
+const runtimeLogo = computed(() => (s.value.app_runtime === 'python' ? 'python' : (s.value.app_runtime || '').startsWith('java:') ? 'java' : 'nodejs'))
 const days = computed(() => daysLeft(s.value.cert_expires))
 // Website monitoring (api/uptime, loaded by the website list and the bell).
 const monitorDown = computed(() => asList(cache['api/uptime']?.sites).some((x) => x.site_id === s.value.id && x.state === 'down'))
@@ -72,6 +77,7 @@ const groups = computed(() =>
         { id: 'domains', icon: 'globe', count: 1 + (s.value.aliases || []).length },
         s.value.php_version ? { id: 'php', logo: 'php' } : null,
         isApp.value && !isDocker.value ? { id: 'runtime', logo: runtimeLogo.value } : null,
+        isProxy.value ? { id: 'upstream', icon: 'swap' } : null,
       ],
     },
     {
@@ -80,20 +86,22 @@ const groups = computed(() =>
         { id: 'ssl', icon: 'lock', dot: sslState.value === 'off' ? '' : sslState.value },
         { id: 'waf', icon: 'shield' },
         { id: 'block', icon: 'ban' },
-        { id: 'hotlink', icon: 'image' },
+        { id: 'country', icon: 'globe', dot: s.value.geo_mode ? 'ok' : '', dotLabel: s.value.geo_mode ? t('country.mode_' + s.value.geo_mode) : '' },
+        !isDocker.value && !isProxy.value ? { id: 'filelock', icon: 'shieldCheck', dot: s.value.file_lock ? 'ok' : '', dotLabel: t('filelock.locked_toast') } : null,
+        !isProxy.value ? { id: 'hotlink', icon: 'image' } : null,
         { id: 'scan', icon: 'bug' },
       ],
     },
     {
       id: 'config',
       items: [
-        !isApp.value ? { id: 'rewrite', icon: 'code' } : null,
+        !isApp.value && !isProxy.value ? { id: 'rewrite', icon: 'code' } : null,
         // Nginx's page cache; OpenLiteSpeed has LSCache built in (the tab says so).
         s.value.php_version && props.server !== 'apache' ? { id: 'cache', icon: 'zap' } : null,
         { id: 'webconf', logo: props.server, label: t('drawer.tab_webconf', { server: serverName.value }) },
         { id: 'redirect', icon: 'arrowRight' },
         isApp.value ? { id: 'proxy', icon: 'swap' } : null,
-        { id: '404', icon: 'fileX' },
+        !isProxy.value ? { id: '404', icon: 'fileX' } : null,
       ],
     },
     {
@@ -211,7 +219,8 @@ const appLabel = computed(() => (s.value.app ? appName(s.value.app) : ''))
         <div class="dh-chips">
           <span v-if="appLabel" class="chip"><img v-if="logoURL(s.app)" :src="logoURL(s.app)" alt="" />{{ appLabel }}</span>
           <span v-if="s.php_version" class="chip"><img :src="logoURL('php')" alt="" />PHP {{ s.php_version }}</span>
-          <span v-else-if="isApp && !isDocker" class="chip"><img :src="logoURL(runtimeLogo)" alt="" />{{ runtimeLogo === 'python' ? 'Python' : 'Node.js' }} · {{ s.proxy_port }}</span>
+          <span v-else-if="isApp && !isDocker" class="chip"><img :src="logoURL(runtimeLogo)" alt="" />{{ { python: 'Python', java: 'Java' }[runtimeLogo] || 'Node.js' }} · {{ s.proxy_port }}</span>
+          <span v-else-if="isProxy" class="chip chip-text"><Icon name="swap" :size="13" />{{ t('ws.proxy') }}</span>
           <span v-else-if="!isApp" class="chip chip-text"><Icon name="code" :size="13" />{{ t('websites.static') }}</span>
           <span class="chip"><img v-if="logoURL(server)" :src="logoURL(server)" alt="" />{{ serverName }}</span>
           <span v-if="database" class="chip"><img :src="logoURL('mariadb')" alt="" /><span class="mono">{{ database.name }}</span></span>
@@ -243,7 +252,7 @@ const appLabel = computed(() => (s.value.app ? appName(s.value.app) : ''))
             <Icon v-else :name="x.icon || 'file'" :size="17" :stroke="1.9" />
             <span class="truncate">{{ x.label }}</span>
             <span v-if="x.count" class="vtab-end muted small">{{ x.count }}</span>
-            <span v-if="x.dot" class="vtab-end dot" :class="'dot-' + x.dot" :aria-label="t('drawer.ssl_state_' + x.dot)" role="img"></span>
+            <span v-if="x.dot" class="vtab-end dot" :class="'dot-' + x.dot" :aria-label="x.dotLabel || t('drawer.ssl_state_' + x.dot)" role="img"></span>
           </button>
         </div>
       </nav>
@@ -302,6 +311,10 @@ const appLabel = computed(() => (s.value.app ? appName(s.value.app) : ''))
           <SitePointDNS v-if="current === 'domains'" :key="'dns-' + paneKey" :site="s" />
         </section>
 
+        <section v-else-if="current === 'upstream'" class="card">
+          <SiteUpstream :key="paneKey" :site="s" :server="server" @saved="saved" @close="reset" />
+        </section>
+
         <template v-else-if="current === 'ssl'">
           <section class="card ssl-card">
             <div class="ssl-ring" :class="'ring-' + sslState" aria-hidden="true">
@@ -358,6 +371,14 @@ const appLabel = computed(() => (s.value.app ? appName(s.value.app) : ''))
             <SiteAccess :key="'p' + paneKey" :site="s" section="protect" @saved="saved" @close="reset" />
           </section>
         </template>
+
+        <section v-else-if="current === 'country'" class="card">
+          <SiteCountry :key="paneKey" :site="s" :server="server" @saved="saved" />
+        </section>
+
+        <section v-else-if="current === 'filelock'" class="card">
+          <SiteFileLock :key="paneKey" :site="s" @saved="(x) => emit('saved', x)" />
+        </section>
 
         <section v-else-if="['hotlink', 'redirect', '404', 'expiry'].includes(current)" class="card">
           <SiteAccess :key="paneKey" :site="s" :section="current === 'expiry' ? 'suspend' : current" @saved="saved" @close="reset" />

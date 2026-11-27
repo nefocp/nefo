@@ -57,8 +57,11 @@ const ram = computed(() => {
       <span v-if="item.installed && item.usage?.containers"><Icon name="box" :size="13" />{{ t('software.usage_containers', { n: item.usage.containers }, item.usage.containers) }}</span>
     </div>
     <p v-if="item.installed && blockedText" class="sw-blocked small"><Icon name="alert" :size="14" />{{ blockedText }}</p>
+    <p v-if="!item.installed && item.not_offered" class="sw-blocked small">
+      <Icon name="alert" :size="14" />{{ t(`errors.${item.not_offered}`, { detail: item.not_offered_detail || '' }) }}
+    </p>
     <div class="sw-actions">
-      <button v-if="!item.installed" class="btn btn-primary btn-sm" :disabled="busy || !supported" @click="$emit('install', item)">
+      <button v-if="!item.installed" class="btn btn-primary btn-sm" :disabled="busy || !supported || !!item.not_offered" @click="$emit('install', item)">
         <Icon name="download" :size="15" />{{ t('software.install') }}
       </button>
       <slot />

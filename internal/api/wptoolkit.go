@@ -122,6 +122,7 @@ func (s *Server) handleWPStatus(w http.ResponseWriter, r *http.Request, a *authe
 		s.opError(w, r, err)
 		return
 	}
+	s.rememberWPCheck(r.Context(), site.Domain, st) // for the security check (seccheck.go)
 	writeJSON(w, http.StatusOK, st)
 }
 
@@ -133,11 +134,14 @@ func (s *Server) handleWPUpdate(w http.ResponseWriter, r *http.Request, a *authe
 	}
 	user, ip, domain := a.user.Username, clientIP(r), site.Domain
 	job, err := s.jobs.Start("wp_update", domain, 90*time.Minute, func(ctx context.Context, j *jobs.Job) error {
-		if err := s.wpkit().Update(ctx, site, j); err != nil {
+		// A locked site is unlocked for the update (see hosting/filelock.go).
+		update := func() error { return s.wpkit().Update(ctx, site, j) }
+		if err := s.hosting.WithUnlocked(ctx, site.ID, j, update); err != nil {
 			s.audit(ctx, user, "wp_update_failed", ip, domain)
 			return err
 		}
 		s.audit(ctx, user, "wp_updated", ip, domain)
+		s.rememberWPCheck(ctx, domain, nil) // the next check tells what is left
 		return nil
 	})
 	if err != nil {
@@ -160,7 +164,9 @@ func (s *Server) wpToggle(w http.ResponseWriter, r *http.Request, a *authed, wha
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	if err := set(r.Context(), site, req.On); err != nil {
+	// These write wp-config.php or .maintenance: a locked site is unlocked
+	// meanwhile.
+	if err := s.hosting.WithUnlocked(r.Context(), site.ID, nil, func() error { return set(r.Context(), site, req.On) }); err != nil {
 		s.opError(w, r, err)
 		return
 	}

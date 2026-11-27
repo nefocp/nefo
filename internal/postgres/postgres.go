@@ -33,6 +33,7 @@ import (
 	"time"
 
 	"github.com/nefocp/nefo/internal/fsutil"
+	"github.com/nefocp/nefo/internal/meminfo"
 	"github.com/nefocp/nefo/internal/run"
 	"github.com/nefocp/nefo/internal/store"
 	"github.com/nefocp/nefo/internal/usererr"
@@ -65,6 +66,9 @@ type Manager struct {
 	importMu sync.Mutex
 	imports  map[string]*sync.Mutex // one lock per database, see Import
 
+	fw   Firewall // for remote access, see SetFirewall
+	pgdg pgdgRepo // apt.postgresql.org, see pgdg.go
+
 	// replaceable in tests
 	supported func() bool
 	memTotal  func() int64
@@ -75,13 +79,15 @@ type Manager struct {
 	tempDir   string // for password files; "" for the system's
 	wait      time.Duration
 	portFree  func(port int) bool // nil: try to listen on it
+	backupDir string              // where Upgrade keeps its dump
+	freeBytes func(path string) (uint64, error)
 }
 
 // New returns a Manager.
 func New(r run.Runner, st *store.Store, log *slog.Logger) *Manager {
 	return &Manager{run: r, store: st, log: log, supported: supported, memTotal: memTotal,
 		etcDir: defaultEtcDir, libDir: defaultLibDir, dataDir: defaultDataDir, socketDir: defaultSocketDir,
-		wait: time.Second}
+		wait: time.Second, pgdg: defaultPGDGRepo(), backupDir: defaultBackupDir, freeBytes: freeBytes}
 }
 
 func supported() bool {
@@ -165,8 +171,12 @@ type Status struct {
 	Supported bool   `json:"supported"`
 	Installed bool   `json:"installed"`
 	Version   string `json:"version"`
-	Running   bool   `json:"running"`
-	Port      int    `json:"port,omitempty"`
+	// Major is the major version ("16"); Source says where its packages
+	// come from: "distribution" or "pgdg" (apt.postgresql.org).
+	Major   string `json:"major,omitempty"`
+	Source  string `json:"source,omitempty"`
+	Running bool   `json:"running"`
+	Port    int    `json:"port,omitempty"`
 }
 
 var versionRe = regexp.MustCompile(`PostgreSQL\)? ([0-9]+(?:\.[0-9]+)?)`)
@@ -182,15 +192,22 @@ func (m *Manager) Status(ctx context.Context) Status {
 		return st
 	}
 	st.Installed = true
+	st.Source = "distribution"
 	c, ok := m.cluster()
 	if !ok {
 		st.Version = vs[len(vs)-1]
+		st.Major = st.Version
 		return st
 	}
-	st.Version, st.Port = c.version, c.port
+	st.Version, st.Major, st.Port = c.version, c.version, c.port
+	// Debian and Ubuntu builds add their package version:
+	// "postgres (PostgreSQL) 17.12 (Ubuntu 17.12-1.pgdg24.04+1)".
 	if out, err := m.run.Output(ctx, m.bin(c, "postgres"), "--version"); err == nil {
 		if mm := versionRe.FindStringSubmatch(out); mm != nil {
 			st.Version = mm[1]
+		}
+		if strings.Contains(out, ".pgdg") {
+			st.Source = "pgdg"
 		}
 	}
 	out, err := m.run.Output(ctx, "systemctl", "is-active", c.unit())
@@ -229,17 +246,25 @@ func (m *Manager) sql(ctx context.Context, c cluster, db, statements string) (st
 
 // ---- installing ----
 
-// Install installs the distribution's PostgreSQL (16 on Ubuntu 24.04, 15 on
-// Debian 12…), tunes it for this server's memory in a conf.d drop-in, lets
-// it listen on localhost only and writes a pg_hba.conf that only accepts
-// passwords (SCRAM-SHA-256), except for the postgres OS user on the local
-// socket.
-func (m *Manager) Install(ctx context.Context, lg Logger) error {
+// Install installs PostgreSQL, tunes it for this server's memory in a
+// conf.d drop-in, lets it listen on localhost only and writes a
+// pg_hba.conf that only accepts passwords (SCRAM-SHA-256), except for the
+// postgres OS user on the local socket. major "" is the distribution's
+// version (16 on Ubuntu 24.04, 15 on Debian 12…), or the one installed
+// already; another major comes from apt.postgresql.org (see pgdg.go). One
+// major runs at a time: another one, installed or with its cluster still
+// on disk, is refused.
+func (m *Manager) Install(ctx context.Context, major string, lg Logger) error {
 	if !m.supported() {
 		return errors.New("PostgreSQL can only be installed on Debian or Ubuntu")
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	major, want, err := m.installTarget(major)
+	if err != nil {
+		return err
+	}
+	pgdg := m.usePGDG(major)
 
 	had := map[string]bool{}
 	for _, v := range serverVersions(m.libDir) {
@@ -252,19 +277,49 @@ func (m *Manager) Install(ctx context.Context, lg Logger) error {
 	if len(had) == 0 && m.portBusy(defaultPort) {
 		return usererr.New("pg_port_busy", strconv.Itoa(defaultPort))
 	}
+	// With the PostgreSQL project's repository, packages go by name: its
+	// "postgresql" depends on the newest major, not the distribution's.
+	pkg := "postgresql"
+	switch {
+	case pgdg:
+		lg.Logf("Adding the PostgreSQL project's repository (apt.postgresql.org, signing key %s)", pgdgFingerprint)
+		if err := m.addPGDGRepo(ctx); err != nil {
+			return err
+		}
+		pkg = "postgresql-" + major
+	case m.hasPGDGRepo() && major != "":
+		// The distribution's version installed next to the repository
+		// (left by an upgrade that was rolled back), being repaired.
+		pkg = "postgresql-" + major
+	case m.hasPGDGRepo():
+		lg.Logf("Removing the PostgreSQL project's repository: this installs the distribution's version")
+		if err := m.removePGDGRepo(lg); err != nil {
+			return err
+		}
+	}
 	lg.Logf("Updating the package lists")
 	if err := run.Apt(ctx, m.run, lg, "update"); err != nil {
 		return err
 	}
-	lg.Logf("Installing PostgreSQL from the distribution's packages")
-	if err := run.Apt(ctx, m.run, lg, "install", "--no-install-recommends", "postgresql"); err != nil {
+	if pgdg {
+		lg.Logf("Installing PostgreSQL %s from apt.postgresql.org", major)
+	} else {
+		lg.Logf("Installing PostgreSQL from the distribution's packages")
+	}
+	if err := run.Apt(ctx, m.run, lg, "install", "--no-install-recommends", pkg); err != nil {
 		return err
 	}
 	vs := serverVersions(m.libDir)
 	if len(vs) == 0 {
-		return errors.New("the postgresql package did not install a server")
+		return fmt.Errorf("the %s package did not install a server", pkg)
 	}
 	v := vs[len(vs)-1]
+	if want != "" {
+		if !slices.Contains(vs, want) {
+			return fmt.Errorf("the %s package did not install PostgreSQL %s", pkg, want)
+		}
+		v = want
+	}
 	c, ok := m.clusterOf(v)
 	switch {
 	case !ok:
@@ -308,8 +363,85 @@ func (m *Manager) Install(ctx context.Context, lg Logger) error {
 	if out, err := m.sql(ctx, c, "postgres", "SHOW max_connections;"); err == nil && strings.TrimSpace(out) != strconv.Itoa(t.MaxConnections) {
 		lg.Logf("Warning: PostgreSQL did not read %s: add include_dir = 'conf.d' to its postgresql.conf", filepath.Join(m.mainDir(v), "conf.d", confName))
 	}
+	// A cluster installed again keeps the remote access of its databases:
+	// pg_hba.conf was just written anew.
+	if entries, err := m.remoteEntries(ctx); err == nil && len(entries) > 0 {
+		lg.Logf("Restoring the remote access of %d database(s)", len(entries))
+		if err := m.applyRemote(ctx, c); err != nil {
+			return err
+		}
+		if m.restartPending(ctx, c) {
+			if out, err := m.run.Output(ctx, "systemctl", "restart", c.unit()); err != nil {
+				return fmt.Errorf("restarting PostgreSQL failed: %s", run.Tail(out, 10))
+			}
+			if err := m.waitReady(ctx, c); err != nil {
+				return err
+			}
+		}
+	} else if err == nil {
+		// No database allows remote access: no drop-in from before either.
+		if err := os.Remove(m.remoteConfPath(c)); err == nil {
+			lg.Logf("Removed %s, left from an earlier install", m.remoteConfPath(c))
+		}
+	}
 	lg.Logf("PostgreSQL %s is ready on localhost, port %d. Create databases on the Databases page.", v, c.port)
 	return nil
+}
+
+// CheckInstall returns why major ("" for the distribution's) cannot be
+// installed now (a usererr), or nil. It only reads files.
+func (m *Manager) CheckInstall(major string) error {
+	_, _, err := m.installTarget(major)
+	return err
+}
+
+// installTarget checks an install of major and returns it (the installed
+// one when major is "" and one is installed) with the major version that
+// must end up installed ("" on a system the panel does not know: whatever
+// the "postgresql" package brings). One major at a time: another one
+// installed, or with a cluster left on disk, is refused.
+func (m *Manager) installTarget(major string) (string, string, error) {
+	if err := m.checkMajor(major); err != nil {
+		return "", "", err
+	}
+	installed := serverVersions(m.libDir)
+	if major == "" && len(installed) > 0 {
+		major = installed[len(installed)-1] // repairing the installed one
+	}
+	want := major
+	if want == "" {
+		r, _, _ := m.release()
+		want = r.distro
+	}
+	if want != "" {
+		for _, v := range installed {
+			if v != want {
+				return "", "", usererr.New("pg_other_major", v)
+			}
+		}
+		for _, v := range m.clusterVersions() {
+			if v != want {
+				return "", "", usererr.New("pg_old_cluster", v)
+			}
+		}
+	}
+	return major, want, nil
+}
+
+// clusterVersions returns the major versions that have a main cluster on
+// disk, configured or with data, installed or not.
+func (m *Manager) clusterVersions() []string {
+	var vs []string
+	for _, pat := range []string{filepath.Join(m.etcDir, "*", "main", "postgresql.conf"), filepath.Join(m.dataDir, "*", "main", "PG_VERSION")} {
+		matches, _ := filepath.Glob(pat)
+		for _, p := range matches {
+			if v := filepath.Base(filepath.Dir(filepath.Dir(p))); majorRe.MatchString(v) && !slices.Contains(vs, v) {
+				vs = append(vs, v)
+			}
+		}
+	}
+	slices.Sort(vs)
+	return vs
 }
 
 // portBusy reports whether something listens on a local TCP port.
@@ -353,36 +485,24 @@ func (m *Manager) waitReady(ctx context.Context, c cluster) error {
 // writeConfig writes the panel's drop-in and pg_hba.conf, owned like the
 // cluster's postgresql.conf (by postgres) so the server can read them.
 func (m *Manager) writeConfig(c cluster, t tuning) error {
-	dir := m.mainDir(c.version)
-	uid, gid := -1, -1
-	if fi, err := os.Stat(filepath.Join(dir, "postgresql.conf")); err == nil {
-		uid, gid = fsutil.Owner(fi)
+	if err := m.writeTuning(c, t); err != nil {
+		return err
 	}
-	confd := filepath.Join(dir, "conf.d")
+	return m.owned(c, filepath.Join(m.mainDir(c.version), "pg_hba.conf"), []byte(hbaConf), 0o640)
+}
+
+// writeTuning writes the panel's drop-in only.
+func (m *Manager) writeTuning(c cluster, t tuning) error {
+	confd := filepath.Join(m.mainDir(c.version), "conf.d")
 	if err := fsutil.MkdirAll(confd, 0o755); err != nil {
 		return err
 	}
-	if uid >= 0 {
-		os.Chown(confd, uid, gid)
-	}
-	for _, f := range []struct {
-		path string
-		data string
-		mode os.FileMode
-	}{
-		{filepath.Join(confd, confName), t.conf(), 0o644},
-		{filepath.Join(dir, "pg_hba.conf"), hbaConf, 0o640},
-	} {
-		if err := fsutil.WriteFileAtomic(f.path, []byte(f.data), f.mode); err != nil {
-			return err
-		}
-		if uid >= 0 {
-			if err := os.Chown(f.path, uid, gid); err != nil {
-				return err
-			}
+	if fi, err := os.Stat(filepath.Join(m.mainDir(c.version), "postgresql.conf")); err == nil {
+		if uid, gid := fsutil.Owner(fi); uid >= 0 {
+			os.Chown(confd, uid, gid)
 		}
 	}
-	return nil
+	return m.owned(c, filepath.Join(confd, confName), []byte(t.conf()), 0o644)
 }
 
 // tuning is the panel's PostgreSQL memory settings for a server.
@@ -440,32 +560,52 @@ host    all       all       127.0.0.1/32  scram-sha-256
 host    all       all       ::1/128       scram-sha-256
 `
 
-// Restart restarts PostgreSQL.
+// Restart restarts PostgreSQL, which also applies a new listen setting. If
+// it does not come back with the panel's remote access drop-in, the drop-in
+// is removed and the server started again without it, so the websites keep
+// working.
 func (m *Manager) Restart(ctx context.Context, lg Logger) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
 	c, ok := m.cluster()
 	if !ok {
 		return usererr.New("pg_not_installed")
 	}
 	lg.Logf("Restarting PostgreSQL %s", c.version)
 	if out, err := m.run.Output(ctx, "systemctl", "restart", c.unit()); err != nil {
-		return fmt.Errorf("restarting PostgreSQL failed: %s", run.Tail(out, 10))
+		conf := m.remoteConfPath(c)
+		if !fsutil.Exists(conf) {
+			return fmt.Errorf("restarting PostgreSQL failed: %s", run.Tail(out, 10))
+		}
+		lg.Logf("PostgreSQL did not start: %s", run.Tail(out, 10))
+		lg.Logf("Removing %s and starting PostgreSQL again", conf)
+		if err := os.Remove(conf); err != nil {
+			return err
+		}
+		if out, err := m.run.Output(ctx, "systemctl", "restart", c.unit()); err != nil {
+			return fmt.Errorf("restarting PostgreSQL failed: %s", run.Tail(out, 10))
+		}
+		if err := m.waitReady(ctx, c); err != nil {
+			return err
+		}
+		return errors.New("PostgreSQL could not start with remote access, so it was started without it")
 	}
-	return m.waitReady(ctx, c)
-}
-
-func memTotal() int64 {
-	b, err := os.ReadFile("/proc/meminfo")
-	if err != nil {
-		return 0
+	if err := m.waitReady(ctx, c); err != nil {
+		return err
 	}
-	for _, line := range strings.Split(string(b), "\n") {
-		if f := strings.Fields(line); len(f) >= 2 && f[0] == "MemTotal:" {
-			kb, _ := strconv.ParseInt(f[1], 10, 64)
-			return kb << 10
+	if v, err := m.show(ctx, c, "listen_addresses"); err == nil {
+		if listensAll(v) {
+			lg.Logf("PostgreSQL listens on all interfaces (%s), port %d", v, c.port)
+		} else {
+			lg.Logf("PostgreSQL listens on %s only, port %d", v, c.port)
 		}
 	}
-	return 0
+	return nil
 }
+
+// memTotal is the server's memory in bytes: in a container, its limit
+// when that is smaller than what /proc/meminfo shows (see meminfo).
+func memTotal() int64 { return meminfo.Total() }
 
 // MemoryMB is roughly how much memory PostgreSQL uses with the panel's
 // settings on this server once its cache has filled: shared_buffers and

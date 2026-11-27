@@ -33,20 +33,25 @@ func reasonOf(err error) *reason {
 	return &reason{Code: "operation_failed", Detail: err.Error()}
 }
 
-// dbEngineOf maps a Software page ID to its engine.
+// dbEngineOf maps a Software page ID to its engine: "mariadb" (and its
+// series, "mariadb-11.4") or "mysql".
 func dbEngineOf(id string) (database.Engine, bool) {
-	switch id {
-	case "mariadb":
+	if _, ok := database.ParseMariaDBID(id); ok {
 		return database.MariaDB, true
-	case "mysql":
+	}
+	if id == "mysql" {
 		return database.MySQL, true
 	}
 	return "", false
 }
 
-// checkDBInstall returns why the database server id ("mariadb" or
-// "mysql") cannot be installed now, before a job starts; nil for other IDs.
+// checkDBInstall returns why the database server id ("mariadb",
+// "mariadb-11.4" or "mysql") cannot be installed now, before a job starts;
+// nil for other IDs.
 func (s *Server) checkDBInstall(ctx context.Context, id string) error {
+	if series, ok := database.ParseMariaDBID(id); ok {
+		return s.db.CheckInstallMariaDB(ctx, series)
+	}
 	e, ok := dbEngineOf(id)
 	if !ok {
 		return nil
@@ -54,12 +59,44 @@ func (s *Server) checkDBInstall(ctx context.Context, id string) error {
 	return s.db.CheckInstall(ctx, e)
 }
 
-// installDB installs the database server e.
-func (s *Server) installDB(ctx context.Context, e database.Engine, lg software.Logger) error {
-	if e == database.MySQL {
-		return s.db.InstallMySQL(ctx, lg)
+// mariadbItems are the Software page's MariaDB item, and one item per
+// series of MariaDB's repository (mariadb-11.4…), which the database
+// server card and the setup offer as versions of MariaDB. An installed
+// series' item is installed too; the others then say what blocks them.
+func (s *Server) mariadbItems(ctx context.Context, st database.Status) (software.Item, []software.Item) {
+	installed := st.Installed && st.Engine == database.MariaDB
+	maria := software.Item{ID: "mariadb", Kind: "mariadb", Group: "data", Installed: installed, Source: "apt",
+		RAMMB: database.MemoryMBFor(database.MariaDB), DataDir: "/var/lib/mysql", HasData: softwarePathExists("/var/lib/mysql")}
+	choices := s.db.MariaDBChoices()
+	if installed {
+		maria.Version = st.Version
+		if st.Source == "mariadb" {
+			maria.Source = "official"
+		}
+		if dbs, err := s.db.UserDatabases(ctx); err == nil {
+			maria.Usage = map[string]int{"databases": len(dbs)}
+		}
+		maria.Block(s.db.CheckRemove(ctx, false, ""))
+		maria.Stopped = !st.Running
+	} else if len(choices) > 0 {
+		maria.Version = choices[0].Series
+		if r := reasonOf(choices[0].Unavailable); r != nil {
+			maria.NotOffered, maria.NotOfferedDetail = r.Code, r.Detail
+		}
 	}
-	return s.db.Install(ctx, lg)
+	var series []software.Item
+	for _, c := range choices[1:] {
+		it := software.Item{ID: c.ID, Kind: "mariadb", Group: "data", Version: c.Series, ThirdParty: true, Source: "official",
+			SecurityUntil: c.Until, RAMMB: maria.RAMMB, DataDir: maria.DataDir, HasData: maria.HasData}
+		if installed && st.Source == "mariadb" && st.Series == c.Series {
+			it.Installed, it.Usage, it.Stopped = true, maria.Usage, maria.Stopped
+			it.Block(s.db.CheckRemove(ctx, false, ""))
+		} else if r := reasonOf(c.Unavailable); r != nil {
+			it.NotOffered, it.NotOfferedDetail = r.Code, r.Detail
+		}
+		series = append(series, it)
+	}
+	return maria, series
 }
 
 // dbToolItems are the Software page's MySQL and phpMyAdmin items. Where

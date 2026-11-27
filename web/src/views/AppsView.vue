@@ -20,7 +20,7 @@ import { CATEGORIES, tx } from '../components/apps/appstore.js'
 // The app store: the catalog (Docker apps with their own website, PHP apps
 // for an empty website, services for this server only) and the installed
 // apps. Installs run as jobs and show in the job pill like everywhere else.
-const { t, locale } = useI18n()
+const { t, te, locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
 
@@ -94,6 +94,7 @@ const fold = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').rep
 const cats = computed(() => {
   const n = {}
   for (const a of apps.value) n[a.category] = (n[a.category] || 0) + 1
+  // categories this panel has no name for (a newer catalog) are under "All" only
   return CATEGORIES.filter((c) => n[c]).map((c) => ({ id: c, n: n[c] }))
 })
 const blockedOf = (a) => (a.kind !== 'php' && !dockerReady.value) || !!a.check?.refusals?.length
@@ -104,9 +105,21 @@ const shown = computed(() => {
   // what can be installed here first
   return [...out.filter((a) => !blockedOf(a)), ...out.filter(blockedOf)]
 })
+// With no search and no category chosen, the catalog is grouped by category
+// (in the chips' order), so forty-odd apps stay easy to scan.
+const groups = computed(() => {
+  if (q.value.trim() || cat.value !== 'all') return null
+  const by = {}
+  for (const a of shown.value) (by[a.category] ||= []).push(a)
+  const order = [...CATEGORIES, ...Object.keys(by).filter((c) => !CATEGORIES.includes(c))]
+  return order.filter((c) => by[c]).map((c) => ({ id: c, apps: by[c] }))
+})
+const catName = (c) => (te(`apps.cat_${c}`) ? t(`apps.cat_${c}`) : c)
 const installsOf = (a) => installed.value.filter((x) => x.app === a.id).length
 
 // ---- header ----
+// Apps of the downloaded catalog that need a newer panel (left out).
+const skipped = computed(() => list(data.value?.catalog?.skipped))
 const sourceText = computed(() => (data.value?.catalog?.source === 'remote' ? t('apps.src_remote') : t('apps.src_embedded')))
 usePageMeta(() => ({ sub: data.value ? t('apps.sub', { n: apps.value.length, m: installed.value.length }, apps.value.length) : '' }))
 const refreshing = ref(false)
@@ -184,8 +197,9 @@ watch(data, (d) => d && put('api/apps', d))
           <h2 class="svc-title">{{ t('apps.title') }}</h2>
           <div class="svc-meta">
             <span><Icon name="package" :size="14" />{{ t('apps.n_apps', { n: apps.length }, apps.length) }}</span>
-            <span><Icon name="checkCircle" :size="14" />{{ t('apps.n_installed', { n: installed.length }) }}</span>
+            <span><Icon name="checkCircle" :size="14" />{{ t('apps.n_installed', { n: installed.length }, installed.length) }}</span>
             <span><Icon name="layers" :size="14" />{{ t('apps.catalog_version', { v: data.catalog?.version }) }} · {{ sourceText }}</span>
+            <span v-if="skipped.length" class="as-skipped" :title="skipped.map((x) => x.id).join(', ')"><Icon name="info" :size="14" />{{ t('apps.catalog_skipped', { n: skipped.length }, skipped.length) }}</span>
           </div>
         </div>
         <div v-if="data.catalog?.remote_enabled" class="svc-actions">
@@ -211,7 +225,7 @@ watch(data, (d) => d && put('api/apps', d))
       <div v-if="tab === 'catalog'" id="apps-panel-catalog" class="pg" role="tabpanel" aria-labelledby="apps-tab-catalog">
         <div v-if="!dockerReady" class="alert alert-warn as-docker">
           <AppLogo name="docker" size="sm" />
-          <span>{{ t('apps.docker_missing_long') }}</span>
+          <span class="as-docker-text">{{ t('apps.docker_missing_long') }}</span>
           <RouterLink class="btn btn-sm" :to="{ name: 'software' }"><Icon name="download" :size="15" />{{ t('apps.install_docker') }}</RouterLink>
         </div>
 
@@ -229,6 +243,25 @@ watch(data, (d) => d && put('api/apps', d))
           <p class="empty-lead">{{ t('apps.none_found') }}</p>
           <button type="button" class="btn" @click="q = ''; cat = 'all'">{{ t('apps.clear_filter') }}</button>
         </div>
+        <template v-else-if="groups">
+          <section v-for="g in groups" :key="g.id" class="as-group" :aria-labelledby="`apps-cat-${g.id}`">
+            <h3 :id="`apps-cat-${g.id}`" class="as-group-title">
+              <button type="button" class="as-group-link" @click="cat = g.id">{{ catName(g.id) }}</button>
+              <span class="n">{{ g.apps.length }}</span>
+            </h3>
+            <div class="as-grid">
+              <AppCard
+                v-for="a in g.apps"
+                :key="a.id"
+                :app="a"
+                :installs="installsOf(a)"
+                :docker-ready="dockerReady"
+                @open="installing = a"
+                @manage="tab = 'installed'"
+              />
+            </div>
+          </section>
+        </template>
         <div v-else class="as-grid">
           <AppCard
             v-for="a in shown"
@@ -277,7 +310,13 @@ watch(data, (d) => d && put('api/apps', d))
 .as-cat[aria-pressed='true'] { background: var(--text); border-color: var(--text); color: var(--bg); }
 .as-cat[aria-pressed='true'] .n { color: color-mix(in srgb, var(--bg) 70%, transparent); }
 .as-docker { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.as-docker span { flex: 1 1 260px; }
+.as-docker-text { flex: 1 1 260px; }
+.as-group { display: flex; flex-direction: column; gap: 10px; }
+.as-group + .as-group { margin-top: 10px; }
+.as-group-title { display: flex; align-items: baseline; gap: 8px; margin: 0; font-size: 15px; font-weight: 800; letter-spacing: -0.01em; }
+.as-group-title .n { font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.as-group-link { padding: 0; border: 0; background: none; color: inherit; font: inherit; letter-spacing: inherit; cursor: pointer; }
+.as-group-link:hover { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
 .as-account-note { margin: 0 0 12px; }
 .as-account-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
 @media (max-width: 640px) {

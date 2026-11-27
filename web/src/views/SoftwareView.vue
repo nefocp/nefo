@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import { api } from '../api.js'
 import { errorMessage } from '../errors.js'
 import { useJob } from '../composables/useJob.js'
@@ -11,6 +12,7 @@ import JobLog from '../components/JobLog.vue'
 import RowActions from '../components/RowActions.vue'
 import PHPManage from '../components/PHPManage.vue'
 import NodeVersions from '../components/NodeVersions.vue'
+import JavaVersions from '../components/JavaVersions.vue'
 import SoftwareCard from '../components/SoftwareCard.vue'
 import DbEngineCard from '../components/DbEngineCard.vue'
 import SoftwareRemoveModal from '../components/SoftwareRemoveModal.vue'
@@ -21,6 +23,7 @@ import { usePageMeta } from '../page.js'
 // Everything optional the server can run, grouped, each with Install and
 // Uninstall: a server only carries what its websites use.
 const { t } = useI18n()
+const route = useRoute()
 const items = ref([])
 const supported = ref(true)
 const sites = ref(0)
@@ -29,6 +32,7 @@ const error = ref('')
 const managePHP = ref('')
 const removing = ref(null) // item whose uninstall is being confirmed
 const thirdParty = ref(null) // PHP version from an extra repository, confirming the install
+const pgInstall = ref(null) // PostgreSQL's install dialog: { item, versions, choice, error }
 const jobItem = ref('') // what the running job installs or removes ("web" for the web server)
 const jobGroup = ref('') // the section that shows its log; "" puts it at the top
 const stamp = ref(0) // changes after every job, so the web server and Node.js cards reload
@@ -53,7 +57,10 @@ async function load() {
 
 onMounted(async () => {
   await load()
-  resume(['install_software', 'remove_software', 'update_software', 'install_web', 'remove_web'])
+  // ?php=8.3 opens that version's settings (from the security check).
+  const v = route.query.php
+  if (typeof v === 'string' && items.value.some((i) => i.kind === 'php' && i.installed && i.version === v)) managePHP.value = v
+  resume(['install_software', 'remove_software', 'update_software', 'install_web', 'remove_web', 'upgrade_db', 'switch_db'])
 })
 
 const byId = computed(() => Object.fromEntries(items.value.map((i) => [i.id, i])))
@@ -67,20 +74,29 @@ const phpOldInstalled = computed(() => phpOld.value.filter((p) => p.installed).l
 // Composer and WP-CLI, in the Tools group.
 const tools = computed(() => pick('composer', 'wpcli'))
 const node = computed(() => byId.value.nodejs)
+const java = computed(() => byId.value.java)
+// The ionCube Loader, in the PHP group: a card with what it does for each
+// installed PHP version.
+const ioncube = computed(() => byId.value.ioncube)
+// MariaDB's series from MariaDB's repository (mariadb-11.4…), offered as
+// versions on the database server card.
+const mariaSeries = computed(() => items.value.filter((i) => i.kind === 'mariadb' && i.id !== 'mariadb'))
 
-const ICONS = { mariadb: 'database', mysql: 'database', phpmyadmin: 'sliders', postgresql: 'database', redis: 'memory', memcached: 'memory', adminer: 'sliders', nodejs: 'code', python: 'code', docker: 'box', waf: 'shield', clamav: 'lock' }
+const ICONS = { mariadb: 'database', mysql: 'database', phpmyadmin: 'sliders', postgresql: 'database', redis: 'memory', memcached: 'memory', adminer: 'sliders', nodejs: 'code', python: 'code', java: 'code', docker: 'box', waf: 'shield', clamav: 'lock', ioncube: 'key' }
 const groups = computed(() => [
   // MariaDB or MySQL: one card (DbEngineCard) before these.
   { id: 'data', items: pick('postgresql', 'redis', 'memcached', 'adminer', 'phpmyadmin') },
-  { id: 'runtimes', items: pick('nodejs', 'python') },
+  { id: 'runtimes', items: pick('nodejs', 'python', 'java') },
   { id: 'containers', items: pick('docker') },
   { id: 'security', items: pick('waf', 'clamav') },
 ])
 
 const groupIcon = { data: 'database', runtimes: 'code', containers: 'box', security: 'shield' }
-const installedCount = computed(() => items.value.filter((i) => i.installed).length)
-const ramTotal = computed(() => items.value.filter((i) => i.installed).reduce((a, i) => a + (i.ram_mb || 0), 0))
-usePageMeta(() => ({ sub: loaded.value ? t('pg.sw_sub', { n: installedCount.value, mb: ramTotal.value }) : '' }))
+// An installed MariaDB series is the MariaDB item too: counted once.
+const installedItems = computed(() => items.value.filter((i) => i.installed && !(i.kind === 'mariadb' && i.id !== 'mariadb')))
+const installedCount = computed(() => installedItems.value.length)
+const ramTotal = computed(() => installedItems.value.reduce((a, i) => a + (i.ram_mb || 0), 0))
+usePageMeta(() => ({ sub: loaded.value ? t('pg.sw_sub', { n: installedCount.value, mb: ramTotal.value }, installedCount.value) : '' }))
 
 const nameOf = (item) => (item.kind === 'php' ? `PHP ${item.version}` : t(`software.${item.kind}`))
 
@@ -104,11 +120,42 @@ async function install(item, confirmed = false) {
     thirdParty.value = item
     return
   }
+  // PostgreSQL: the distribution's version or one from apt.postgresql.org.
+  if (item.kind === 'postgresql' && !confirmed) {
+    pgInstall.value = { item, versions: null, choice: '', error: '' }
+    try {
+      pgInstall.value.versions = await api('GET', 'api/postgres/versions')
+    } catch (e) {
+      pgInstall.value.error = errorMessage(e)
+    }
+    return
+  }
   thirdParty.value = null
   try {
     started(await api('POST', `api/software/${item.id}/install`, item.legacy ? { accept_eol: true } : {}), item.id, item.group)
   } catch (e) {
     error.value = errorMessage(e)
+  }
+}
+
+// Installing again loads an installed extension into every PHP version.
+async function reinstall(item) {
+  error.value = ''
+  try {
+    started(await api('POST', `api/software/${item.id}/install`, {}), item.id, item.group)
+  } catch (e) {
+    error.value = errorMessage(e)
+  }
+}
+
+async function installPostgres() {
+  const p = pgInstall.value
+  p.error = ''
+  try {
+    started(await api('POST', 'api/software/postgresql/install', p.choice ? { version: p.choice } : {}), p.item.id, p.item.group)
+    pgInstall.value = null
+  } catch (e) {
+    p.error = errorMessage(e)
   }
 }
 
@@ -160,6 +207,9 @@ const working = (id) => running.value && jobItem.value === id
 const removeBody = (item) => t(`software.remove_${item.kind}`, { name: nameOf(item), dir: item.data_dir || '' })
 const dataLabel = (item) =>
   ['docker', 'mariadb', 'mysql', 'postgresql'].includes(item.kind) && item.has_data ? t(`software.delete_data_${item.kind}`, { dir: item.data_dir }) : ''
+
+// What the ionCube Loader does for one installed PHP version.
+const ioncubeState = (s) => t(`software.ioncube_${s.state}`, { v: s.version, loader: ioncube.value?.version || '' })
 
 function phpNote(p) {
   if (!p.installed && p.not_offered) return t(`errors.${p.not_offered}`, { detail: p.not_offered_detail || '' })
@@ -258,6 +308,33 @@ function phpActions(p) {
             </div>
           </div>
         </details>
+        <div v-if="ioncube" class="sw-grid">
+          <SoftwareCard
+            :item="ioncube"
+            :icon="ICONS.ioncube"
+            :busy="running"
+            :working="working('ioncube')"
+            :supported="supported"
+            @install="install"
+            @remove="(i) => (removing = i)"
+          >
+            <button v-if="ioncube.installed && ioncube.updatable" class="btn btn-sm" :disabled="running || !supported" @click="update(ioncube)">
+              <Icon name="refresh" :size="15" />{{ t('software.update') }}
+            </button>
+            <button v-else-if="ioncube.installed && (ioncube.php || []).some((s) => s.state === 'off')" class="btn btn-sm" :disabled="running || !supported" @click="reinstall(ioncube)">
+              <Icon name="download" :size="15" />{{ t('software.ioncube_load_all') }}
+            </button>
+            <template #extra>
+              <ul v-if="(ioncube.php || []).length" class="tool-notes small">
+                <li v-for="s in ioncube.php" :key="s.version" :class="s.state === 'enabled' ? '' : 'muted'">
+                  <strong>PHP {{ s.version }}</strong>: {{ ioncubeState(s) }}
+                </li>
+              </ul>
+              <p v-else class="muted small sw-body">{{ t('software.ioncube_no_php') }}</p>
+              <p v-if="!ioncube.installed && ioncube.not_offered" class="muted small sw-body">{{ t(`errors.${ioncube.not_offered}`, { detail: ioncube.not_offered_detail || '' }) }}</p>
+            </template>
+          </SoftwareCard>
+        </div>
       </section>
 
       <!-- the other groups -->
@@ -272,11 +349,15 @@ function phpActions(p) {
             v-if="g.id === 'data' && byId.mariadb"
             :mariadb="byId.mariadb"
             :mysql="byId.mysql || null"
+            :series="mariaSeries"
             :busy="running"
-            :working="working('mariadb') || working('mysql')"
+            :working="working('mariadb') || working('mysql') || mariaSeries.some((s) => working(s.id))"
             :supported="supported"
+            :stamp="stamp"
             @install="install"
             @remove="(i) => (removing = i)"
+            @job="(snap) => started(snap, 'mariadb', 'data')"
+            @error="(m) => (error = m)"
           />
           <SoftwareCard
             v-for="it in g.items"
@@ -289,6 +370,9 @@ function phpActions(p) {
             @install="install"
             @remove="(i) => (removing = i)"
           >
+            <template v-if="it.kind === 'postgresql' && it.installed" #extra>
+              <p class="muted small sw-src">{{ it.third_party ? t('pgv.source_pgdg') : t('pgv.source_distribution') }}</p>
+            </template>
             <template v-if="it.installed">
               <RouterLink v-if="it.kind === 'mariadb'" class="btn btn-sm" :to="{ name: 'databases' }">{{ t('software.open_databases') }}</RouterLink>
               <RouterLink v-else-if="it.kind === 'postgresql'" class="btn btn-sm" :to="{ name: 'databases', query: { tab: 'postgres' } }">{{ t('software.open_postgresql') }}</RouterLink>
@@ -305,6 +389,7 @@ function phpActions(p) {
           </SoftwareCard>
         </div>
         <NodeVersions v-if="g.id === 'runtimes' && node && (node.installed || node.lines)" class="sw-after-grid" :stamp="stamp" @changed="load" />
+        <JavaVersions v-if="g.id === 'runtimes' && java && java.installed" class="sw-after-grid" :stamp="stamp" @changed="load" />
       </section>
 
       <!-- tools: Composer and WP-CLI -->
@@ -365,6 +450,43 @@ function phpActions(p) {
       </div>
     </Modal>
 
+    <Modal v-if="pgInstall" :title="t('software.install_title', { name: 'PostgreSQL' })" @close="pgInstall = null">
+      <div class="stack">
+        <p v-if="pgInstall.error" class="alert alert-crit pre-wrap" role="alert">{{ pgInstall.error }}</p>
+        <span v-if="!pgInstall.versions && !pgInstall.error" class="skel" style="height: 120px; border-radius: 10px"></span>
+        <template v-if="pgInstall.versions">
+          <fieldset class="pgv-choices">
+            <legend class="pgv-legend">{{ t('pgv.choose') }}</legend>
+            <label class="pgv-choice" :class="{ on: pgInstall.choice === '' }">
+              <input v-model="pgInstall.choice" type="radio" value="" />
+              <span>
+                <strong>{{ pgInstall.versions.distribution ? t('pgv.option_distribution', { v: pgInstall.versions.distribution }) : t('pgv.option_distribution_unknown') }}</strong>
+                <span class="tag tag-ok">{{ t('pgv.recommended') }}</span>
+                <span class="small muted pgv-sub">{{ t('pgv.option_distribution_hint', { release: pgInstall.versions.release }) }}</span>
+              </span>
+            </label>
+            <label v-for="v in pgInstall.versions.pgdg" :key="v" class="pgv-choice" :class="{ on: pgInstall.choice === v }">
+              <input v-model="pgInstall.choice" type="radio" :value="v" />
+              <span>
+                <strong>{{ t('pgv.option_pgdg', { v }) }}</strong>
+                <span class="small muted pgv-sub">{{ Number(v) > Number(pgInstall.versions.distribution || 0) ? t('pgv.option_newer') : t('pgv.option_older') }}</span>
+              </span>
+            </label>
+          </fieldset>
+          <p v-if="pgInstall.versions.pgdg_unavailable" class="alert alert-warn small">
+            {{ t(`errors.${pgInstall.versions.pgdg_unavailable}`, { detail: pgInstall.versions.pgdg_detail || '' }) }}
+          </p>
+          <p class="small muted sw-body">{{ pgInstall.choice ? t('pgv.pgdg_note') : t('pgv.distribution_note') }}</p>
+        </template>
+        <div class="modal-actions">
+          <button type="button" class="btn btn-ghost" @click="pgInstall = null">{{ t('common.cancel') }}</button>
+          <button class="btn btn-primary" :disabled="running || !pgInstall.versions" @click="installPostgres">
+            <Icon name="download" :size="15" />{{ t('software.install') }}
+          </button>
+        </div>
+      </div>
+    </Modal>
+
     <Modal v-if="managePHP" :title="t('php.title', { v: managePHP })" wide @close="managePHP = ''">
       <PHPManage :version="managePHP" @close="managePHP = ''" />
     </Modal>
@@ -394,9 +516,18 @@ function phpActions(p) {
 .php-old[open] > summary { margin-bottom: 10px; }
 .php-old-hint { margin: 0 0 10px; }
 .php-tile.eol.on { border-color: var(--crit-soft); }
-.eol-tag { align-self: flex-start; }
+/* longer languages wrap the badge instead of cutting it */
+.eol-tag { align-self: flex-start; white-space: normal; border-radius: 9px; max-width: 100%; }
 .eol-line { margin: -4px 0 0; }
 .tool-notes { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 3px; }
+.sw-src { margin: 0; }
+.pgv-choices { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.pgv-legend { font-size: 13px; font-weight: 600; color: var(--text-2); margin-bottom: 6px; padding: 0; }
+.pgv-choice { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--border); border-radius: 10px; cursor: pointer; }
+.pgv-choice.on { border-color: var(--accent); background: var(--accent-soft); }
+.pgv-choice input { margin-top: 3px; }
+.pgv-choice strong { margin-right: 6px; }
+.pgv-sub { display: block; margin-top: 2px; }
 @media (max-width: 640px) {
   .sw-group-head { flex-direction: column; align-items: stretch; }
   .sw-grid { grid-template-columns: minmax(0, 1fr); }

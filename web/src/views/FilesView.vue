@@ -384,7 +384,7 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', beforeUnload))
 
       <div v-if="selected.size" class="panel-tools sel-bar" role="status">
         <span class="count-badge">{{ selected.size }}</span>
-        <span class="small">{{ t('files.selected', { n: selected.size }) }}</span>
+        <span class="small">{{ t('files.selected', { n: selected.size }, selected.size) }}</span>
         <span class="bar-gap"></span>
         <button class="btn btn-sm" :disabled="jobRunning" @click="startAction('compress')"><Icon name="zip" :size="15" />{{ t('files.compress') }}</button>
         <button class="btn btn-sm btn-danger" @click="removeSelected()"><Icon name="trash" :size="15" />{{ t('files.delete') }}</button>

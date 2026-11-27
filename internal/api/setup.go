@@ -39,6 +39,8 @@ func (s *Server) setupEnv(ctx context.Context) (setup.Env, error) {
 		Blocked:   map[string]setup.Reason{},
 		RAM:       map[string]int{},
 		RAMMax:    map[string]bool{},
+		Versions:  map[string]string{},
+		Until:     map[string]string{},
 	}
 	info := s.sys.Info()
 	f.Server = setup.Server{CPUs: info.CPUs, OS: info.OS, Arch: info.Arch}
@@ -54,10 +56,21 @@ func (s *Server) setupEnv(ctx context.Context) (setup.Env, error) {
 		return setup.Env{}, err
 	}
 	f.EOL = map[string]bool{}
+	dbInstalled := false
+	for _, it := range items {
+		dbInstalled = dbInstalled || (setup.IsDatabase(it.ID) && it.Installed)
+	}
 	for _, it := range items {
 		// What the Software page can't install on this server is not offered.
 		if it.NotOffered != "" && !it.Installed {
 			continue
+		}
+		if setup.IsDatabase(it.ID) {
+			// Once a database server is installed, the setup only shows it.
+			if dbInstalled && it.ID != "mariadb" && it.ID != "mysql" {
+				continue
+			}
+			f.Versions[it.ID], f.Until[it.ID] = it.Version, it.SecurityUntil
 		}
 		if it.Kind == "php" {
 			f.PHPVersions = append(f.PHPVersions, it.Version)
@@ -77,6 +90,8 @@ func (s *Server) setupEnv(ctx context.Context) (setup.Env, error) {
 	web := s.hosting.Status(ctx)
 	f.WebServer, f.DistroPHP = web.Server, web.DefaultPHP
 	f.PHPRepo, f.OLS = software.PHPRepository(), hosting.OLSRelease()
+	f.OSID, f.Codename = software.OSRelease()
+	f.AptListsMissing = software.AptListsEmpty()
 	for _, kind := range setup.WebServers {
 		f.Installed[kind] = web.Server == kind && web.Ready
 		// One web server per server: CheckInstall says which may be installed.

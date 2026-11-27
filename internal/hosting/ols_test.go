@@ -469,10 +469,12 @@ func TestOLSShared(t *testing.T) {
 	for _, c := range []struct {
 		name      string
 		ipv6, waf bool
-	}{{"server-ipv6.conf", true, false}, {"server-noipv6-waf.conf", false, true}} {
+		geo       string
+	}{{"server-ipv6.conf", true, false, ""}, {"server-noipv6-waf.conf", false, true, ""},
+		{"server-ipv6-geo.conf", true, false, "/var/lib/panel-geoip/dbip-country-lite.mmdb"}} {
 		hook, err := render(olsHookTmpl, olsHookData{Home: "/usr/local/lsws", SnippetDir: "/usr/local/lsws/panel",
 			SitesDir: "/usr/local/lsws/panel/sites", EmptyRoot: "/var/lib/panel-acme", DataDir: "/var/lib/nefo",
-			Hook: hookPort, IPv6: c.ipv6, WAF: c.waf})
+			Hook: hookPort, IPv6: c.ipv6, WAF: c.waf, GeoDB: c.geo})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -539,6 +541,7 @@ func TestServerKindOLS(t *testing.T) {
 	t.Cleanup(func() { st.Close() })
 	root := t.TempDir()
 	p := DefaultPaths(filepath.Join(root, "data"))
+	p.GeoIP = filepath.Join(root, "geoip")
 	p.Nginx, p.Apache, p.OLS, p.WWW = filepath.Join(root, "nginx"), filepath.Join(root, "apache2"), filepath.Join(root, "lsws"), filepath.Join(root, "www")
 	p.OLSLogs = filepath.Join(root, "ols-logs")
 	r := &fakeRunner{outputs: map[string]fakeResult{"nginx": {err: errors.New("no")}, "apache2": {err: errors.New("no")}}}

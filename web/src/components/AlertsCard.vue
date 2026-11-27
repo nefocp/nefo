@@ -26,7 +26,7 @@ async function save() {
   busy.value = true
   try {
     const body = { ...s.value }
-    for (const k of ['smtp_port', 'cpu_percent', 'mem_percent', 'disk_percent']) body[k] = Number(body[k]) || 0
+    for (const k of ['smtp_port', 'cpu_percent', 'mem_percent', 'disk_percent', 'ssh_failed']) body[k] = Number(body[k]) || 0
     await api('PUT', 'api/alerts', body)
     notice.value = t('alerts.saved')
   } catch (e) {
@@ -161,6 +161,30 @@ function resultText(r) {
       <small class="muted">{{ t('alerts.zero_off') }}</small>
       <label class="check"><input v-model="s.services" type="checkbox" /><span>{{ t('alerts.services') }}</span></label>
       <label class="check"><input v-model="s.events" type="checkbox" /><span>{{ t('alerts.events') }}</span></label>
+
+      <h3 class="subhead">{{ t('alerts.logins') }}</h3>
+      <label class="field">
+        <span>{{ t('alerts.ssh_logins') }}</span>
+        <select v-model="s.ssh_logins" class="input">
+          <option value="">{{ t('alerts.logins_off') }}</option>
+          <option value="all">{{ t('alerts.logins_all') }}</option>
+          <option value="new_ip">{{ t('alerts.logins_new_ip') }}</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>{{ t('alerts.panel_logins') }}</span>
+        <select v-model="s.panel_logins" class="input">
+          <option value="">{{ t('alerts.logins_off') }}</option>
+          <option value="all">{{ t('alerts.logins_all') }}</option>
+          <option value="new_ip">{{ t('alerts.logins_new_ip') }}</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>{{ t('alerts.ssh_failed') }}</span>
+        <input v-model="s.ssh_failed" class="input input-auto" type="number" min="0" max="100000" />
+        <small class="muted">{{ t('alerts.ssh_failed_hint') }}</small>
+      </label>
+      <small class="muted">{{ t('alerts.logins_hint') }}</small>
       <div class="row">
         <button class="btn btn-primary" :disabled="busy">{{ t('files.save') }}</button>
         <button type="button" class="btn" :disabled="busy" @click="test">{{ t('alerts.test') }}</button>

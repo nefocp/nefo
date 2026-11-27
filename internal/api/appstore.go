@@ -181,7 +181,7 @@ func (s *Server) handleAppCatalog(w http.ResponseWriter, r *http.Request, a *aut
 	catalogMu.Unlock()
 	writeJSON(w, http.StatusOK, map[string]any{
 		"catalog": map[string]any{"version": c.CatalogVersion, "generated": c.Generated, "source": appstore.Source(),
-			"remote_enabled": r2.Enabled(), "last_error": lastErr},
+			"remote_enabled": r2.Enabled(), "last_error": lastErr, "skipped": skippedView()},
 		"apps":             apps,
 		"installed":        installed,
 		"docker_installed": s.docker.Installed(),
@@ -189,6 +189,16 @@ func (s *Server) handleAppCatalog(w http.ResponseWriter, r *http.Request, a *aut
 		"php":    hosting.PHPApps(),
 		"docker": legacyDocker,
 	})
+}
+
+// skippedView lists the apps of the downloaded catalog this panel left
+// out (they need a newer panel): never null, for the UI.
+func skippedView() []appstore.Skipped {
+	sk := appstore.SkippedApps()
+	if sk == nil {
+		sk = []appstore.Skipped{}
+	}
+	return sk
 }
 
 func (s *Server) handleAppLogo(w http.ResponseWriter, r *http.Request, a *authed) {
@@ -348,6 +358,13 @@ func (s *Server) handleInstallApp(w http.ResponseWriter, r *http.Request, a *aut
 }
 
 func (s *Server) installPHPApp(w http.ResponseWriter, r *http.Request, a *authed, id int64, app string, req appInstallRequest) {
+	// A site whose files are locked says so first (see hosting/filelock.go).
+	if site, err := s.store.SiteByID(r.Context(), id); err == nil {
+		if err := s.hosting.RefuseLocked(r.Context(), site); err != nil {
+			s.opError(w, r, err)
+			return
+		}
+	}
 	st := s.db.Status(r.Context())
 	if !st.Running {
 		s.opError(w, r, database.ErrNotInstalled)

@@ -178,6 +178,8 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) {
 		s.internalError(w, r, err)
 		return
 	}
+	// Before the audit entry: the alert learns known addresses from it.
+	s.monitor.PanelLogin(ctx, u.Username, ip)
 	s.audit(ctx, u.Username, "login", ip, "")
 	writeJSON(w, http.StatusOK, toUserResponse(u))
 }

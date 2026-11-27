@@ -67,10 +67,10 @@ const engineLogo = computed(() => (status.value?.engine === 'mysql' ? 'mysql' : 
 
 // ---- tabs: ?tab=postgres|redis|memcached|slow ----
 const tabs = computed(() => [
-  { id: 'list', label: t('pg.db_tab_list'), logo: engineLogo.value === 'mysql' ? '' : 'mariadb', icon: 'database', n: status.value?.installed ? databases.value.length : null },
+  { id: 'list', label: t('pg.db_tab_list'), logo: engineLogo.value, icon: 'database', n: status.value?.installed ? databases.value.length : null },
   features.postgres || route.query.tab === 'postgres' ? { id: 'postgres', label: 'PostgreSQL', logo: 'postgresql' } : null,
   features.redis || route.query.tab === 'redis' ? { id: 'redis', label: 'Redis', logo: 'redis' } : null,
-  features.memcached || route.query.tab === 'memcached' ? { id: 'memcached', label: 'Memcached', icon: 'memory' } : null,
+  features.memcached || route.query.tab === 'memcached' ? { id: 'memcached', label: 'Memcached', logo: 'memcached', icon: 'memory' } : null,
   status.value?.installed ? { id: 'slow', label: t('pg.db_tab_slow'), icon: 'clock' } : null,
 ].filter(Boolean))
 const tab = computed(() => (tabs.value.some((x) => x.id === route.query.tab) ? route.query.tab : 'list'))
@@ -337,7 +337,7 @@ onMounted(async () => {
           <div v-if="status.installed" class="svc-meta">
             <span><Icon name="database" :size="14" />{{ t('pg.db_count', { n: databases.length }, databases.length) }}</span>
             <span><Icon name="disk" :size="14" />{{ formatBytesL(totalSize, locale) }}</span>
-            <span v-if="remoteCount"><Icon name="globe" :size="14" />{{ t('pg.db_remote_n', { n: remoteCount }) }}</span>
+            <span v-if="remoteCount"><Icon name="globe" :size="14" />{{ t('pg.db_remote_n', { n: remoteCount }, remoteCount) }}</span>
             <span v-else><Icon name="lock" :size="14" />{{ t('pg.db_local_only') }}</span>
           </div>
           <div v-else class="svc-meta">{{ t('databases.subtitle') }}</div>

@@ -1,6 +1,7 @@
 // Package backup makes, stores and restores backups of websites, databases
-// and folders, on this server and optionally in S3-compatible storage and on
-// an SFTP server.
+// and folders, on this server and optionally in S3-compatible storage, on
+// an SFTP server and in Google Drive, encrypted if the storage asks for it
+// (see crypt.go).
 //
 // Every backup is a .tar.gz archive with a manifest.json, the site's (or
 // folder's) files under files/ and database dumps under databases/<name>.sql.
@@ -21,6 +22,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -60,7 +62,9 @@ type Manager struct {
 	protected []string
 	log       *slog.Logger
 	now       func() time.Time
-	mu        sync.Mutex // one backup or restore at a time
+	mu        sync.Mutex   // one backup or restore at a time
+	drive     driveConnect // a Google Drive sign-in in progress (gdrive.go)
+	found     foundScans   // the last scan of each storage (found.go)
 }
 
 // New returns a Manager that keeps backups in dir.
@@ -82,7 +86,23 @@ type manifest struct {
 	PGDatabases  []string  `json:"pg_databases,omitempty"` // PostgreSQL, see postgres.go
 	CreatedAt    time.Time `json:"created_at"`
 	PanelVersion string    `json:"panel_version"`
+	// What a website needs to be created again on another server (see
+	// recreateSite). Older backups lack them.
+	Aliases     []string `json:"aliases,omitempty"`
+	Rewrite     string   `json:"rewrite,omitempty"`
+	NginxCustom string   `json:"nginx_custom,omitempty"`
+	// Label names why the backup was made ("before-delete"); it is part
+	// of the file name.
+	Label string `json:"label,omitempty"`
+	// DBPasswords are the passwords of the databases' users, so that a
+	// database created again keeps its password and the site's own
+	// configuration (wp-config.php…) still works. The archive holds that
+	// configuration, and the data, anyway.
+	DBPasswords map[string]string `json:"db_passwords,omitempty"`
 }
+
+// LabelBeforeDelete marks the backup made before a website is deleted.
+const LabelBeforeDelete = "before-delete"
 
 // ---- making backups ----
 
@@ -137,28 +157,55 @@ func (m *Manager) CheckTarget(ctx context.Context, kind, target string) error {
 // and storage is configured, the archive is also uploaded; an upload error is
 // returned together with the backup, which is kept locally.
 func (m *Manager) BackupSite(ctx context.Context, domain string, scheduleID int64, remote bool, lg Logger) (*store.Backup, error) {
-	site, err := m.siteByDomain(ctx, domain)
+	b, _, err := m.backupSite(ctx, domain, scheduleID, remote, "", lg)
+	return b, err
+}
+
+// BackupBeforeDelete makes the local backup a website's deletion waits
+// for: its files and databases (with their passwords), and its Docker
+// app's data if it has one, in files named <name>_before-delete_<time>.
+// Unlike a scheduled backup, a failed app backup fails it. Like every
+// backup made by hand, these are never pruned: schedules only delete
+// their own backups (and the website's schedules go with it).
+func (m *Manager) BackupBeforeDelete(ctx context.Context, domain string, lg Logger) ([]*store.Backup, error) {
+	site, app, err := m.backupSite(ctx, domain, 0, false, LabelBeforeDelete, lg)
 	if err != nil {
 		return nil, err
+	}
+	out := []*store.Backup{site}
+	if app != nil {
+		out = append(out, app)
+	}
+	return out, nil
+}
+
+func (m *Manager) backupSite(ctx context.Context, domain string, scheduleID int64, remote bool, label string, lg Logger) (b, appBackup *store.Backup, err error) {
+	site, err := m.siteByDomain(ctx, domain)
+	if err != nil {
+		return nil, nil, err
 	}
 	dbs, err := m.store.DatabasesForSite(ctx, site.ID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	pgdbs, err := m.pgDatabasesForSite(ctx, site.ID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	man := manifest{Format: 1, Kind: KindSite, Domain: site.Domain, PHPVersion: site.PHPVersion, App: site.App}
+	man := manifest{Format: 1, Kind: KindSite, Domain: site.Domain, PHPVersion: site.PHPVersion, App: site.App,
+		Aliases: site.Aliases, Rewrite: site.Rewrite, NginxCustom: site.NginxCustom, Label: label}
 	for _, d := range dbs {
 		man.Databases = append(man.Databases, d.Name)
+		man.addPassword(d)
 	}
 	for _, d := range pgdbs {
 		man.PGDatabases = append(man.PGDatabases, d.Name)
+		man.addPassword(d)
 	}
 	// A Docker app keeps its data outside the website's folder: it gets a
 	// backup of its own next to the site's (same schedule, pruned with it).
-	if inst := m.hosting.AppNameForSite(ctx, site.ID); inst != "" {
+	inst := m.hosting.AppNameForSite(ctx, site.ID)
+	if inst != "" && label == "" {
 		defer func() {
 			lg.Logf("Backing up the app of %s", site.Domain)
 			if _, err := m.BackupApp(ctx, inst, scheduleID, remote, lg); err != nil {
@@ -166,7 +213,7 @@ func (m *Manager) BackupSite(ctx context.Context, domain string, scheduleID int6
 			}
 		}()
 	}
-	return m.make(ctx, KindSite, site.Domain, man, scheduleID, remote, lg, func(tw *tar.Writer) error {
+	b, err = m.make(ctx, KindSite, site.Domain, man, scheduleID, remote, lg, func(tw *tar.Writer) error {
 		root, err := os.OpenRoot(m.hosting.Root(site.Domain))
 		if err != nil {
 			return err
@@ -190,13 +237,35 @@ func (m *Manager) BackupSite(ctx context.Context, domain string, scheduleID int6
 		}
 		return nil
 	})
+	if err != nil || inst == "" || label == "" {
+		return b, nil, err
+	}
+	lg.Logf("Backing up the app of %s", site.Domain)
+	if appBackup, err = m.backupApp(ctx, inst, scheduleID, remote, label, lg); err != nil {
+		// Without the app's data the website could not be brought back.
+		m.remove(context.WithoutCancel(ctx), b, lg)
+		return nil, nil, fmt.Errorf("the backup of the app failed: %w", err)
+	}
+	return b, appBackup, nil
+}
+
+func (man *manifest) addPassword(d *store.Database) {
+	if d == nil || d.Password == "" {
+		return
+	}
+	if man.DBPasswords == nil {
+		man.DBPasswords = map[string]string{}
+	}
+	man.DBPasswords[d.Name] = d.Password
 }
 
 // BackupDatabase backs up one database.
 func (m *Manager) BackupDatabase(ctx context.Context, name string, scheduleID int64, remote bool, lg Logger) (*store.Backup, error) {
-	if _, err := m.store.DatabaseByName(ctx, name); errors.Is(err, store.ErrNotFound) {
-		if _, perr := m.store.PGDatabaseByName(ctx, name); perr == nil {
+	var dbPass *store.Database
+	if d, err := m.store.DatabaseByName(ctx, name); errors.Is(err, store.ErrNotFound) {
+		if pd, perr := m.store.PGDatabaseByName(ctx, name); perr == nil {
 			man := manifest{Format: 1, Kind: KindDatabase, PGDatabases: []string{name}}
+			man.addPassword(pd)
 			return m.make(ctx, KindDatabase, name, man, scheduleID, remote, lg, func(tw *tar.Writer) error {
 				return m.addPGDump(ctx, tw, name, lg)
 			})
@@ -204,8 +273,11 @@ func (m *Manager) BackupDatabase(ctx context.Context, name string, scheduleID in
 		return nil, err
 	} else if err != nil {
 		return nil, err
+	} else {
+		dbPass = d
 	}
 	man := manifest{Format: 1, Kind: KindDatabase, Databases: []string{name}}
+	man.addPassword(dbPass)
 	return m.make(ctx, KindDatabase, name, man, scheduleID, remote, lg, func(tw *tar.Writer) error {
 		return m.addDump(ctx, tw, name, lg)
 	})
@@ -242,7 +314,14 @@ func (m *Manager) make(ctx context.Context, kind, target string, man manifest, s
 	if err := mkdirPrivate(dir); err != nil {
 		return nil, err
 	}
-	name := fmt.Sprintf("%s_%s.tar.gz", fileBase(kind, target), now.Format("20060102-150405"))
+	base := fileBase(kind, target)
+	if man.Label != "" {
+		if !labelRe.MatchString(man.Label) {
+			return nil, fmt.Errorf("invalid backup label %q", man.Label)
+		}
+		base += "_" + man.Label
+	}
+	name := fmt.Sprintf("%s_%s.tar.gz", base, now.Format("20060102-150405"))
 	file := filepath.Join(dir, name)
 	f, err := os.OpenFile(file, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err != nil {
@@ -297,6 +376,8 @@ func (m *Manager) make(ctx context.Context, kind, target string, man manifest, s
 	}
 	return b, nil
 }
+
+var labelRe = regexp.MustCompile(`^[a-z][a-z-]{0,30}$`)
 
 func checkTarget(kind, target string) error {
 	switch kind {
@@ -416,11 +497,24 @@ func (m *Manager) addDump(ctx context.Context, tw *tar.Writer, name string, lg L
 
 // ---- restoring ----
 
+// RestoreOptions change how a backup is restored.
+type RestoreOptions struct {
+	// Passphrase decrypts an encrypted remote copy. It is tried before the
+	// storage's own passphrases, so a copy encrypted with a passphrase
+	// that is not saved here can be restored too.
+	Passphrase string
+}
+
 // Restore puts a backup back. For a site, the site's files are replaced
 // (its tmp and logs folders are kept) and its databases are emptied and
 // filled from the dumps. The site must exist with the same domain. A folder
 // gets back the content it had, with owners and modes.
 func (m *Manager) Restore(ctx context.Context, id int64, lg Logger) error {
+	return m.RestoreWith(ctx, id, RestoreOptions{}, lg)
+}
+
+// RestoreWith is Restore with options.
+func (m *Manager) RestoreWith(ctx context.Context, id int64, opt RestoreOptions, lg Logger) error {
 	b, err := m.store.BackupByID(ctx, id)
 	if err != nil {
 		return err
@@ -431,20 +525,32 @@ func (m *Manager) Restore(ctx context.Context, id int64, lg Logger) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	f, cleanup, err := m.openArchive(ctx, b, lg)
+	f, cleanup, err := m.openArchive(ctx, b, opt.Passphrase, lg)
 	if err != nil {
 		return err
 	}
 	defer cleanup()
 
-	// Check the archive's checksum before touching anything.
+	// Check the archive's checksum before touching anything. A backup
+	// found on a storage has none recorded: it is read through once, which
+	// finds a damaged archive, and its checksum is recorded then.
 	lg.Logf("Checking the backup")
 	h := sha256.New()
-	if _, err := io.Copy(h, f); err != nil {
-		return err
-	}
-	if hex.EncodeToString(h.Sum(nil)) != b.SHA256 {
-		return errors.New("the backup file is damaged: its checksum does not match")
+	if b.SHA256 == "" {
+		if err := checkArchive(io.TeeReader(f, h)); err != nil {
+			return fmt.Errorf("the backup file is damaged: %w", err)
+		}
+		b.SHA256 = hex.EncodeToString(h.Sum(nil))
+		if err := m.store.SetBackupChecksum(ctx, b.ID, b.SHA256); err != nil {
+			return err
+		}
+	} else {
+		if _, err := io.Copy(h, f); err != nil {
+			return err
+		}
+		if hex.EncodeToString(h.Sum(nil)) != b.SHA256 {
+			return errors.New("the backup file is damaged: its checksum does not match")
+		}
 	}
 	if _, err := f.Seek(0, io.SeekStart); err != nil {
 		return err
@@ -483,7 +589,17 @@ func (m *Manager) Restore(ctx context.Context, id int64, lg Logger) error {
 	var root *os.Root
 	if b.Kind == KindSite {
 		if site, err = m.siteByDomain(ctx, b.Target); err != nil {
-			return err
+			if userCodeOf(err) != "site_missing" {
+				return err
+			}
+			// Not on this server (a new server, or the site was deleted):
+			// it is created again from the manifest.
+			if man.Domain != b.Target {
+				return errors.New("the backup's manifest names another website than the backup")
+			}
+			if site, err = m.recreateSite(ctx, man, lg); err != nil {
+				return err
+			}
 		}
 		uid, gid, err := hosting.LookupIDs(site.SysUser)
 		if err != nil {
@@ -531,10 +647,11 @@ func (m *Manager) Restore(ctx context.Context, id int64, lg Logger) error {
 			}
 		case strings.HasPrefix(name, "databases/") && strings.HasSuffix(name, ".sql"):
 			dbName := strings.TrimSuffix(strings.TrimPrefix(name, "databases/"), ".sql")
-			err = m.restoreDB(ctx, dbName, site, tr, lg)
+			err = m.restoreDB(ctx, dbName, man.DBPasswords[dbName], site, tr, lg)
 			restoredDBs = append(restoredDBs, dbName)
 		case strings.HasPrefix(name, pgDir) && strings.HasSuffix(name, ".sql"):
-			err = m.restorePG(ctx, strings.TrimSuffix(strings.TrimPrefix(name, pgDir), ".sql"), site, tr, lg)
+			pgName := strings.TrimSuffix(strings.TrimPrefix(name, pgDir), ".sql")
+			err = m.restorePG(ctx, pgName, man.DBPasswords[pgName], site, tr, lg)
 		}
 		if err != nil {
 			return err
@@ -559,21 +676,31 @@ func (m *Manager) Restore(ctx context.Context, id int64, lg Logger) error {
 }
 
 // restoreDB empties a database and imports a dump into it. A database that
-// no longer exists in the panel is created again (linked to the site).
-func (m *Manager) restoreDB(ctx context.Context, name string, site *store.Site, r io.Reader, lg Logger) error {
+// no longer exists in the panel is created again (linked to the site),
+// with the password the backup recorded, or a new one; one that is no
+// longer linked to a site is linked to the site restored.
+func (m *Manager) restoreDB(ctx context.Context, name, password string, site *store.Site, r io.Reader, lg Logger) error {
 	if err := validate.DBName(name); err != nil {
 		return fmt.Errorf("backup contains an invalid database name %q", name)
 	}
-	if _, err := m.store.DatabaseByName(ctx, name); errors.Is(err, store.ErrNotFound) {
+	if d, err := m.store.DatabaseByName(ctx, name); errors.Is(err, store.ErrNotFound) {
 		var siteID int64
 		if site != nil {
 			siteID = site.ID
 		}
-		lg.Logf("Creating database %s again", name)
-		if _, err := m.db.Create(ctx, name, "", siteID); err != nil {
+		password = usablePassword(password)
+		if password != "" {
+			lg.Logf("Creating database %s again, with the password of its user from the backup", name)
+		} else {
+			lg.Logf("Creating database %s again, with a new password (the backup has none): "+
+				"if the website's own configuration names the old one, change it there (Databases shows the new one)", name)
+		}
+		if _, err := m.db.Create(ctx, name, password, siteID); err != nil {
 			return err
 		}
 	} else if err != nil {
+		return err
+	} else if err := m.relink(ctx, d, site, lg); err != nil {
 		return err
 	}
 	lg.Logf("Restoring database %s", name)
@@ -583,13 +710,23 @@ func (m *Manager) restoreDB(ctx context.Context, name string, site *store.Site, 
 	return m.db.Import(ctx, name, r)
 }
 
+// relink links a database that belongs to no website to the restored one.
+func (m *Manager) relink(ctx context.Context, d *store.Database, site *store.Site, lg Logger) error {
+	if site == nil || d.SiteID != 0 {
+		return nil
+	}
+	lg.Logf("Linking database %s to %s again", d.Name, site.Domain)
+	d.SiteID = site.ID
+	return m.store.UpdateDatabase(ctx, d)
+}
+
 // openArchive opens the local file, or downloads it from remote storage when
-// it is only kept there.
-func (m *Manager) openArchive(ctx context.Context, b *store.Backup, lg Logger) (*os.File, func(), error) {
+// it is only kept there (decrypting it if needed).
+func (m *Manager) openArchive(ctx context.Context, b *store.Backup, passphrase string, lg Logger) (*os.File, func(), error) {
 	if f, err := os.Open(b.File); err == nil {
 		return f, func() { f.Close() }, nil
 	}
-	return m.download(ctx, b, lg)
+	return m.download(ctx, b, passphrase, lg)
 }
 
 // ---- deleting and retention ----
@@ -649,15 +786,16 @@ func (m *Manager) Prune(ctx context.Context, sc *store.Schedule, lg Logger) erro
 	return nil
 }
 
-// ---- S3 remote storage (SFTP is in sftp.go) ----
+// ---- S3 remote storage (SFTP is in sftp.go, Google Drive in gdrive.go) ----
 
 const s3SettingKey = "backup_s3"
 
-// Storage returns the S3 storage settings, without the secret key.
+// Storage returns the S3 storage settings, without the secret key and the
+// encryption passphrases.
 func (m *Manager) Storage(ctx context.Context) (*S3Config, error) {
 	c, err := m.storageWithSecret(ctx)
 	if c != nil {
-		c.SecretKey = ""
+		c.SecretKey, c.EncryptPassphrase, c.PreviousPassphrases = "", "", nil
 	}
 	return c, err
 }
@@ -675,17 +813,26 @@ func (m *Manager) storageWithSecret(ctx context.Context) (*S3Config, error) {
 }
 
 // SaveStorage validates, tests and stores remote storage settings. An empty
-// secret key keeps the stored one.
+// secret key or encryption passphrase keeps the stored one.
 func (m *Manager) SaveStorage(ctx context.Context, c S3Config) error {
-	if c.SecretKey == "" {
-		if old, _ := m.storageWithSecret(ctx); old != nil {
+	old, err := m.storageWithSecret(ctx)
+	if err != nil {
+		return err
+	}
+	var oldEnc Encryption
+	if old != nil {
+		oldEnc = old.Encryption
+		if c.SecretKey == "" {
 			c.SecretKey = old.SecretKey
 		}
 	}
 	if err := c.Validate(); err != nil {
 		return err
 	}
-	if err := testStorage(ctx, newS3Remote(c)); err != nil {
+	if err := mergeEncryption(&c.Encryption, oldEnc); err != nil {
+		return err
+	}
+	if err := testStorage(ctx, newS3Remote(c), c.Encryption); err != nil {
 		return usererr.New("storage_test_failed", err.Error())
 	}
 	b, err := json.Marshal(c)

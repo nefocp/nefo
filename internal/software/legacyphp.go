@@ -50,7 +50,7 @@ var legacyPHPReleases = map[string][]string{
 var phpSecurityEnd = map[string]string{
 	"5.6": "2018-12-31", "7.0": "2019-01-10", "7.1": "2019-12-01", "7.2": "2020-11-30", "7.3": "2021-12-06",
 	"7.4": "2022-11-28", "8.0": "2023-11-26", "8.1": "2025-12-31", "8.2": "2026-12-31", "8.3": "2027-12-31",
-	"8.4": "2028-12-31", "8.5": "2029-12-31",
+	"8.4": "2028-12-31", "8.5": "2029-12-31", "8.6": "2030-12-31",
 }
 
 // phpNow is the clock for end-of-life marks; tests set it.
@@ -126,9 +126,14 @@ func phpNumber(v string) int {
 
 // phpExtensionsFor returns the extensions installed with PHP version v:
 // PHPExtensions, and json before PHP 8.0, where it is a package of its own
-// (PHP 8 has it built in; php8.x-json is only a virtual package).
+// (PHP 8 has it built in; php8.x-json is only a virtual package). From PHP
+// 8.5 OPcache is part of PHP itself: Ubuntu 26.04 and packages.sury.org
+// have no php8.5-opcache, and asking apt for it fails the whole install.
 func phpExtensionsFor(v string) []string {
 	exts := slices.Clone(PHPExtensions)
+	if phpAtLeast(v, "8.5") {
+		exts = slices.DeleteFunc(exts, func(e string) bool { return e == "opcache" })
+	}
 	if !phpAtLeast(v, "8.0") {
 		exts = append(exts, "json")
 	}
@@ -149,8 +154,8 @@ func phpExtrasFor(v string) []string {
 // security updates (not LegacyPHPVersions).
 func supportedPHPInstalled() int {
 	n := 0
-	for _, v := range PHPVersions {
-		if !IsLegacyPHP(v) && phpInstalled(v) {
+	for _, v := range installedPHP() {
+		if !IsLegacyPHP(v) {
 			n++
 		}
 	}

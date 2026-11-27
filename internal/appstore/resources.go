@@ -1,12 +1,13 @@
 package appstore
 
 import (
-	"bufio"
 	"os"
 	"runtime"
 	"slices"
 	"strconv"
 	"strings"
+
+	"github.com/nefocp/nefo/internal/meminfo"
 )
 
 // System is what the resource check knows about the server.
@@ -95,36 +96,14 @@ func AutoMemoryMB(total int) int {
 	return max(l, 512)
 }
 
-// ReadSystem reads /proc/meminfo and /proc/cpuinfo, and the free space of
+// ReadSystem reads the memory (meminfo.Read) and /proc/cpuinfo, and the free space of
 // diskPath. Values it cannot read are left at 0 (memory) or -1 (disk), and
 // do not cause refusals.
 func ReadSystem(diskPath string) System {
 	sys := System{FreeDiskMB: -1, Arch: runtime.GOARCH}
-	if f, err := os.Open("/proc/meminfo"); err == nil {
-		sc := bufio.NewScanner(f)
-		for sc.Scan() {
-			k, v, ok := strings.Cut(sc.Text(), ":")
-			if !ok {
-				continue
-			}
-			fields := strings.Fields(v)
-			if len(fields) == 0 {
-				continue
-			}
-			kb, err := strconv.Atoi(fields[0])
-			if err != nil {
-				continue
-			}
-			switch k {
-			case "MemTotal":
-				sys.MemTotalMB = kb / 1024
-			case "MemAvailable":
-				sys.MemAvailableMB = kb / 1024
-			case "SwapTotal":
-				sys.SwapTotalMB = kb / 1024
-			}
-		}
-		f.Close()
+	// In a container, its own memory limit (see meminfo).
+	if mem, err := meminfo.Read(); err == nil {
+		sys.MemTotalMB, sys.MemAvailableMB, sys.SwapTotalMB = int(mem.Total>>20), int(mem.Available>>20), int(mem.SwapTotal>>20)
 	}
 	if b, err := os.ReadFile("/proc/cpuinfo"); err == nil {
 		sys.CPUFlags = cpuFlags(string(b))

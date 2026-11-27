@@ -28,6 +28,11 @@ type Env struct {
 	Secrets    map[string]string
 	Inputs     map[string]string
 	ProjectDir string // /var/lib/panel-apps/<name>
+	// SiteDir is the website's own folder (/var/www/<domain>), where site
+	// volumes are.
+	SiteDir string
+	// Steps holds what earlier HTTP set-up steps saved (${step.NAME}).
+	Steps map[string]string
 	// Bootstrap includes the first-start-only variables.
 	Bootstrap bool
 	// MemoryMB overrides the memory limit of every service (memory_auto).
@@ -36,6 +41,17 @@ type Env struct {
 
 // DataDir is where the instance's volumes are.
 func (e *Env) DataDir() string { return path.Join(e.ProjectDir, "data") }
+
+// VolumeDir is the host folder of a volume.
+func (e *Env) VolumeDir(v Volume) (string, error) {
+	if v.Site {
+		if !strings.HasPrefix(e.SiteDir, "/") {
+			return "", errNoSiteVar
+		}
+		return path.Join(e.SiteDir, v.Source), nil
+	}
+	return path.Join(e.DataDir(), v.Source), nil
+}
 
 // SecretsDir holds the secrets mounted as files.
 func (e *Env) SecretsDir() string { return path.Join(e.ProjectDir, "secrets") }
@@ -57,6 +73,7 @@ var (
 	emailRe      = regexp.MustCompile(`^[A-Za-z0-9._%+-]{1,64}@[A-Za-z0-9-]{1,63}(\.[A-Za-z0-9-]{1,63})*\.[A-Za-z]{2,24}$`)
 	secretValRe  = regexp.MustCompile(`^[A-Za-z0-9./$=+,_-]{1,256}$`)
 	inputValRe   = regexp.MustCompile(`^[A-Za-z0-9._:/-]{0,128}$`)
+	stepValRe    = regexp.MustCompile(`^[A-Za-z0-9._~+/=-]+$`)
 	tzRe         = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_+/-]{0,63}$`)
 	errNoSiteVar = errors.New("this placeholder needs a website")
 )
@@ -80,6 +97,12 @@ func (e *Env) value(name, sub string) (string, error) {
 		v, ok := e.Inputs[sub]
 		if !ok || !inputValRe.MatchString(v) {
 			return "", fmt.Errorf("input %s missing or invalid", sub)
+		}
+		return v, nil
+	case "step":
+		v, ok := e.Steps[sub]
+		if !ok || len(v) > 8192 || !stepValRe.MatchString(v) {
+			return "", fmt.Errorf("set-up value %s missing or invalid", sub)
 		}
 		return v, nil
 	case "domain":
@@ -182,6 +205,7 @@ type Dir struct {
 	Path     string
 	UID, GID int
 	Mode     uint32
+	Site     bool // in the website's folder: kept when it exists (the user's files)
 }
 
 // OutFile is a file to write once before the first start.
@@ -198,6 +222,7 @@ func Layout(app *App, e *Env) ([]Dir, []OutFile, error) {
 	seen := map[string]bool{}
 	var dirs []Dir
 	var files []OutFile
+	vols := map[string]string{} // volume name -> host folder
 	for _, name := range sortedKeys(r.Services) {
 		s := r.Services[name]
 		for _, v := range s.Volumes {
@@ -214,8 +239,16 @@ func Layout(app *App, e *Env) ([]Dir, []OutFile, error) {
 				m, _ := strconv.ParseUint(v.Mode, 8, 32)
 				mode = uint32(m)
 			}
-			dirs = append(dirs, Dir{Path: path.Join(e.DataDir(), v.Source), UID: uid, GID: gid, Mode: mode})
+			dir, err := e.VolumeDir(v)
+			if err != nil {
+				return nil, nil, err
+			}
+			vols[v.Source] = dir
+			dirs = append(dirs, Dir{Path: dir, UID: uid, GID: gid, Mode: mode, Site: v.Site})
 		}
+	}
+	for _, name := range sortedKeys(r.Services) {
+		s := r.Services[name]
 		for _, f := range s.Files {
 			text, err := e.Expand(f.Text)
 			if err != nil {
@@ -226,7 +259,7 @@ func Layout(app *App, e *Env) ([]Dir, []OutFile, error) {
 				return nil, nil, err
 			}
 			m, _ := strconv.ParseUint(f.Mode, 8, 32)
-			files = append(files, OutFile{Path: path.Join(e.DataDir(), f.Volume, f.Path),
+			files = append(files, OutFile{Path: path.Join(vols[f.Volume], f.Path),
 				UID: uid, GID: gid, Mode: uint32(m), Data: []byte(text)})
 		}
 	}
@@ -396,6 +429,7 @@ func Render(app *App, e *Env) ([]byte, error) {
 		if err := add(s.Env); err != nil {
 			return nil, err
 		}
+		// First-start values replace the usual ones of the same name.
 		if e.Bootstrap {
 			if err := add(s.EnvBootstrap); err != nil {
 				return nil, err
@@ -405,8 +439,11 @@ func Render(app *App, e *Env) ([]byte, error) {
 			cs.Environment = env
 		}
 		for _, v := range s.Volumes {
-			cs.Volumes = append(cs.Volumes, composeVolume{Type: "bind", Source: path.Join(e.DataDir(), v.Source),
-				Target: v.Target, ReadOnly: v.ReadOnly})
+			dir, err := e.VolumeDir(v)
+			if err != nil {
+				return nil, err
+			}
+			cs.Volumes = append(cs.Volumes, composeVolume{Type: "bind", Source: dir, Target: v.Target, ReadOnly: v.ReadOnly})
 		}
 		for _, p := range sortedKeys(s.SecretFiles) {
 			cs.Volumes = append(cs.Volumes, composeVolume{Type: "bind",

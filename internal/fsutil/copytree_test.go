@@ -92,3 +92,53 @@ func TestCopyTreeMirror(t *testing.T) {
 		t.Fatalf("second run: %+v, %v", st, err)
 	}
 }
+
+func TestCopyTreeLinks(t *testing.T) {
+	src, dst := t.TempDir(), t.TempDir()
+	put(t, filepath.Join(src, "lib", "real.js"), "code")
+	if err := os.Symlink("../lib/real.js", filepath.Join(src, "bin", "tool")); err != nil {
+		if err := os.MkdirAll(filepath.Join(src, "bin"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Symlink("../lib/real.js", filepath.Join(src, "bin", "tool")); err != nil {
+			t.Skip("no symbolic links here:", err)
+		}
+	}
+	for name, target := range map[string]string{"python": "/usr/bin/python3", "self": "/old/site/lib", "gone": "/drop/me"} {
+		if err := os.Symlink(target, filepath.Join(src, "bin", name)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Without Links, the links are left out as before.
+	st, err := CopyTree(context.Background(), src, dst, CopyOptions{UID: -1, SrcUID: -1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Lstat(filepath.Join(dst, "bin", "tool")); err == nil || len(st.Skipped) != 4 {
+		t.Fatalf("links copied without Links: %v %q", err, st.Skipped)
+	}
+	dst = t.TempDir()
+	st, err = CopyTree(context.Background(), src, dst, CopyOptions{UID: -1, SrcUID: -1, Links: func(target string) string {
+		switch target {
+		case "/drop/me":
+			return ""
+		case "/old/site/lib":
+			return "/new/site/lib"
+		}
+		return target
+	}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for name, want := range map[string]string{"tool": "../lib/real.js", "python": "/usr/bin/python3", "self": "/new/site/lib"} {
+		if got, err := os.Readlink(filepath.Join(dst, "bin", name)); err != nil || filepath.ToSlash(got) != want {
+			t.Errorf("%s -> %q (%v), want %q", name, got, err, want)
+		}
+	}
+	if _, err := os.Lstat(filepath.Join(dst, "bin", "gone")); err == nil || !slices.Contains(st.Skipped, "bin/gone") {
+		t.Errorf("bin/gone: %v, skipped %q", err, st.Skipped)
+	}
+	if b, err := os.ReadFile(filepath.Join(dst, "bin", "tool")); err != nil || string(b) != "code" {
+		t.Errorf("through the copied link: %q %v", b, err)
+	}
+}

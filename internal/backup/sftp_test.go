@@ -356,7 +356,7 @@ func TestSFTPClientOperations(t *testing.T) {
 	if err := c.Get(ctx, key, io.Discard); err == nil || !strings.Contains(err.Error(), "missing") {
 		t.Fatalf("Get after delete: %v", err)
 	}
-	if err := testStorage(ctx, c); err != nil {
+	if err := testStorage(ctx, c, Encryption{}); err != nil {
 		t.Fatalf("storage test: %v", err)
 	}
 }
@@ -375,7 +375,7 @@ func TestSFTPKeyAuth(t *testing.T) {
 			t.Errorf("%s: %v", name, err)
 			continue
 		}
-		if err := testStorage(context.Background(), c); err != nil {
+		if err := testStorage(context.Background(), c, Encryption{}); err != nil {
 			t.Errorf("%s: %v", name, err)
 		}
 		c.Close()
@@ -433,7 +433,7 @@ func TestSFTPSaveAndHostKeyPinning(t *testing.T) {
 	}
 
 	// Later connections must present the trusted key.
-	r, err := m.openRemote(ctx, RemoteSFTP)
+	r, _, err := m.openRemote(ctx, RemoteSFTP)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -441,7 +441,7 @@ func TestSFTPSaveAndHostKeyPinning(t *testing.T) {
 
 	newKey := newEd25519Signer(t)
 	srv.setHostKey(newKey)
-	_, err = m.openRemote(ctx, RemoteSFTP)
+	_, _, err = m.openRemote(ctx, RemoteSFTP)
 	var hk *HostKeyError
 	if !errors.As(err, &hk) || hk.Got == nil {
 		t.Fatalf("changed host key accepted: %v", err)
@@ -455,7 +455,7 @@ func TestSFTPSaveAndHostKeyPinning(t *testing.T) {
 	rk, _ := rsa.GenerateKey(rand.Reader, 2048)
 	rsaSigner, _ := ssh.NewSignerFromKey(rk)
 	srv.setHostKey(rsaSigner)
-	if _, err = m.openRemote(ctx, RemoteSFTP); !errors.As(err, &hk) || hk.Got != nil || !strings.Contains(err.Error(), "no longer offers") {
+	if _, _, err = m.openRemote(ctx, RemoteSFTP); !errors.As(err, &hk) || hk.Got != nil || !strings.Contains(err.Error(), "no longer offers") {
 		t.Fatalf("other key type: %v", err)
 	}
 
@@ -468,7 +468,7 @@ func TestSFTPSaveAndHostKeyPinning(t *testing.T) {
 	if res.PreviousFingerprint != fp || res.SFTP.HostKeyFingerprint != ssh.FingerprintSHA256(newKey.PublicKey()) {
 		t.Fatalf("after re-trust: %+v", res)
 	}
-	r, err = m.openRemote(ctx, RemoteSFTP)
+	r, _, err = m.openRemote(ctx, RemoteSFTP)
 	if err != nil {
 		t.Fatalf("new key not trusted: %v", err)
 	}

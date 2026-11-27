@@ -100,11 +100,11 @@ func newFixture(t *testing.T) *fixture {
 			f.steps = append(f.steps, "delete db "+db.Name)
 			return nil
 		},
-		CopyDB: func(ctx context.Context, from, to string) error {
+		CopyDB: func(ctx context.Context, from, to *store.Database) error {
 			if f.failCopy {
 				return errors.New("ERROR 1046")
 			}
-			f.steps = append(f.steps, "copy db "+from+" to "+to)
+			f.steps = append(f.steps, "copy db "+from.Name+" to "+to.Name+" "+from.Engine)
 			return nil
 		},
 	}
@@ -122,7 +122,7 @@ func TestClone(t *testing.T) {
 		"create site copy.example.com php 8.3",
 		"settings of shop.example.com to copy.example.com",
 		"create db for copy.example.com from shop_db",
-		"copy db shop_db to laravel_copy_example_com",
+		"copy db shop_db to laravel_copy_example_com ",
 	}) {
 		t.Fatalf("steps = %q", f.steps)
 	}
@@ -186,22 +186,110 @@ func TestCloneFailureCleansUp(t *testing.T) {
 	}
 }
 
-func TestCloneRefusesApps(t *testing.T) {
+func TestCloneRefusesDockerApps(t *testing.T) {
 	var ue *usererr.Error
-	for _, site := range []*store.Site{
+	f := newFixture(t)
+	site := &store.Site{Domain: "ghost.example.com", SysUser: "ghost_example_com", App: "docker:ghost", ProxyPort: 3000}
+	if _, err := Clone(context.Background(), site, "copy.example.com", nil, f.host, &testLog{}); !errors.As(err, &ue) || ue.Code != "clone_app_site" {
+		t.Errorf("%s: err = %v", site.Domain, err)
+	}
+	if len(f.steps) != 0 {
+		t.Errorf("steps = %q", f.steps)
+	}
+	for _, ok := range []*store.Site{
+		{Domain: "x.example.com", SysUser: "x_example_com", PHPVersion: "8.3"},
 		{Domain: "node.example.com", SysUser: "node_example_com", ProxyPort: 3000},
-		{Domain: "ghost.example.com", SysUser: "ghost_example_com", App: "docker:ghost"},
+		{Domain: "proxy.example.com", SysUser: "proxy_example_com", ProxyURL: "http://10.0.0.5:8080"},
 	} {
-		f := newFixture(t)
-		if _, err := Clone(context.Background(), site, "copy.example.com", nil, f.host, &testLog{}); !errors.As(err, &ue) || ue.Code != "clone_app_site" {
-			t.Errorf("%s: err = %v", site.Domain, err)
-		}
-		if len(f.steps) != 0 {
-			t.Errorf("steps = %q", f.steps)
+		if err := Check(ok); err != nil {
+			t.Errorf("%s: %v", ok.Domain, err)
 		}
 	}
-	if err := Check(&store.Site{Domain: "x.example.com", SysUser: "x_example_com", PHPVersion: "8.3"}); err != nil {
-		t.Errorf("PHP site: %v", err)
+}
+
+// An app website: a new port, the same runtime and start command (with the
+// copy's folder), links kept, the virtual environment moved, background
+// programs copied, and PostgreSQL databases copied like the others.
+func TestCloneAppSite(t *testing.T) {
+	f := newFixture(t)
+	old := f.host.Root("api.example.com")
+	f.from = &store.Site{ID: 1, Domain: "api.example.com", SysUser: "api_example_com", ProxyPort: 3000, AppRuntime: "python",
+		AppCommand: "cd " + old + "/app && .venv/bin/gunicorn app:app"}
+	f.dbs = []*store.Database{{ID: 4, Name: "api_pg", Username: "api_pg", SiteID: 1, Engine: store.EnginePostgres}}
+	writeFile(t, filepath.Join(old, "app", "app.py"), "app = 1")
+	writeFile(t, filepath.Join(old, "app", ".venv", "pyvenv.cfg"), "home = /usr/bin\ncommand = /usr/bin/python3 -m venv "+old+"/app/.venv\n")
+	writeFile(t, filepath.Join(old, "app", ".venv", "bin", "gunicorn"), "#!"+old+"/app/.venv/bin/python3\nimport gunicorn\n")
+	writeFile(t, filepath.Join(old, "app", ".venv", "bin", "native"), "ELF\x00"+old+"/app/.venv/lib")
+	writeFile(t, filepath.Join(old, "app", ".venv", "lib", "python3.12", "site-packages", "_mine.pth"), old+"/app/src\n")
+	links := os.Symlink("/usr/bin/python3", filepath.Join(old, "app", ".venv", "bin", "python3")) == nil
+	if links {
+		os.Symlink(old+"/app/app.py", filepath.Join(old, "app", "current"))
+	}
+	f.host.CreateSite = func(ctx context.Context, from *store.Site, domain string) (*store.Site, error) {
+		f.steps = append(f.steps, "create app site "+domain)
+		for _, d := range []string{"public", "logs", "tmp", "app"} {
+			os.MkdirAll(filepath.Join(f.host.Root(domain), d), 0o750)
+		}
+		return &store.Site{ID: 2, Domain: domain, SysUser: "copy_example_com", ProxyPort: 41234}, nil
+	}
+	var command string
+	f.host.StartApp = func(ctx context.Context, from, to *store.Site, cmd string, lg Logger) error {
+		f.steps = append(f.steps, "start app "+from.AppRuntime)
+		command = cmd
+		return nil
+	}
+	f.host.CopyDaemons = func(ctx context.Context, from, to *store.Site, replace func(string) string) (int, error) {
+		f.steps = append(f.steps, "daemons "+replace(old+"/app/worker.py"))
+		return 1, nil
+	}
+	lg := &testLog{}
+	res, err := Clone(context.Background(), f.from, "copy.example.com", f.dbs, f.host, lg)
+	if err != nil {
+		t.Fatalf("%v\n%s", err, lg.String())
+	}
+	dst := f.host.Root("copy.example.com")
+	if !slices.Equal(f.steps, []string{
+		"create app site copy.example.com",
+		"settings of api.example.com to copy.example.com",
+		"create db for copy.example.com from api_pg",
+		"copy db api_pg to laravel_copy_example_com postgresql",
+		"start app python",
+		"daemons " + dst + "/app/worker.py",
+	}) {
+		t.Fatalf("steps = %q", f.steps)
+	}
+	if command != "cd "+dst+"/app && .venv/bin/gunicorn app:app" || res.Daemons != 1 {
+		t.Fatalf("command %q, daemons %d", command, res.Daemons)
+	}
+	for p, want := range map[string]string{
+		"app/app.py":             "app = 1",
+		"app/.venv/pyvenv.cfg":   "home = /usr/bin\ncommand = /usr/bin/python3 -m venv " + dst + "/app/.venv\n",
+		"app/.venv/bin/gunicorn": "#!" + dst + "/app/.venv/bin/python3\nimport gunicorn\n",
+		"app/.venv/bin/native":   "ELF\x00" + old + "/app/.venv/lib",
+		"app/.venv/lib/python3.12/site-packages/_mine.pth": dst + "/app/src\n",
+	} {
+		if got := readFile(t, filepath.Join(dst, p)); got != want {
+			t.Errorf("%s = %q, want %q", p, got, want)
+		}
+	}
+	if links {
+		if got, _ := os.Readlink(filepath.Join(dst, "app", ".venv", "bin", "python3")); got != "/usr/bin/python3" {
+			t.Errorf("python3 -> %q", got)
+		}
+		if got, _ := os.Readlink(filepath.Join(dst, "app", "current")); got != dst+"/app/app.py" {
+			t.Errorf("current -> %q", got)
+		}
+	}
+	if !strings.Contains(lg.String(), "PORT variable (41234 instead of 3000)") || !strings.Contains(lg.String(), "1 background programs were copied, stopped") {
+		t.Fatalf("log:\n%s", lg.String())
+	}
+}
+
+func TestRuntimeName(t *testing.T) {
+	for in, want := range map[string]string{"": "Node.js", "node:22": "Node.js 22", "python": "Python", "java:21": "Java 21"} {
+		if got := RuntimeName(in); got != want {
+			t.Errorf("%q: %q, want %q", in, got, want)
+		}
 	}
 }
 

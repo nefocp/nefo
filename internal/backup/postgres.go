@@ -73,24 +73,27 @@ func (m *Manager) addPGDump(ctx context.Context, tw *tar.Writer, name string, lg
 
 // restorePG empties a PostgreSQL database and imports a dump into it. A
 // database the panel no longer knows is created again (linked to the site),
-// with a new password.
-func (m *Manager) restorePG(ctx context.Context, name string, site *store.Site, r io.Reader, lg Logger) error {
+// with the password the backup recorded, or a new one; one linked to no
+// website is linked to the site restored.
+func (m *Manager) restorePG(ctx context.Context, name, password string, site *store.Site, r io.Reader, lg Logger) error {
 	if err := validate.DBName(name); err != nil {
 		return fmt.Errorf("backup contains an invalid database name %q", name)
 	}
 	if m.pg == nil {
 		return errors.New("this panel cannot restore PostgreSQL databases")
 	}
-	if _, err := m.store.PGDatabaseByName(ctx, name); errors.Is(err, store.ErrNotFound) {
+	if d, err := m.store.PGDatabaseByName(ctx, name); errors.Is(err, store.ErrNotFound) {
 		var siteID int64
 		if site != nil {
 			siteID = site.ID
 		}
 		lg.Logf("Creating PostgreSQL database %s again", name)
-		if _, err := m.pg.Create(ctx, name, "", siteID); err != nil {
+		if _, err := m.pg.Create(ctx, name, usablePassword(password), siteID); err != nil {
 			return err
 		}
 	} else if err != nil {
+		return err
+	} else if err := m.relink(ctx, d, site, lg); err != nil {
 		return err
 	}
 	lg.Logf("Restoring PostgreSQL database %s", name)

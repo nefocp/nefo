@@ -45,13 +45,16 @@ func TestLegacyVersionsListed(t *testing.T) {
 
 func TestPHPExtensionsPerVersion(t *testing.T) {
 	// json is a package of its own before PHP 8.0; mcrypt comes with 5.6.
+	// OPcache is built into PHP from 8.5, with no php8.5-opcache package.
 	for v, want := range map[string]string{
-		"5.6": "fpm cli mysql curl gd mbstring xml zip intl bcmath opcache json",
-		"7.0": "fpm cli mysql curl gd mbstring xml zip intl bcmath opcache json",
-		"7.3": "fpm cli mysql curl gd mbstring xml zip intl bcmath opcache json",
-		"7.4": "fpm cli mysql curl gd mbstring xml zip intl bcmath opcache json",
-		"8.0": "fpm cli mysql curl gd mbstring xml zip intl bcmath opcache",
-		"8.5": "fpm cli mysql curl gd mbstring xml zip intl bcmath opcache",
+		"5.6":  "fpm cli mysql curl gd mbstring xml zip intl bcmath opcache json",
+		"7.0":  "fpm cli mysql curl gd mbstring xml zip intl bcmath opcache json",
+		"7.3":  "fpm cli mysql curl gd mbstring xml zip intl bcmath opcache json",
+		"7.4":  "fpm cli mysql curl gd mbstring xml zip intl bcmath opcache json",
+		"8.0":  "fpm cli mysql curl gd mbstring xml zip intl bcmath opcache",
+		"8.4":  "fpm cli mysql curl gd mbstring xml zip intl bcmath opcache",
+		"8.5":  "fpm cli mysql curl gd mbstring xml zip intl bcmath",
+		"8.10": "fpm cli mysql curl gd mbstring xml zip intl bcmath",
 	} {
 		if got := strings.Join(phpExtensionsFor(v), " "); got != want {
 			t.Errorf("PHP %s: %s", v, got)

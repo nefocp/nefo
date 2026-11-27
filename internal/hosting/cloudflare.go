@@ -306,7 +306,7 @@ type dnsSolver interface {
 func (m *Manager) cloudflareSolver(ctx context.Context) (*cloudflare, error) {
 	token, _ := m.store.Setting(ctx, CloudflareTokenKey)
 	if token == "" {
-		return nil, errors.New("DNS validation needs a Cloudflare API token: add one in Settings → Cloudflare DNS")
+		return nil, errors.New("DNS validation needs a Cloudflare API token: add one in Settings → Cloudflare")
 	}
 	return newCloudflare(token), nil
 }

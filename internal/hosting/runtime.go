@@ -16,10 +16,22 @@ import (
 )
 
 // App sites run with a runtime: the server's default node (""), a chosen
-// Node.js line ("node:22", installed under /opt), or Python with the app's
-// own virtual environment in app/.venv ("python").
+// Node.js line ("node:22", installed under /opt), Python with the app's
+// own virtual environment in app/.venv ("python"), or a Java version from
+// the distribution ("java:21", in /usr/lib/jvm). A runtime gives the PATH
+// of the app's service and of the commands the panel runs for it (Git
+// deploys, dependencies) with its own bin folder first, and the variables
+// it needs (JAVA_HOME). Everything about runtimes is read from
+// site.AppRuntime and site.AppMemory, so a copy of a site (siteclone) that
+// copies those two gets the same runtime when its service is written.
 
-var runtimeRe = regexp.MustCompile(`^(|python|node:[0-9]{2,3})$`)
+var runtimeRe = regexp.MustCompile(`^(|python|node:[0-9]{2,3}|java:[0-9]{1,3})$`)
+
+// App memory limits, in MB (Java's -Xmx; 0 keeps the runtime's default).
+const (
+	appMemoryMin = 32
+	appMemoryMax = 65536
+)
 
 var nodeDirRe = regexp.MustCompile(`^node-v([0-9]+)\.[0-9]+\.[0-9]+-linux-(x64|arm64)$`)
 
@@ -55,7 +67,47 @@ func checkRuntime(rt string) error {
 	if rt == "python" && !software.PythonReady() {
 		return usererr.New("python_venv_needed")
 	}
+	if major, ok := software.JavaMajor(rt); ok {
+		if _, ok := software.JavaHome(major); !ok {
+			return usererr.New("java_not_installed", strconv.Itoa(major))
+		}
+	}
 	return nil
+}
+
+func checkAppMemory(mb int) error {
+	if mb != 0 && (mb < appMemoryMin || mb > appMemoryMax) {
+		return usererr.New("invalid_app_memory", strconv.Itoa(mb))
+	}
+	return nil
+}
+
+// RuntimeEnv is the environment a runtime needs besides PATH, as
+// "NAME=value" (JAVA_HOME for Java), for the app's service and for the
+// commands run for it, such as Git deploy scripts.
+func (m *Manager) RuntimeEnv(site *store.Site) []string {
+	if major, ok := software.JavaMajor(site.AppRuntime); ok {
+		if home, ok := software.JavaHome(major); ok {
+			return []string{"JAVA_HOME=" + home}
+		}
+	}
+	return nil
+}
+
+// serviceEnv is the environment only the app's service of a Java site
+// gets: SERVER_PORT and SERVER_ADDRESS, which Spring Boot reads instead of
+// PORT and HOST, and the memory limit. JDK_JAVA_OPTIONS reaches every
+// "java" the start command runs (a script too), and nothing else: javac and
+// the build tools of a deploy keep their own defaults.
+func serviceEnv(site *store.Site) []string {
+	if _, ok := software.JavaMajor(site.AppRuntime); !ok {
+		return nil
+	}
+	env := []string{"SERVER_PORT=" + strconv.Itoa(site.ProxyPort), "SERVER_ADDRESS=127.0.0.1"}
+	if site.AppMemory > 0 {
+		env = append(env, "JDK_JAVA_OPTIONS=-Xmx"+strconv.Itoa(site.AppMemory)+"m")
+	}
+	return env
 }
 
 // RuntimePath is the PATH of an app site's service and commands: the bin
@@ -72,6 +124,11 @@ func (m *Manager) runtimePath(site *store.Site) string {
 		major, _ := strconv.Atoi(strings.TrimPrefix(rt, "node:"))
 		if bin := nodeBin(major); bin != "" {
 			return bin + ":" + path
+		}
+	case strings.HasPrefix(rt, "java:"):
+		major, _ := software.JavaMajor(rt)
+		if home, ok := software.JavaHome(major); ok {
+			return filepath.Join(home, "bin") + ":" + path
 		}
 	}
 	return path
@@ -93,6 +150,7 @@ func (m *Manager) InstallAppDependencies(ctx context.Context, id int64, lg Logge
 	run := func(args ...string) error {
 		full := append([]string{"-u", site.SysUser, "--", "sh", "-c", `umask 027 && cd "$0" && exec "$@"`, dir},
 			"env", "HOME="+filepath.Join(m.paths.siteRoot(site.Domain), "tmp"), "PATH="+path)
+		full = append(full, m.RuntimeEnv(site)...)
 		full = append(full, args...)
 		ctx, cancel := context.WithTimeout(ctx, 20*time.Minute)
 		defer cancel()

@@ -224,10 +224,8 @@ func (m *Manager) UpdateComposer(ctx context.Context, lg Logger) error {
 
 // newestPHP returns the newest installed PHP version, or "".
 func newestPHP() string {
-	for i := len(PHPVersions) - 1; i >= 0; i-- {
-		if phpInstalled(PHPVersions[i]) {
-			return PHPVersions[i]
-		}
+	if v := installedPHP(); len(v) > 0 {
+		return v[len(v)-1]
 	}
 	return ""
 }

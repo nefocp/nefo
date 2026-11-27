@@ -1,8 +1,11 @@
 // Helpers shared by the app store's view and components.
 
 // Catalog categories, in the order the filter shows them.
-export const CATEGORIES = ['cms', 'ecommerce', 'education', 'productivity', 'storage', 'ai', 'devtools', 'database',
-  'analytics', 'monitoring', 'automation', 'security', 'network', 'business']
+// The catalog of batch 2 files analytics under monitoring, automation under
+// devtools, network under security and business under ecommerce, so that no
+// chip holds a single app; the old IDs keep their place for other catalogs.
+export const CATEGORIES = ['cms', 'ecommerce', 'productivity', 'storage', 'media', 'communication', 'monitoring', 'security',
+  'ai', 'devtools', 'database', 'education', 'analytics', 'automation', 'network', 'business']
 
 // tx picks the reader's language from a catalog text ({ en, vi }).
 export function tx(text, locale) {

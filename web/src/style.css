@@ -1019,3 +1019,10 @@ details > summary:hover { color: var(--text); }
 /* long text cells keep a readable width on phones; the table scrolls in its box */
 .table td.command-cell, .table .command-cell { min-width: 220px; }
 .table td.detail-cell, .table td.query-cell { min-width: 180px; }
+
+/* Be Vietnam Pro has no Cyrillic or Chinese: Russian uses the system's
+   sans-serif throughout (Segoe UI, Roboto, San Francisco all have Cyrillic),
+   Chinese keeps Be Vietnam Pro for Latin text and the usual Chinese fonts
+   for the characters. */
+:root:lang(ru) { --font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', Arial, sans-serif; }
+:root:lang(zh) { --font: 'Be Vietnam Pro', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Noto Sans SC', 'Noto Sans CJK SC', system-ui, sans-serif; }

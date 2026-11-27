@@ -25,9 +25,11 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/nefocp/nefo/internal/fsutil"
+	"github.com/nefocp/nefo/internal/meminfo"
 	"github.com/nefocp/nefo/internal/run"
 	"github.com/nefocp/nefo/internal/secure"
 	"github.com/nefocp/nefo/internal/store"
@@ -70,11 +72,31 @@ type Manager struct {
 	dataDir    string // "" for /var/lib/mysql (see remove.go)
 	etcDir     string // "" for /etc/mysql
 	repo       mysqlRepo
+
+	// MariaDB's repository (mariadbrepo.go): its key's download addresses
+	// and the panel's files for it; dumpsDir keeps the dumps an upgrade or
+	// a switch of the server makes (dumps.go).
+	mariaKeyURLs []string
+	mariaKeyring string
+	mariaList    string
+	dumpsDir     string
+
+	fix DumpFixer // adapts imports from the other engine, see SetDumpFixer
+	// busy is set while an upgrade or a switch runs: other changes are
+	// refused at once (db_busy) rather than waiting for its lock.
+	busy atomic.Bool
 }
+
+// SetDumpFixer makes Import adapt dumps made by the other engine, such as a
+// backup restored after a switch (the website import's collation rewriting,
+// see package siteimport).
+func (m *Manager) SetDumpFixer(f DumpFixer) { m.fix = f }
 
 // New returns a Manager.
 func New(r run.Runner, st *store.Store, log *slog.Logger) *Manager {
-	return &Manager{run: r, store: st, log: log, supported: supported, repo: defaultMySQLRepo()}
+	return &Manager{run: r, store: st, log: log, supported: supported, repo: defaultMySQLRepo(),
+		mariaKeyURLs: []string{mariadbKeyURL, mariadbKeyserverURL}, mariaKeyring: mariadbKeyring, mariaList: mariadbRepoList,
+		dumpsDir: DefaultDumpsDir}
 }
 
 // Status describes the database server.
@@ -85,9 +107,19 @@ type Status struct {
 	Engine  Engine `json:"engine"`
 	Version string `json:"version"`
 	Running bool   `json:"running"`
+	// Series is the version's series ("10.11", "11.4", "8.4"), Source
+	// where the packages come from: "distribution" (MariaDB's own
+	// packages of the system), "mariadb" (MariaDB's repository, see
+	// mariadbrepo.go) or "oracle" (MySQL).
+	Series string `json:"series,omitempty"`
+	Source string `json:"source,omitempty"`
 }
 
 var versionRe = regexp.MustCompile(`Ver ([0-9]+\.[0-9]+\.[0-9]+)`)
+
+// mariadbBuildRe matches the version of MariaDB's own packages, which end in
+// -ubu2404 or -deb12 (the distributions' have -0ubuntu0.24.04.1, -0+deb12u1).
+var mariadbBuildRe = regexp.MustCompile(`Ver [0-9.]+-MariaDB-(ubu|deb)[0-9]+\b`)
 
 func supported() bool {
 	if runtime.GOOS != "linux" {
@@ -112,40 +144,94 @@ func (m *Manager) Status(ctx context.Context) Status {
 	if mm := versionRe.FindStringSubmatch(out); mm != nil {
 		st.Version = mm[1]
 	}
+	st.Series, st.Source = SeriesOf(st.Version), "oracle"
+	if e == MariaDB {
+		st.Source = "distribution"
+		// MariaDB's own builds say so in their version ("11.4.14-MariaDB-ubu2404",
+		// "-deb12"), also when someone else added its repository.
+		if m.MariaDBRepoSeries() != "" || mariadbBuildRe.MatchString(out) {
+			st.Source = "mariadb"
+		}
+	}
 	out, err = m.run.Output(ctx, "systemctl", "is-active", e.service())
 	st.Running = err == nil && strings.HasPrefix(out, "active")
 	return st
 }
 
 func (m *Manager) ready(ctx context.Context) error {
+	if m.busy.Load() {
+		return usererr.New("db_busy")
+	}
 	if st := m.Status(ctx); !st.Installed {
 		return ErrNotInstalled
 	}
 	return nil
 }
 
-// Install installs MariaDB, limits its memory use to suit the server and
-// removes the anonymous users and test database some versions ship with.
-// It is refused while MySQL is installed (see InstallMySQL), or when the
-// data directory holds MySQL's data.
+// Install installs the distribution's MariaDB (see InstallMariaDB).
 func (m *Manager) Install(ctx context.Context, lg Logger) error {
+	return m.InstallMariaDB(ctx, "", lg)
+}
+
+// InstallMariaDB installs MariaDB, the distribution's (series "") or a
+// series from MariaDB's repository (see mariadbrepo.go), limits its memory
+// use to suit the server and removes the anonymous users and test database
+// some versions ship with. It is refused while MySQL is installed (see
+// InstallMySQL), when the data directory holds MySQL's data, or a newer
+// MariaDB's.
+func (m *Manager) InstallMariaDB(ctx context.Context, series string, lg Logger) error {
 	if !m.supported() {
 		return errors.New("MariaDB can only be installed on Debian or Ubuntu")
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if err := m.checkInstall(ctx, MariaDB); err != nil {
+	return m.installMariaDB(ctx, series, lg)
+}
+
+// installMariaDB is InstallMariaDB for a caller holding m.mu.
+func (m *Manager) installMariaDB(ctx context.Context, series string, lg Logger) error {
+	if err := m.CheckInstallMariaDB(ctx, series); err != nil {
 		return err
 	}
-
+	name := "MariaDB"
+	if series == "" {
+		// A repository left behind would win over the distribution's
+		// packages (its versions are higher).
+		m.removeMariaDBRepo(lg)
+	} else {
+		name = "MariaDB " + series
+		lg.Logf("Adding MariaDB's repository for MariaDB %s (signing key %s)", series, mariadbKeyFingerprint)
+		if err := m.addMariaDBRepo(ctx, series); err != nil {
+			return err
+		}
+	}
 	lg.Logf("Updating the package lists")
 	if err := run.Apt(ctx, m.run, lg, "update"); err != nil {
+		if series != "" {
+			m.removeMariaDBRepo(nil)
+		}
 		return err
 	}
-	lg.Logf("Installing MariaDB")
+	if series != "" {
+		if err := m.checkCandidate(ctx, series); err != nil {
+			m.removeMariaDBRepo(nil)
+			return err
+		}
+	}
+	lg.Logf("Installing %s", name)
 	if err := run.Apt(ctx, m.run, lg, "install", "--no-install-recommends", "mariadb-server", "mariadb-client"); err != nil {
 		return err
 	}
+	if err := m.configureMariaDB(ctx, lg); err != nil {
+		return err
+	}
+	lg.Logf("%s is ready", name)
+	return nil
+}
+
+// configureMariaDB writes the panel's tuning, starts MariaDB with it and
+// removes the anonymous users and the test database.
+func (m *Manager) configureMariaDB(ctx context.Context, lg Logger) error {
 	lg.Logf("Tuning MariaDB for this server's memory")
 	if err := fsutil.WriteFileAtomic(filepath.Join(m.confDir(MariaDB), panelConfName), []byte(tuning(memTotal())), 0o644); err != nil {
 		return err
@@ -157,14 +243,11 @@ func (m *Manager) Install(ctx context.Context, lg Logger) error {
 		return err
 	}
 	lg.Logf("Removing anonymous users and the test database")
-	if _, err := m.sql(ctx, `DELETE FROM mysql.global_priv WHERE User = '';
+	_, err := m.sqlWith(ctx, MariaDB, `DELETE FROM mysql.global_priv WHERE User = '';
 DROP DATABASE IF EXISTS test;
 DELETE FROM mysql.db WHERE Db = 'test' OR Db = 'test\\_%';
-FLUSH PRIVILEGES;`); err != nil {
-		return err
-	}
-	lg.Logf("MariaDB is ready")
-	return nil
+FLUSH PRIVILEGES;`)
+	return err
 }
 
 // tuning returns the panel's MariaDB settings for a server with memTotal
@@ -191,19 +274,9 @@ collation-server = utf8mb4_unicode_ci
 `, pool)
 }
 
-func memTotal() int64 {
-	b, err := os.ReadFile("/proc/meminfo")
-	if err != nil {
-		return 0
-	}
-	for _, line := range strings.Split(string(b), "\n") {
-		if f := strings.Fields(line); len(f) >= 2 && f[0] == "MemTotal:" {
-			kb, _ := strconv.ParseInt(f[1], 10, 64)
-			return kb << 10
-		}
-	}
-	return 0
-}
+// memTotal is the server's memory in bytes: in a container, its limit
+// when that is smaller than what /proc/meminfo shows (see meminfo).
+func memTotal() int64 { return meminfo.Total() }
 
 // sql runs statements as the server's root user and returns tab-separated
 // rows.
@@ -406,6 +479,9 @@ func (m *Manager) SetPassword(ctx context.Context, id int64, password string) (*
 // allows remote access. The server then still listens on every interface
 // until it restarts, so callers should check RestartPending afterwards.
 func (m *Manager) Delete(ctx context.Context, id int64, confirm string) error {
+	if m.busy.Load() {
+		return usererr.New("db_busy")
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	d, err := m.store.DatabaseByID(ctx, id)
@@ -477,6 +553,9 @@ func (m *Manager) Import(ctx context.Context, name string, r io.Reader) error {
 	if err := validate.DBName(name); err != nil {
 		return err
 	}
+	if m.busy.Load() {
+		return usererr.New("db_busy")
+	}
 	// Two imports into the same database would share the account. Other
 	// database operations don't wait for an import.
 	lock := m.importLock(name)
@@ -503,7 +582,12 @@ func (m *Manager) Import(ctx context.Context, name string, r io.Reader) error {
 	defer os.Remove(cnf)
 	e := m.engine()
 	if e == MySQL {
-		r = skipSandboxLine(r)
+		r = newNoAutoCreateUser(skipSandboxLine(r))
+	}
+	if m.fix != nil {
+		// A dump from the other engine (a backup from before a switch):
+		// its collation names.
+		r = m.fix(r, e)
 	}
 	// --defaults-file must come first. It also keeps a ~/.my.cnf of root
 	// from replacing the account's user name or password.

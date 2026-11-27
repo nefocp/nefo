@@ -7,10 +7,10 @@
 Nefo is a single, lightweight binary that you install on your own VPS. It gives you a modern web UI to manage websites, databases, files and security, without per-account licence fees and without sending your data anywhere.
 
 - **100% free and open source** (AGPLv3). No paid tier, no locked features.
-- **Secure by default:** a hidden login URL, HTTPS from the first start, two-factor authentication, rate-limited logins and an audit log.
+- **Secure by default:** a hidden login URL, HTTPS from the first start, two-factor authentication, rate-limited logins and an activity log.
 - **Lightweight:** one static Go binary with the UI embedded. Built for small VPSes with 1 GB of RAM, on x86-64 and ARM64.
 - **Private:** no telemetry, no licence server, no account required.
-- **Multilingual** from day one. English and Vietnamese are included, and more languages come from the community.
+- **Multilingual** from day one. English, Vietnamese, Chinese, Spanish, Portuguese, Russian and Indonesian are included, and more are welcome from the community.
 
 ## Install
 
@@ -19,6 +19,8 @@ On a fresh **Ubuntu 22.04 / 24.04 / 26.04** or **Debian 12 / 13** server, as roo
 ```sh
 curl -fsSL https://github.com/nefocp/nefo/releases/latest/download/install.sh | sudo bash
 ```
+
+The installer has been tested on fresh servers with each of these systems, on x86-64. The ARM64 build hasn't been tested on real ARM hardware yet.
 
 The installer checks the release's Ed25519 signature and the download's checksum, and installs `/usr/local/bin/nefo` and a systemd service. It then picks a random port and a secret URL path, and prints the address and a one-time admin password:
 
@@ -45,27 +47,29 @@ Useful commands on the server:
 - [x] Single binary with embedded UI, systemd service, one-line installer, self-update (`nefo update`); releases are checksummed and signed with Ed25519 (see [RELEASING.md](RELEASING.md))
 - [x] **First-login setup:** pick the web server, PHP versions, database server and extras on one page, with their RAM and disk cost, installed as one task; also `nefo setup --web nginx --php 8.3 --db mariadb` and the same options for the installer
 - [x] Hidden entrance path, HTTPS from the first start, a free Let's Encrypt certificate for the panel itself, secure cookies, strict CSP
-- [x] Sign-in with TOTP two-factor authentication, rate limiting and an audit log; **API keys** for scripts (read-only or full, address allow-list, expiry; never the terminal, the database tools or the account)
+- [x] Sign-in with TOTP two-factor authentication, rate limiting and an activity log; **API keys** for scripts (read-only or full, address allow-list, expiry; never the terminal, the database tools or the account)
 - [x] Dashboard with live load and 7 days of history
-- [x] **Websites:** Nginx, Apache (for `.htaccess`) or OpenLiteSpeed with PHP-FPM (LSPHP on OpenLiteSpeed) in one click, one web server per server, chosen at install; suspend, redirect or password-protect a site; PHP, static and app sites (Node.js with a version per site, Python with its own virtualenv, dependencies installed as the site's user); one Linux user per site, with optional **SFTP** locked in the site's folder (password or SSH keys); per-site PHP version, limits, pool size and allowed functions; free Let's Encrypt certificates with automatic renewal, wildcard certificates through Cloudflare DNS, or your own certificate; rewrite presets (WordPress, Laravel, Drupal, Joomla, single-page apps, static sites with clean URLs…) and your own directives, checked by the web server before they apply; custom 404 page, hotlink protection, an expiry date; traffic statistics from the access log; logs
+- [x] **Websites:** Nginx, Apache (for `.htaccess`) or OpenLiteSpeed with PHP-FPM (LSPHP on OpenLiteSpeed) in one click, one web server per server, chosen at install; suspend, redirect or password-protect a site; PHP, static and app sites (Node.js with a version per site, Python with its own virtualenv, Java, dependencies installed as the site's user) and reverse proxy sites to any URL; clone a website (PHP, static, Node.js, Python or Docker app) with its databases; delete with a backup first and the databases kept if you like; one Linux user per site, with optional **SFTP** locked in the site's folder (password or SSH keys); per-site PHP version, limits, pool size and allowed functions; free Let's Encrypt certificates with automatic renewal, wildcard certificates through Cloudflare DNS, or your own certificate; rewrite presets (WordPress, Laravel, Drupal, Joomla, single-page apps, static sites with clean URLs…) and your own directives, checked by the web server before they apply; custom 404 page, hotlink protection, an expiry date; traffic statistics from the access log; logs
 - [x] **Import websites** from a cPanel full backup (websites, databases with their users and passwords, certificates, cron jobs) or from a site archive and SQL dumps (aaPanel, HestiaCP, CyberPanel or any server); MySQL 8 dumps adapted for MariaDB; hostile archives refused
 - [x] **Deploy from Git:** GitHub, GitLab, Gitea or any Git server over HTTPS or SSH (a deploy key per site), on demand or on every push through a signed webhook, with a deploy script run as the site's user
 - [x] **WordPress toolkit:** versions and pending updates of every WordPress site, one-click updates with a database backup first, maintenance mode, debug log, auto-updates, admin password reset, and a staging copy with its own database
-- [x] **App store:** WordPress, Joomla, Nextcloud, Drupal and Laravel in one click, with their own database; Ghost, Uptime Kuma, n8n and Gitea in Docker, each behind its own website
-- [x] **Databases:** MariaDB or **MySQL 8.4 LTS**, tuned for small servers, databases and users, SQL import and export, remote access per database (allow-listed addresses, firewall rules managed), a slow query log viewer; **PostgreSQL** with databases, owners, import and export and backups; Adminer and **phpMyAdmin** reachable only through the panel's sign-in; a **Redis** key browser and **Memcached**
+- [x] **App store:** 42 apps in one click, such as WordPress, WooCommerce, Joomla, Nextcloud, Drupal, Laravel, OpenCart and Moodle, with their own database; Ghost, Uptime Kuma, n8n, Gitea, Open WebUI, Vaultwarden, Wiki.js, Odoo, Grafana, Jellyfin, Navidrome, Vikunja, FreshRSS and listmonk in Docker, each behind its own website; and PostgreSQL, MongoDB and Ollama as services on 127.0.0.1
+- [x] **Databases:** MariaDB (the distribution's, or 11.4, 11.8 and 12.3 LTS from MariaDB, with an in-place upgrade) or **MySQL 8.4 LTS**, and a switch between them that carries the databases over; tuned for small servers, databases and users, SQL import and export, remote access per database (allow-listed addresses, firewall rules managed), a slow query log viewer with rotation; **PostgreSQL** (the distribution's or 15 to 19 from the PostgreSQL project, with a major upgrade) with databases, owners, import and export, remote access over TLS and backups; Adminer and **phpMyAdmin** reachable only through the panel's sign-in; a **Redis** key browser and **Memcached**
 - [x] **Web terminal:** a root shell in the browser
 - [x] **Files:** file manager with editor, upload, download, download from a URL, search by name or content, compress and extract, and a trash with 30-day restore; inside a website's folder it works as the site's user and can't leave the folder, elsewhere it works as root
-- [x] **Backups** of sites, databases and any folder, scheduled with retention, to this server, S3-compatible storage (S3, R2, B2, Wasabi, MinIO) and SFTP servers (host key pinned), with one-click restore
+- [x] **Backups** of sites, databases and any folder, scheduled with retention, to this server, S3-compatible storage (S3, R2, B2, Wasabi, MinIO), SFTP servers (host key pinned) and Google Drive, optionally encrypted before upload, with one-click restore; a new server finds the backups on a storage and restores websites that aren't there yet
 - [x] Cron jobs, services, **background programs** (kept running by systemd as a site's user, restarted after a crash), processes and listening ports, SSH sign-in history, firewall (ufw), fail2ban (SSH and panel), SSH settings with lock-out guards (the panel refuses settings with which nobody could sign in, and never deletes your last firewall rule for SSH or the panel)
 - [x] **System:** operating system updates (security updates marked, checked every few hours, "restart required" shown) with optional automatic security updates, a swap file, time zone, clock synchronization and host name, TCP BBR, and disk cleanup (apt cache, journal, old logs, unused packages, Docker images)
-- [x] **Website security:** a web application firewall (ModSecurity with the OWASP Core Rule Set, per site: off, detect or block, with its events), per-IP rate limits and blocked addresses, and a malware scanner (web shells, backdoors, hidden PHP) with quarantine, plus optional ClamAV
-- [x] Software: **install and uninstall** every component (web server, PHP 5.6 to 8.5, MariaDB or MySQL, PostgreSQL, Adminer, phpMyAdmin, Redis, Memcached, Node.js, Python, Composer, WP-CLI, Docker, WAF, ClamAV; end-of-life PHP versions marked), refused while websites, databases or containers still use it, data kept unless you confirm; the menu hides what is not installed; several PHP versions with their extensions and php.ini settings, Redis, several Node.js versions, Python, Docker: containers, **Compose projects** (checked: localhost-only ports, no privileged containers or system mounts), images, and a terminal in each container
+- [x] **Website security:** a web application firewall (ModSecurity with the OWASP Core Rule Set, per site: off, detect or block, with its events), per-IP rate limits and blocked addresses, country blocking, a file lock that keeps a website's code read-only for PHP, and a malware scanner (web shells, backdoors, hidden PHP) with quarantine, plus optional ClamAV
+- [x] **Security check:** about 20 quick checks of the server (SSH, firewall, updates, services open to the internet, files reachable over HTTP, certificates…), each with a link to the fix, on demand or daily; alerts for SSH and panel sign-ins
+- [x] Software: **install and uninstall** every component (web server, PHP 5.6 to 8.6, the ionCube Loader, MariaDB or MySQL, PostgreSQL, Adminer, phpMyAdmin, Redis, Memcached, Node.js, Python, Java, Composer, WP-CLI, Docker, WAF, ClamAV; end-of-life PHP versions marked), refused while websites, databases or containers still use it, data kept unless you confirm; the menu hides what is not installed; several PHP versions with their extensions and php.ini settings, Redis, several Node.js versions, Python, Docker: containers, **Compose projects** (checked: localhost-only ports, no privileged containers or system mounts), images, and a terminal in each container
 - [x] Outgoing mail through an SMTP relay (Gmail, SendGrid, Mailgun, Amazon SES…), so websites can send e-mail
 - [x] **Website monitoring:** each site checked every 1 to 10 minutes (status code, an optional keyword, the certificate's expiry), down after two failed checks, uptime over 24 hours and 7 days, response times and recent failures
 - [x] Alerts by Telegram, e-mail (with their own SMTP settings), Discord, Slack and a signed webhook (load, disk, stopped services, failed backups and renewals, websites down and up again)
-- [x] **Cloudflare DNS:** the records of your zones (add, edit, delete, proxy on or off), cache purge, and pointing a website's domain at this server with a preview first
-- [x] English and Vietnamese UI
-- [ ] Google Drive backups, multi-server management
+- [x] **Cloudflare DNS:** the records of your zones (add, edit, delete, proxy on or off), cache purge, pointing a website's domain at this server with a preview first, and the MX, SPF and DMARC records for your mail provider
+- [x] Interface in English, Vietnamese, Chinese, Spanish, Portuguese, Russian and Indonesian
+
+Managing several servers from one panel is not planned. The [roadmap](https://nefo.io/roadmap) lists what is being worked on, what is being considered, and what is not planned and why.
 
 ## Development
 
@@ -99,41 +103,52 @@ go test ./...          # run the tests
 ### Project layout
 
 ```
-cmd/nefo/             CLI: serve, init, info, reset-password, update
+cmd/nefo/             CLI: serve, init, info, reset-password, update, setup, version
 internal/api/         HTTP API, entrance, CSRF protection, security headers
+internal/appstore/    the app store catalog and the recipes of its apps
 internal/auth/        bcrypt passwords, TOTP, session tokens, login rate limiting
-internal/backup/      site, database and folder backups; S3 and SFTP storage
+internal/backup/      site, database and folder backups; S3, SFTP and Google Drive storage, encryption
 internal/config/      the panel's config file
 internal/cron/        cron jobs
 internal/daemons/     background programs as systemd units
-internal/database/    MariaDB or MySQL: databases, users, remote access, slow query log
+internal/database/    MariaDB or MySQL: databases, users, remote access, slow query log, upgrades and switching
 internal/docker/      containers, Compose projects, images
 internal/files/       file manager, download from a URL, search, trash
+internal/fsutil/      small file helpers
+internal/geoip/       the IP-to-country data for country blocking
 internal/gitdeploy/   deploy from Git, push webhooks
-internal/hosting/     Nginx, Apache or OpenLiteSpeed, PHP, websites, SFTP, WAF and certificates
+internal/hosting/     Nginx, Apache or OpenLiteSpeed, PHP, websites, SFTP, WAF, country blocking, file lock and certificates
 internal/jobs/        background tasks with a live log
 internal/logstats/    traffic statistics from access logs
 internal/mailrelay/   outgoing mail through Postfix and an SMTP relay
 internal/malware/     malware scanner and quarantine
+internal/meminfo/     the memory the panel counts (cgroup limits on container VPSes)
 internal/monitor/     metrics history and alerts
 internal/pgpkey/      OpenPGP key checks for package repositories
-internal/postgres/    PostgreSQL: databases, owners, import and export
+internal/postgres/    PostgreSQL: databases, owners, import and export, remote access, versions and upgrades
 internal/procs/       processes, listening ports, SSH sign-ins
 internal/redisui/     minimal Redis client for the key browser
-internal/run/         runs system programs, never through a shell
+internal/run/         runs system programs; input goes in as separate arguments, never into a shell command
+internal/seccheck/    the security check
+internal/secure/      cryptographically secure random values
 internal/security/    ufw, fail2ban, SSH settings
 internal/services/    systemd services
-internal/software/    PHP versions and extensions, Node.js, Python, Redis, Docker
+internal/software/    PHP versions and extensions, ionCube, Node.js, Python, Java, Redis, Docker
 internal/store/       SQLite database (pure Go, no CGO) with migrations
 internal/setup/       the first-login setup (plan, RAM and disk cost)
+internal/siteclone/   cloning a website, with its databases, to a new domain
 internal/siteimport/  importing websites from cPanel backups and site archives
 internal/system/      CPU, memory, disk and load from /proc
 internal/systools/    OS updates, swap, time zone and host name, TCP BBR, disk cleanup
 internal/terminal/    PTY for the web terminal
+internal/tlsutil/     the panel's self-signed certificate
 internal/update/      signed self-update
 internal/uptime/      website monitoring
+internal/usererr/     errors in what the user asked for, with codes the UI translates
 internal/validate/    allow-list validation of everything that reaches the system
+internal/version/     build information and the product name
 internal/wptoolkit/   WordPress toolkit (wp-cli)
+internal/ws/          minimal WebSocket server for the web and container terminals
 internal/web/         the built UI, embedded with go:embed
 web/                  Vue 3 + Vite UI, translations in web/src/locales/
 scripts/install.sh    installer

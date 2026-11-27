@@ -2,11 +2,15 @@ package api
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"io"
 	"net/http"
 	"slices"
 	"strings"
 	"time"
 
+	"github.com/nefocp/nefo/internal/daemons"
 	"github.com/nefocp/nefo/internal/database"
 	"github.com/nefocp/nefo/internal/hosting"
 	"github.com/nefocp/nefo/internal/jobs"
@@ -16,11 +20,13 @@ import (
 	"github.com/nefocp/nefo/internal/validate"
 )
 
-// handleSiteClone copies a PHP or static website to a new domain, as a
-// job: {"domain": "copy.example.com", "copy_databases": true}. A
-// WordPress site is copied like a staging copy, database included; other
-// sites by package siteclone. App websites are refused. Mistakes are
-// reported before the job starts.
+// handleSiteClone copies a website to a new domain, as a job:
+// {"domain": "copy.example.com", "copy_databases": true}. A WordPress site
+// is copied like a staging copy, database included; a Docker app with its
+// data by hosting.CloneDockerApp; other sites (PHP, static, reverse proxy,
+// Node.js, Python and other app websites) by package siteclone, with their
+// MariaDB, MySQL and PostgreSQL databases if asked. Mistakes are reported
+// before the job starts.
 func (s *Server) handleSiteClone(w http.ResponseWriter, r *http.Request, a *authed) {
 	if !s.hosting.Supported() {
 		s.opError(w, r, hosting.ErrUnsupported)
@@ -44,9 +50,12 @@ func (s *Server) handleSiteClone(w http.ResponseWriter, r *http.Request, a *auth
 		s.opError(w, r, err)
 		return
 	}
-	if err := siteclone.Check(site); err != nil {
-		s.opError(w, r, err)
-		return
+	docker := siteclone.IsDocker(site)
+	if !docker {
+		if err := siteclone.Check(site); err != nil {
+			s.opError(w, r, err)
+			return
+		}
 	}
 	domain := strings.TrimSuffix(strings.ToLower(strings.TrimSpace(req.Domain)), ".")
 	if validate.Domain(domain) != nil {
@@ -70,7 +79,13 @@ func (s *Server) handleSiteClone(w http.ResponseWriter, r *http.Request, a *auth
 	}
 	wordpress := site.App == hosting.AppWordPress && site.PHPVersion != ""
 	var dbs []*store.Database
-	if wordpress {
+	switch {
+	case docker:
+		if _, _, err := s.hosting.CheckCloneDockerApp(ctx, site, domain); err != nil {
+			s.opError(w, r, err)
+			return
+		}
+	case wordpress:
 		if !s.db.Status(ctx).Running {
 			s.opError(w, r, database.ErrNotInstalled)
 			return
@@ -79,20 +94,31 @@ func (s *Server) handleSiteClone(w http.ResponseWriter, r *http.Request, a *auth
 			s.opError(w, r, err)
 			return
 		}
-	} else if req.CopyDatabases {
-		if dbs, err = s.store.DatabasesForSite(ctx, site.ID); err != nil {
-			s.internalError(w, r, err)
+	case req.CopyDatabases:
+		if dbs, err = s.cloneDatabases(ctx, site.ID); err != nil {
+			s.opError(w, r, err)
 			return
 		}
-		if len(dbs) > 0 && !s.db.Status(ctx).Running {
-			s.opError(w, r, database.ErrNotInstalled)
+	}
+	if siteclone.IsApp(site) && site.AppRuntime != "" {
+		// The runtime must still be installed (Software): checked now, not
+		// after the files are copied.
+		if err := s.hosting.CheckRuntime(site.AppRuntime); err != nil {
+			s.opError(w, r, err)
 			return
 		}
 	}
 	user, ip, detail := a.user.Username, clientIP(r), site.Domain+" to "+domain
 	job, err := s.jobs.Start("site_clone", domain, 3*time.Hour, func(ctx context.Context, j *jobs.Job) error {
 		var err error
-		if wordpress {
+		switch {
+		case docker:
+			j.Logf("%s runs a Docker app: the app is copied with its data", site.Domain)
+			var to *store.Site
+			if to, err = s.hosting.CloneDockerApp(ctx, site, domain, j); err == nil {
+				s.audit(ctx, user, "site_created", ip, to.Domain)
+			}
+		case wordpress:
 			j.Logf("%s is a WordPress site: it is copied like a staging copy, with its database", site.Domain)
 			var to *store.Site
 			if to, err = s.wpkit().Clone(ctx, site, domain, s.wpCloneHost(user, ip), j); err == nil {
@@ -102,7 +128,7 @@ func (s *Server) handleSiteClone(w http.ResponseWriter, r *http.Request, a *auth
 				}
 				j.Logf("Search engines are asked not to index the copy. If it is a website of its own, change that in WordPress under Settings → Reading.")
 			}
-		} else {
+		default:
 			_, err = siteclone.Clone(ctx, site, domain, dbs, s.siteCloneHost(user, ip), j)
 		}
 		if err != nil {
@@ -119,6 +145,26 @@ func (s *Server) handleSiteClone(w http.ResponseWriter, r *http.Request, a *auth
 	writeJSON(w, http.StatusAccepted, map[string]any{"job": job.Snapshot(), "domain": domain, "url": "http://" + domain + "/"})
 }
 
+// cloneDatabases returns the MariaDB/MySQL and PostgreSQL databases of a
+// site, after checking that their database servers run.
+func (s *Server) cloneDatabases(ctx context.Context, siteID int64) ([]*store.Database, error) {
+	dbs, err := s.store.DatabasesForSite(ctx, siteID)
+	if err != nil {
+		return nil, err
+	}
+	if len(dbs) > 0 && !s.db.Status(ctx).Running {
+		return nil, database.ErrNotInstalled
+	}
+	pg, err := s.store.PGDatabasesForSite(ctx, siteID)
+	if err != nil {
+		return nil, err
+	}
+	if len(pg) > 0 && !s.pg.Status(ctx).Running {
+		return nil, usererr.New("pg_not_running")
+	}
+	return append(dbs, pg...), nil
+}
+
 // siteCloneHost gives a clone the panel's website and database functions.
 func (s *Server) siteCloneHost(user, ip string) siteclone.Host {
 	wp := s.wpCloneHost(user, ip)
@@ -126,20 +172,118 @@ func (s *Server) siteCloneHost(user, ip string) siteclone.Host {
 		Root:      s.hosting.Root,
 		LookupIDs: hosting.LookupIDs,
 		CreateSite: func(ctx context.Context, from *store.Site, domain string) (*store.Site, error) {
-			return wp.CreateSite(ctx, domain, from.PHPVersion)
+			req := hosting.CreateRequest{Domain: domain, PHPVersion: from.PHPVersion}
+			switch {
+			case from.ProxyURL != "":
+				req.ProxyURL, req.ProxyOpts = from.ProxyURL, from.ProxyOpts
+			case siteclone.IsApp(from):
+				// A port of its own; the service comes with StartApp, once
+				// the files are there.
+				port, err := s.hosting.FreeAppPort(ctx)
+				if err != nil {
+					return nil, err
+				}
+				req.ProxyPort = port
+			}
+			site, err := s.hosting.CreateSite(ctx, req)
+			if err == nil {
+				s.audit(ctx, user, "site_created", ip, site.Domain)
+			}
+			return site, err
 		},
-		DeleteSite:   wp.DeleteSite,
+		DeleteSite: func(ctx context.Context, site *store.Site) error {
+			s.removeSiteDaemons(ctx, site, site.Domain)
+			return wp.DeleteSite(ctx, site)
+		},
 		CopySettings: s.cloneSettings,
+		StartApp: func(ctx context.Context, from, to *store.Site, command string, lg siteclone.Logger) error {
+			_, _, err := s.hosting.UpdateSettings(ctx, to.ID, hosting.Settings{
+				Aliases: to.Aliases, PHPMemory: from.PHPMemory, PHPUpload: from.PHPUpload, PHPTime: from.PHPTime,
+				ProxyPort: to.ProxyPort, AppCommand: command, AppRuntime: from.AppRuntime,
+			})
+			return err
+		},
+		CopyDaemons: func(ctx context.Context, from, to *store.Site, replace func(string) string) (int, error) {
+			list, err := s.store.DaemonsForSite(ctx, from.ID)
+			if err != nil || len(list) == 0 {
+				return 0, err
+			}
+			off := false
+			for i, d := range list {
+				env := make([]string, len(d.Env))
+				for k, e := range d.Env {
+					env[k] = replace(e)
+				}
+				if _, err := s.daemonsManager().Create(ctx, daemons.Request{Name: d.Name, SiteID: to.ID,
+					Command: replace(d.Command), Dir: d.Dir, Env: env, Enabled: &off}); err != nil {
+					return i, fmt.Errorf("%s: %w", d.Name, err)
+				}
+			}
+			return len(list), nil
+		},
 		CreateDB: func(ctx context.Context, site *store.Site, from *store.Database) (*store.Database, error) {
 			prefix := "db"
-			if site.App != "" {
+			if site.App != "" && !strings.HasPrefix(site.App, "docker:") {
 				prefix = hosting.AppDBPrefix(site.App)
+			}
+			if from.Engine == store.EnginePostgres {
+				return s.createPGWithFreeName(ctx, appDBBase(prefix, site.Domain), site.ID)
 			}
 			return s.createDBWithFreeName(ctx, appDBBase(prefix, site.Domain), site.ID)
 		},
-		DeleteDB: wp.DeleteDB,
-		CopyDB:   s.wpCopyDB,
+		DeleteDB: func(ctx context.Context, db *store.Database) error {
+			if db.Engine == store.EnginePostgres {
+				return s.pg.Delete(ctx, db.ID, db.Name)
+			}
+			return wp.DeleteDB(ctx, db)
+		},
+		CopyDB: func(ctx context.Context, from, to *store.Database) error {
+			if from.Engine == store.EnginePostgres {
+				return s.pgCopyDB(ctx, from.Name, to.Name)
+			}
+			return s.wpCopyDB(ctx, from.Name, to.Name)
+		},
 	}
+}
+
+// createPGWithFreeName creates a PostgreSQL database named base, or base_2…
+// when the name is taken.
+func (s *Server) createPGWithFreeName(ctx context.Context, base string, siteID int64) (*store.Database, error) {
+	for i := 1; i <= 20; i++ {
+		name := base
+		if i > 1 {
+			name = fmt.Sprintf("%s_%d", base, i)
+		}
+		d, err := s.pg.Create(ctx, name, "", siteID)
+		var ue *usererr.Error
+		if errors.As(err, &ue) && ue.Code == "db_exists" {
+			continue
+		}
+		return d, err
+	}
+	return nil, fmt.Errorf("no free database name for %s", base)
+}
+
+// pgCopyDB copies a PostgreSQL database into another, through a dump
+// without owners or privileges (the copy belongs to its own role).
+func (s *Server) pgCopyDB(ctx context.Context, from, to string) error {
+	pr, pw := io.Pipe()
+	dumped := make(chan error, 1)
+	go func() {
+		err := s.pg.Dump(ctx, from, pw)
+		pw.CloseWithError(err)
+		dumped <- err
+	}()
+	ierr := s.pg.Import(ctx, to, pr)
+	pr.CloseWithError(errors.New("the import stopped"))
+	derr := <-dumped
+	if ierr != nil {
+		return fmt.Errorf("import into %s: %w", to, ierr)
+	}
+	if derr != nil {
+		return fmt.Errorf("dump %s: %w", from, derr)
+	}
+	return nil
 }
 
 // cloneSettings gives a copied website the app, PHP settings and rewrite

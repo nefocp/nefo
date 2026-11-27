@@ -389,6 +389,7 @@ func goldenManagerApache(t *testing.T) *Manager {
 	}
 	t.Cleanup(func() { st.Close() })
 	p := DefaultPaths("/var/lib/nefo")
+	p.GeoIP = t.TempDir() // never this machine's
 	m := New(p, goldenRunner("1.24.0"), st, slog.New(slog.NewTextHandler(io.Discard, nil)), "")
 	if err := m.setServerKind(context.Background(), ServerApache); err != nil {
 		t.Fatal(err)
@@ -406,6 +407,7 @@ func TestServerKind(t *testing.T) {
 		t.Cleanup(func() { st.Close() })
 		root := t.TempDir()
 		p := DefaultPaths(filepath.Join(root, "data"))
+		p.GeoIP = filepath.Join(root, "geoip")
 		p.Nginx, p.Apache, p.WWW = filepath.Join(root, "nginx"), filepath.Join(root, "apache2"), filepath.Join(root, "www")
 		if r == nil {
 			r = &fakeRunner{outputs: map[string]fakeResult{"nginx": {err: errors.New("not found")}, "apache2": {err: errors.New("not found")}}}

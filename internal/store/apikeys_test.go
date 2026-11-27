@@ -98,7 +98,7 @@ func TestAPIKeyMigration(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := st.db.Exec(`DROP TABLE api_keys; ALTER TABLE databases DROP COLUMN engine; PRAGMA user_version = 22`); err != nil {
+	if _, err := st.db.Exec(`ALTER TABLE sites DROP COLUMN proxy_url; ALTER TABLE sites DROP COLUMN proxy_opts; DROP TABLE api_keys; ALTER TABLE databases DROP COLUMN engine; ALTER TABLE sites DROP COLUMN app_memory; PRAGMA user_version = 22`); err != nil {
 		t.Fatal(err)
 	}
 	st.Close()

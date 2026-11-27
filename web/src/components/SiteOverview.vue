@@ -22,11 +22,20 @@ const fmtDate = (v) => new Date(v).toLocaleDateString(locale.value, { year: 'num
 const days = computed(() => daysLeft(props.site.cert_expires))
 const isDocker = computed(() => (props.site.app || '').startsWith('docker:'))
 const hasService = computed(() => !!props.site.app_command || isDocker.value)
+// "node:22" -> "Node.js 22", "java:21" -> "Java 21".
+function runtimeName(rt) {
+  if (rt === 'python') return 'Python'
+  if (rt?.startsWith('node:')) return `Node.js ${rt.slice(5)}`
+  if (rt?.startsWith('java:')) return `Java ${rt.slice(5)}` + (props.site.app_memory ? ` (-Xmx${props.site.app_memory}m)` : '')
+  return 'Node.js'
+}
+const isJava = computed(() => (props.site.app_runtime || '').startsWith('java:'))
 const runtime = computed(() => {
   const s = props.site
   if (s.php_version) return `PHP ${s.php_version}`
+  if (s.proxy_url) return s.proxy_url
   if (isDocker.value) return `Docker · ${appName(s.app)}`
-  if (s.proxy_port) return (s.app_runtime === 'python' ? 'Python' : s.app_runtime?.startsWith('node:') ? `Node.js ${s.app_runtime.slice(5)}` : 'Node.js') + ` · ${t('websites.app_on', { port: s.proxy_port })}`
+  if (s.proxy_port) return runtimeName(s.app_runtime) + ` · ${t('websites.app_on', { port: s.proxy_port })}`
   return t('websites.static')
 })
 const sslText = computed(() => {
@@ -91,9 +100,9 @@ const wafText = computed(() => (props.site.waf === 'block' ? t('drawer.waf_block
           <button type="button" class="link-btn small" @click="emit('go', 'domains')">{{ t('drawer.edit') }}</button>
         </div>
         <div>
-          <dt>{{ site.php_version ? 'PHP' : t('drawer.runtime') }}</dt>
-          <dd>{{ runtime }}</dd>
-          <button v-if="site.php_version || (site.proxy_port && !isDocker)" type="button" class="link-btn small" @click="emit('go', site.php_version ? 'php' : 'runtime')">{{ t('drawer.edit') }}</button>
+          <dt>{{ site.php_version ? 'PHP' : site.proxy_url ? t('ws.proxy') : t('drawer.runtime') }}</dt>
+          <dd :class="{ 'mono ov-path ov-url': site.proxy_url }">{{ runtime }}</dd>
+          <button v-if="site.php_version || site.proxy_url || (site.proxy_port && !isDocker)" type="button" class="link-btn small" @click="emit('go', site.php_version ? 'php' : site.proxy_url ? 'upstream' : 'runtime')">{{ t('drawer.edit') }}</button>
         </div>
         <div v-if="server"><dt>{{ t('drawer.web_server') }}</dt><dd>{{ SERVER_NAMES[server] || server }}</dd></div>
         <div>
@@ -134,7 +143,7 @@ const wafText = computed(() => (props.site.waf === 'block' ? t('drawer.waf_block
       <div class="row">
         <button type="button" class="btn btn-sm" @click="emit('app', site.app_status === 'active' ? 'restart' : 'start')"><Icon name="play" :size="14" />{{ site.app_status === 'active' ? t('services.restart') : t('services.start') }}</button>
         <button v-if="site.app_status === 'active'" type="button" class="btn btn-sm" @click="emit('app', 'stop')"><Icon name="stop" :size="14" />{{ t('services.stop') }}</button>
-        <button v-if="site.app_command" type="button" class="btn btn-sm" :disabled="busy" @click="emit('deps')"><Icon name="download" :size="14" />{{ t('websites.app_deps') }}</button>
+        <button v-if="site.app_command && !isJava" type="button" class="btn btn-sm" :disabled="busy" @click="emit('deps')"><Icon name="download" :size="14" />{{ t('websites.app_deps') }}</button>
         <button type="button" class="btn btn-sm btn-ghost" @click="emit('go', 'logs')"><Icon name="logs" :size="14" />{{ t('websites.app_logs') }}</button>
       </div>
     </section>
@@ -152,7 +161,7 @@ const wafText = computed(() => (props.site.waf === 'block' ? t('drawer.waf_block
       </div>
     </section>
 
-    <section v-if="!site.proxy_port && !isDocker" class="card">
+    <section class="card">
       <div class="card-head" style="margin: 0">
         <div>
           <h3 style="margin: 0 0 2px">{{ t('clone.card') }}</h3>
@@ -179,6 +188,7 @@ const wafText = computed(() => (props.site.waf === 'block' ? t('drawer.waf_block
 .ov-kv { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); }
 .ov-kv dd { margin-bottom: 2px; }
 .ov-path { font-weight: 500; font-size: 12.5px; }
+.ov-url { overflow-wrap: anywhere; }
 .ov-opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px; }
 .card-danger .card-head { margin: 0; }
 .ov-note { display: flex; align-items: center; gap: 8px; min-height: 34px; padding-bottom: 12px; margin-bottom: 14px; border-bottom: 1px solid var(--border); }

@@ -1,7 +1,6 @@
 package hosting
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
@@ -17,6 +16,7 @@ import (
 
 	"github.com/nefocp/nefo/internal/fsutil"
 	"github.com/nefocp/nefo/internal/malware"
+	"github.com/nefocp/nefo/internal/meminfo"
 	"github.com/nefocp/nefo/internal/run"
 	"github.com/nefocp/nefo/internal/store"
 	"github.com/nefocp/nefo/internal/usererr"
@@ -139,22 +139,9 @@ func (m *Manager) clamScan(ctx context.Context, dir string, lg Logger) ([]malwar
 	return found, "ok"
 }
 
-// memAvailable reads MemAvailable from /proc/meminfo, in bytes.
-func memAvailable() int64 {
-	f, err := os.Open("/proc/meminfo")
-	if err != nil {
-		return 0
-	}
-	defer f.Close()
-	sc := bufio.NewScanner(f)
-	for sc.Scan() {
-		if rest, ok := strings.CutPrefix(sc.Text(), "MemAvailable:"); ok {
-			kb, _ := strconv.ParseInt(strings.TrimSpace(strings.TrimSuffix(strings.TrimSpace(rest), "kB")), 10, 64)
-			return kb << 10
-		}
-	}
-	return 0
-}
+// memAvailable is the memory available for new programs, in bytes: in a
+// container, within its limit (see meminfo).
+func memAvailable() int64 { return meminfo.AvailableBytes() }
 
 func (m *Manager) quarantineFile(id int64) string {
 	return filepath.Join(m.paths.Quarantine, strconv.FormatInt(id, 10))

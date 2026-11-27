@@ -153,7 +153,9 @@ func (s *Server) handleWPPush(w http.ResponseWriter, r *http.Request, a *authed)
 	what := map[[2]bool]string{{true, true}: "files and database", {true, false}: "files", {false, true}: "database"}[[2]bool{opts.Files, opts.Database}]
 	user, ip, detail := a.user.Username, clientIP(r), site.Domain+" to "+live.Domain+" ("+what+")"
 	job, err := s.jobs.Start("wp_push", live.Domain, 3*time.Hour, func(ctx context.Context, j *jobs.Job) error {
-		if err := kit.Push(ctx, site, live, opts, s.wpPushHost(), j); err != nil {
+		// A locked live site is unlocked for the push (see hosting/filelock.go).
+		push := func() error { return kit.Push(ctx, site, live, opts, s.wpPushHost(), j) }
+		if err := s.hosting.WithUnlocked(ctx, live.ID, j, push); err != nil {
 			s.audit(ctx, user, "wp_push_failed", ip, detail)
 			return err
 		}

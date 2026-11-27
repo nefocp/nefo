@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/xml"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -27,6 +28,7 @@ type S3Config struct {
 	Prefix    string `json:"prefix"` // optional folder inside the bucket
 	AccessKey string `json:"access_key"`
 	SecretKey string `json:"secret_key,omitempty"`
+	Encryption
 }
 
 // Validate checks the settings.
@@ -75,6 +77,9 @@ func (c *s3Client) Describe(key string) string {
 // Close does nothing: requests do not share a connection that needs closing.
 func (c *s3Client) Close() error { return nil }
 
+// needsSHA256: every request is signed with the checksum of its body.
+func (c *s3Client) needsSHA256() bool { return true }
+
 // objectURL uses path-style addressing (https://endpoint/bucket/key), which
 // every S3-compatible service accepts.
 func (c *s3Client) objectURL(key string) string {
@@ -84,7 +89,11 @@ func (c *s3Client) objectURL(key string) string {
 const emptySHA256 = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
 
 func (c *s3Client) do(ctx context.Context, method, key string, body io.Reader, size int64, payloadHash string) (*http.Response, error) {
-	req, err := http.NewRequestWithContext(ctx, method, c.objectURL(key), body)
+	return c.doURL(ctx, method, c.objectURL(key), body, size, payloadHash)
+}
+
+func (c *s3Client) doURL(ctx context.Context, method, u string, body io.Reader, size int64, payloadHash string) (*http.Response, error) {
+	req, err := http.NewRequestWithContext(ctx, method, u, body)
 	if err != nil {
 		return nil, err
 	}
@@ -136,6 +145,49 @@ func (c *s3Client) Delete(ctx context.Context, key string) error {
 	}
 	resp.Body.Close()
 	return nil
+}
+
+// ListTree lists every object under prefix (in the bucket's folder), with
+// ListObjectsV2, page after page. Names are relative to the folder.
+func (c *s3Client) ListTree(ctx context.Context, prefix string) ([]RemoteFile, error) {
+	out := []RemoteFile{}
+	token := ""
+	for page := 0; page < 1000; page++ {
+		q := url.Values{"list-type": {"2"}, "prefix": {c.cfg.Prefix + strings.Trim(prefix, "/") + "/"}}
+		if token != "" {
+			q.Set("continuation-token", token)
+		}
+		// The query is encoded as the signature encodes it.
+		u := c.cfg.Endpoint + "/" + uriEncode(c.cfg.Bucket, false) + "?" + canonicalQuery(q)
+		resp, err := c.doURL(ctx, http.MethodGet, u, nil, 0, emptySHA256)
+		if err != nil {
+			return nil, err
+		}
+		var res struct {
+			Contents []struct {
+				Key          string    `xml:"Key"`
+				Size         int64     `xml:"Size"`
+				LastModified time.Time `xml:"LastModified"`
+			} `xml:"Contents"`
+			IsTruncated           bool   `xml:"IsTruncated"`
+			NextContinuationToken string `xml:"NextContinuationToken"`
+		}
+		err = xml.NewDecoder(io.LimitReader(resp.Body, 64<<20)).Decode(&res)
+		resp.Body.Close()
+		if err != nil {
+			return nil, fmt.Errorf("read the storage's file list: %w", err)
+		}
+		for _, o := range res.Contents {
+			if name, ok := strings.CutPrefix(o.Key, c.cfg.Prefix); ok && !strings.HasSuffix(name, "/") {
+				out = append(out, RemoteFile{Name: name, Size: o.Size, ModTime: o.LastModified})
+			}
+		}
+		if !res.IsTruncated || res.NextContinuationToken == "" {
+			return out, nil
+		}
+		token = res.NextContinuationToken
+	}
+	return nil, errors.New("the storage lists too many files")
 }
 
 func s3Error(resp *http.Response) error {

@@ -29,20 +29,6 @@ func TestCPUPercent(t *testing.T) {
 	}
 }
 
-func TestParseMeminfo(t *testing.T) {
-	in := "MemTotal:        2000000 kB\nMemFree:          100000 kB\nMemAvailable:    1500000 kB\n"
-	total, avail, err := parseMeminfo(strings.NewReader(in))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if total != 2000000*1024 || avail != 1500000*1024 {
-		t.Errorf("total=%d avail=%d", total, avail)
-	}
-	if _, _, err := parseMeminfo(strings.NewReader("MemTotal: 1 kB\n")); err == nil {
-		t.Error("accepted meminfo without MemAvailable")
-	}
-}
-
 func TestParseLoadavgUptimeOSRelease(t *testing.T) {
 	l1, l5, l15, err := parseLoadavg("0.52 0.58 0.59 1/389 12345\n")
 	if err != nil || l1 != 0.52 || l5 != 0.58 || l15 != 0.59 {

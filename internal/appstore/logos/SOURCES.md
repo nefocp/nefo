@@ -76,3 +76,29 @@ Full raw-file checksums are in `../dl/fetch.tsv` (key, URL, note, licence, sha25
 - **No logo found** (use the current letter tile): OpenLiteSpeed, ClamAV, ModSecurity, ufw, fail2ban, Postfix, wp-cli.
 - `minio.svg` is kept only in case MinIO stays in the catalog (see RESEARCH.md: MinIO is replaced).
 - `strapi.svg` is kept only in case Strapi stays (see RESEARCH.md: no official image).
+
+## Batch 2 (2026-11-27)
+
+Same process (own empty download folder, `scripts/sanitize-svg.mjs`, rendered check on light and dark tiles).
+Memos, Kanboard and Healthchecks are dark on transparent too: they also need the light tile. The Gotify logo is
+CC BY 4.0: credit "Gotify logo by the Gotify authors (github.com/gotify/logo), CC BY 4.0" where logos are credited.
+MediaWiki was left out of the catalog for now: its logo is CC BY-SA 4.0 (Wikimedia Foundation) and no file under a
+permissive licence exists; Docmost publishes no SVG logo.
+
+| file | source (pinned) | licence of the file | raw sha256 | sanitized bytes / sha256 | note |
+|---|---|---|---|---|---|
+| `actual.svg` | [Simple Icons 16.37.0 actualbudget](https://cdn.jsdelivr.net/npm/simple-icons@16.37.0/icons/actualbudget.svg) | CC0-1.0 (Simple Icons) | `b232e27f2c195558…` | 576 / `47fc2cf3e5b9061b…` | fill #6B46C1 |
+| `changedetection.svg` | [Simple Icons 16.37.0 changedetection](https://cdn.jsdelivr.net/npm/simple-icons@16.37.0/icons/changedetection.svg) | CC0-1.0 (Simple Icons) | `3b4bb4bc98e9dd7d…` | 2424 / `1422e5b46a54f7bf…` | fill #3056D3 |
+| `freshrss.svg` | [Simple Icons 16.37.0 freshrss](https://cdn.jsdelivr.net/npm/simple-icons@16.37.0/icons/freshrss.svg) | CC0-1.0 (Simple Icons) | `b64c2585d258b259…` | 1236 / `864a64207bdbc2ea…` | fill #0062BE |
+| `gotify.svg` | [gotify/logo@25c1d2c gotify-logo-small.svg](https://raw.githubusercontent.com/gotify/logo/25c1d2c08894fcb0ed39c36a2816316a161c0e57/gotify-logo-small.svg) | CC-BY-4.0 (gotify/logo) | `1b7d4e4f46d09950…` | 6012 / `2a024c3c0c347227…` | Illustrator <switch>/<foreignObject> wrapper removed before sanitizing (the plain drawing inside is kept) |
+| `grafana.svg` | [Devicon 2.18.0 grafana-original](https://cdn.jsdelivr.net/npm/devicon@2.18.0/icons/grafana/grafana-original.svg) | MIT (Devicon) | `2dec200d4e56521b…` | 4958 / `1c286ea25155c6b2…` |  |
+| `healthchecks.svg` | [healthchecks/healthchecks@v5.0.3 static/img/favicon.svg](https://raw.githubusercontent.com/healthchecks/healthchecks/v5.0.3/static/img/favicon.svg) | BSD-3-Clause (Healthchecks) | `f19ed549a08dfeb0…` | 430 / `19686da13c29e39c…` |  |
+| `jellyfin.svg` | [Simple Icons 16.37.0 jellyfin](https://cdn.jsdelivr.net/npm/simple-icons@16.37.0/icons/jellyfin.svg) | CC0-1.0 (Simple Icons) | `244d6b1913518914…` | 412 / `a7ba9d187e1844e4…` | fill #00A4DC |
+| `kanboard.svg` | [kanboard/kanboard@v1.2.58 assets/img/inkscape-optimized-icon.svg](https://raw.githubusercontent.com/kanboard/kanboard/v1.2.58/assets/img/inkscape-optimized-icon.svg) | MIT (Kanboard) | `5e343a13cb0df0bf…` | 1256 / `a43d8b49be5f9a14…` |  |
+| `linkding.svg` | [sissbruecker/linkding@v1.47.0 bookmarks/static/logo.svg](https://raw.githubusercontent.com/sissbruecker/linkding/v1.47.0/bookmarks/static/logo.svg) | MIT (linkding) | `9a7a04afa8c933fc…` | 664 / `01a817c02f5f6fb2…` |  |
+| `listmonk.svg` | [Simple Icons 16.37.0 listmonk](https://cdn.jsdelivr.net/npm/simple-icons@16.37.0/icons/listmonk.svg) | CC0-1.0 (Simple Icons) | `1a821e29ed200856…` | 300 / `19db275692445c0b…` | fill #0055D4 |
+| `mealie.svg` | [Simple Icons 16.37.0 mealie](https://cdn.jsdelivr.net/npm/simple-icons@16.37.0/icons/mealie.svg) | CC0-1.0 (Simple Icons) | `eda5cc8fb29f0e6f…` | 429 / `0720fbb76e3c9f11…` | fill #E58325 |
+| `memos.svg` | [usememos/memos@26.11.2 web/public/logo.svg](https://raw.githubusercontent.com/usememos/memos/26.11.2/web/public/logo.svg) | MIT (Memos) | `1f65578358a8b420…` | 1554 / `021a04f613b4f299…` |  |
+| `navidrome.svg` | [navidrome/website@be4aff4 static/brand/navidrome-logo.svg](https://raw.githubusercontent.com/navidrome/website/be4aff40ebf7b9e2bfea93bb1ef5d48331820c56/static/brand/navidrome-logo.svg) | Apache-2.0 (navidrome/website) | `27ae71feedde5195…` | 3093 / `7046cf7ae06f9f83…` |  |
+| `ntfy.svg` | [Simple Icons 16.37.0 ntfy](https://cdn.jsdelivr.net/npm/simple-icons@16.37.0/icons/ntfy.svg) | CC0-1.0 (Simple Icons) | `10b6e507eba94b0f…` | 520 / `2c655966b2ca3ab9…` | fill #317F6F |
+| `vikunja.svg` | [Simple Icons 16.37.0 vikunja](https://cdn.jsdelivr.net/npm/simple-icons@16.37.0/icons/vikunja.svg) | CC0-1.0 (Simple Icons) | `d47e13dab0520551…` | 4419 / `e0c714731b1b6a37…` | fill #196AFF |

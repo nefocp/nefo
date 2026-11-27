@@ -127,7 +127,7 @@ func TestNewEnvCosts(t *testing.T) {
 	f.RAM["mariadb"], f.RAM["redis"] = 356, 128
 	e := NewEnv(f)
 	nginx, _ := e.Part("nginx")
-	if nginx.RAMMB != 15+25 || nginx.DiskMB != 5+50 || nginx.PHP != "8.3" {
+	if nginx.RAMMB != 15+25 || nginx.DiskMB != diskMB[Nginx]+diskMB["php"] || nginx.PHP != "8.3" {
 		t.Errorf("Nginx with the distribution's PHP: %+v", nginx)
 	}
 	if p, _ := e.Part("mariadb"); p.RAMMB != 356 {
@@ -147,7 +147,7 @@ func TestNewEnvCosts(t *testing.T) {
 	}
 	// Once the distribution's PHP is installed, the web server costs only itself.
 	f.Installed["php8.3"] = true
-	if p, _ := NewEnv(f).Part("nginx"); p.RAMMB != 15 || p.DiskMB != 5 {
+	if p, _ := NewEnv(f).Part("nginx"); p.RAMMB != 15 || p.DiskMB != diskMB[Nginx] {
 		t.Errorf("Nginx when PHP 8.3 is installed: %+v", p)
 	}
 }
@@ -241,7 +241,7 @@ func TestPlanOrdersAndMarksInstalledParts(t *testing.T) {
 	}
 	// Installed parts cost nothing more.
 	wantRAM := (15 + 25) + 25 + 228 + 90 + 115
-	wantDisk := (5 + 50) + 50 + 300 + 350 + 20
+	wantDisk := (diskMB[Nginx] + diskMB["php"]) + diskMB["php"] + diskMB["mariadb"] + diskMB["docker"] + diskMB["waf"]
 	if p.RAMMB != wantRAM || p.DiskMB != wantDisk || len(p.Warnings) != 0 {
 		t.Fatalf("ram %d (want %d), disk %d (want %d), warnings %v", p.RAMMB, wantRAM, p.DiskMB, wantDisk, p.Warnings)
 	}
@@ -459,5 +459,110 @@ func TestName(t *testing.T) {
 	}
 	if compareVersions("8.10", "8.9") <= 0 || compareVersions("7.4", "8.0") >= 0 {
 		t.Error("compareVersions")
+	}
+}
+
+func TestDiskFigures(t *testing.T) {
+	// A full install measured +1.1 GB while the setup said 365 MB: the
+	// figures now count apt's kept downloads and the data files (see the
+	// comment of diskMB). The recommended choice on Ubuntu 24.04:
+	f := facts(2048, 300)
+	f.OSID, f.Codename = "ubuntu", "noble"
+	e := NewEnv(f)
+	p, err := e.Plan(Choice{Web: "nginx", DB: "mariadb", Extras: []string{"redis"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.DiskMB < 450 || p.AptListsMB != 0 {
+		t.Fatalf("Nginx, PHP, MariaDB and Redis: %d MB (lists %d)", p.DiskMB, p.AptListsMB)
+	}
+	// A server that never downloaded apt's lists: the first install does.
+	f.AptListsMissing = true
+	p2, _ := NewEnv(f).Plan(Choice{Web: "nginx", DB: "mariadb", Extras: []string{"redis"}})
+	if p2.AptListsMB != aptListsMB["noble"] || p2.DiskMB != p.DiskMB+aptListsMB["noble"] {
+		t.Fatalf("with the lists: %d MB (lists %d)", p2.DiskMB, p2.AptListsMB)
+	}
+	if NewEnv(f).AptListsMB != aptListsMB["noble"] {
+		t.Fatal("env without the lists figure")
+	}
+	// A release without its own figure: the distribution's.
+	f.Codename = "future"
+	if NewEnv(f).AptListsMB != aptListsMB["ubuntu"] {
+		t.Fatal("distribution's lists figure")
+	}
+	f.Codename = "noble"
+	// Nothing to install: nothing to download either.
+	f.Installed["nginx"], f.Installed["php8.3"], f.Installed["mariadb"], f.Installed["redis"] = true, true, true, true
+	p3, _ := NewEnv(f).Plan(Choice{Web: "nginx", DB: "mariadb", Extras: []string{"redis"}})
+	if p3.DiskMB != 0 || p3.AptListsMB != 0 {
+		t.Fatalf("all installed: %d MB", p3.DiskMB)
+	}
+	// A release with its own figure.
+	diskByRelease["testrel"] = map[string]int{"mariadb": 123}
+	defer delete(diskByRelease, "testrel")
+	f = facts(2048, 300)
+	f.Codename = "testrel"
+	if pt, _ := NewEnv(f).Part("mariadb"); pt.DiskMB != 123 {
+		t.Fatalf("release figure: %+v", pt)
+	}
+	if pt, _ := NewEnv(f).Part("redis"); pt.DiskMB != diskMB["redis"] {
+		t.Fatalf("default figure: %+v", pt)
+	}
+}
+
+func TestMariaDBSeries(t *testing.T) {
+	code := func(err error) string {
+		var ue *usererr.Error
+		if errors.As(err, &ue) {
+			return ue.Code + ":" + ue.Detail
+		}
+		return fmt.Sprint(err)
+	}
+	f := facts(2048, 300)
+	// Without the Software page's say, no series is offered.
+	if _, ok := NewEnv(f).Part("mariadb-11.4"); ok {
+		t.Fatal("a series offered without the catalog")
+	}
+	f.Catalog = []string{"php8.3", "mariadb", "mariadb-11.4", "mariadb-11.8", "mysql", "redis"}
+	f.Versions = map[string]string{"mariadb": "10.11", "mariadb-11.4": "11.4", "mariadb-11.8": "11.8"}
+	f.Until = map[string]string{"mariadb-11.4": "2029-05-29", "mariadb-11.8": "2028-06-04"}
+	f.RAM["mariadb"], f.RAM["mariadb-11.4"] = 356, 356
+	e := NewEnv(f)
+	var dbs []string
+	for _, p := range e.Parts {
+		if p.Group == "db" {
+			dbs = append(dbs, p.ID)
+		}
+	}
+	if !reflect.DeepEqual(dbs, []string{"mariadb", "mariadb-11.4", "mariadb-11.8", "mysql"}) {
+		t.Fatalf("database parts %v", dbs)
+	}
+	p, _ := e.Part("mariadb-11.4")
+	if p.Version != "11.4" || p.Until != "2029-05-29" || p.RAMMB != 356 || p.DiskMB != diskMB["mariadb"] {
+		t.Errorf("part %+v", p)
+	}
+	if d := e.Defaults(); d.DB != "mariadb" {
+		t.Errorf("default %q", d.DB)
+	}
+	plan, err := e.Plan(Choice{Web: "nginx", DB: "mariadb-11.4"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := stepIDs(plan); !reflect.DeepEqual(got, []string{"nginx", "mariadb-11.4"}) || plan.Steps[1].Name != "MariaDB 11.4" {
+		t.Errorf("plan %v %+v", got, plan.Steps)
+	}
+	if _, err := e.Plan(Choice{DB: "mariadb-11.4", Extras: []string{"mysql"}}); code(err) != "setup_db_conflict:MariaDB 11.4" {
+		t.Errorf("two servers: %v", err)
+	}
+	if _, err := e.Plan(Choice{DB: "mariadb-12.9"}); code(err) != "setup_not_offered:MariaDB 12.9" {
+		t.Errorf("unknown series: %v", err)
+	}
+	// Installed, it is the one the setup keeps.
+	f.Installed["mariadb-11.8"] = true
+	if d := NewEnv(f).Defaults(); d.DB != "mariadb-11.8" {
+		t.Errorf("default with 11.8 installed: %q", d.DB)
+	}
+	if !IsDatabase("mariadb-11.4") || IsDatabase("redis") {
+		t.Error("IsDatabase")
 	}
 }

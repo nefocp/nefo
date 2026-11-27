@@ -102,6 +102,11 @@ func (m *Manager) CheckPHPApp(ctx context.Context, siteID int64, id string, req 
 	if err != nil {
 		return err
 	}
+	// An install writes the whole site: unlock its files first (see
+	// filelock.go).
+	if err := m.RefuseLocked(ctx, site); err != nil {
+		return err
+	}
 	if err := m.checkPHPAppSite(ctx, app, site, req); err != nil {
 		return err
 	}

@@ -69,6 +69,40 @@ func (m *Manager) Refresh(ctx context.Context) (changed int, err error) {
 			return 0, err
 		}
 	}
+	// Country blocking's shared files (see geo.go), before the vhosts that
+	// use them; those no site needs any more go.
+	if prot, err := m.store.SiteProtects(ctx); err == nil {
+		files, remove, err := m.geoFiles(ctx, prot)
+		if err != nil {
+			m.log.Warn("country blocking files", "err", err)
+		}
+		for path, data := range files {
+			if err := mkdir(filepath.Dir(path), 0o755); err != nil {
+				restore()
+				return 0, err
+			}
+			n := len(backup)
+			if err := write(path, data); err != nil {
+				restore()
+				return 0, err
+			}
+			if len(backup) > n {
+				os.Remove(path + ".bin") // Nginx's copy of a large list
+			}
+		}
+		for _, path := range remove {
+			if old, err := os.ReadFile(path); err == nil {
+				backup[path] = saved{old, true, 0o644}
+				os.Remove(path)
+				os.Remove(path + ".bin")
+			}
+		}
+		if len(files) > 0 && ws.kind() == ServerApache {
+			if err := m.apacheEnableRemoteIP(ctx); err != nil {
+				m.log.Warn("country blocking", "err", err)
+			}
+		}
+	}
 	sites, err := m.store.ListSites(ctx)
 	if err != nil {
 		restore()

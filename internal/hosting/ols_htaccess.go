@@ -327,7 +327,7 @@ func (m *Manager) checkHtaccess(ctx context.Context, full bool) {
 	}
 	var due []*store.Site
 	for _, s := range sites {
-		if s.Disabled || s.RedirectURL != "" || s.ProxyPort != 0 {
+		if s.Disabled || s.RedirectURL != "" || s.ProxyPort != 0 || s.ProxyURL != "" {
 			continue
 		}
 		if full || m.htaccessChanged(s) {

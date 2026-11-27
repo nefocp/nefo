@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -222,6 +223,21 @@ func TestVersionAtLeast(t *testing.T) {
 	}
 }
 
+func TestPHPPackagesOPcache(t *testing.T) {
+	// OPcache is part of PHP itself from 8.5: Ubuntu 26.04 and
+	// packages.sury.org have no php8.5-opcache, and one missing package
+	// fails the whole apt-get install.
+	for v, want := range map[string]bool{"8.1": true, "8.4": true, "8.5": false, "8.10": false} {
+		pkgs := phpPackages(v)
+		if got := slices.Contains(pkgs, "php"+v+"-opcache"); got != want {
+			t.Errorf("PHP %s: opcache package %v, want %v (%v)", v, got, want, pkgs)
+		}
+		if !slices.Contains(pkgs, "php"+v+"-fpm") || !slices.Contains(pkgs, "php"+v+"-mysql") {
+			t.Errorf("PHP %s: %v", v, pkgs)
+		}
+	}
+}
+
 func TestUserNames(t *testing.T) {
 	cases := map[string]string{
 		"example.com":                            "example_com",
@@ -305,6 +321,7 @@ func newTestManager(t *testing.T) *Manager {
 	root := t.TempDir()
 	p := DefaultPaths(filepath.Join(root, "data"))
 	p.PHP = filepath.Join(root, "php")
+	p.GeoIP = filepath.Join(root, "geoip")
 	return New(p, nil, st, slog.New(slog.NewTextHandler(io.Discard, nil)), "")
 }
 
@@ -484,5 +501,41 @@ func TestSiteOptionsVhost(t *testing.T) {
 	d.HotlinkAllow = []string{"evil.com; return 200"}
 	if _, err := renderVhost(d); err == nil {
 		t.Fatal("rendered an unsafe hotlink name")
+	}
+}
+
+func TestWAFPackaged(t *testing.T) {
+	dir := t.TempDir()
+	old := aptLists
+	defer func() { aptLists = old }()
+	aptLists = filepath.Join(dir, "*_Packages*")
+	ctx := context.Background()
+	f := &fakeRunner{outputs: map[string]fakeResult{"apt-cache": {out: ""}}}
+	m := &Manager{run: f}
+	// Without apt's lists, apt can't tell: the install reports the error.
+	if !m.WAFPackaged(ctx, ServerNginx) {
+		t.Fatal("no lists: should say yes")
+	}
+	if err := os.WriteFile(filepath.Join(dir, "archive.ubuntu.com_dists_jammy_main_binary-amd64_Packages"), nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// A package apt doesn't know (Ubuntu 22.04's Nginx module).
+	if m.WAFPackaged(ctx, ServerNginx) {
+		t.Fatal("unknown package: should say no")
+	}
+	// The answer is kept; another web server is asked on its own.
+	f.outputs["apt-cache"] = fakeResult{out: "libapache2-mod-security2:\n  Installed: (none)\n  Candidate: 2.9.5-1\n"}
+	if m.WAFPackaged(ctx, ServerNginx) {
+		t.Fatal("the answer for Nginx was not kept")
+	}
+	if !m.WAFPackaged(ctx, ServerApache) {
+		t.Fatal("Apache's packages are there")
+	}
+	f.outputs["apt-cache"] = fakeResult{out: "ols-modsecurity:\n  Installed: (none)\n  Candidate: (none)\n"}
+	if m.WAFPackaged(ctx, ServerOLS) {
+		t.Fatal("Candidate (none): should say no")
+	}
+	if got := m.ServerTitle(ServerNginx); got != "Nginx" {
+		t.Fatalf("title %q", got)
 	}
 }

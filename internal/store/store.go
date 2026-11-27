@@ -322,6 +322,27 @@ var migrations = []string{
 	// ones made so far, "postgresql" for PostgreSQL. Names and user names
 	// stay unique across engines (see pgdatabases.go).
 	`ALTER TABLE databases ADD COLUMN engine TEXT NOT NULL DEFAULT 'mysql';`,
+	// 25: the memory limit of an app site's program in MB (Java: -Xmx), 0 for
+	// the runtime's default.
+	`ALTER TABLE sites ADD COLUMN app_memory INTEGER NOT NULL DEFAULT 0;`,
+	// 26: country blocking and the file lock of each website (see
+	// hosting/geo.go and hosting/filelock.go).
+	`CREATE TABLE IF NOT EXISTS site_protect (
+		site_id       INTEGER PRIMARY KEY REFERENCES sites(id) ON DELETE CASCADE,
+		geo_mode      TEXT    NOT NULL DEFAULT '',
+		geo_countries TEXT    NOT NULL DEFAULT '',
+		lock_on       INTEGER NOT NULL DEFAULT 0,
+		lock_writable TEXT    NOT NULL DEFAULT '',
+		lock_alert    INTEGER NOT NULL DEFAULT 0,
+		locked_at     INTEGER NOT NULL DEFAULT 0,
+		scan_at       INTEGER NOT NULL DEFAULT 0,
+		scan_changes  INTEGER NOT NULL DEFAULT 0
+	);`,
+	// 27: reverse proxy websites, which forward every request to proxy_url;
+	// proxy_opts holds their options as JSON (see ProxyOptions). Both are ''
+	// for other sites.
+	`ALTER TABLE sites ADD COLUMN proxy_url TEXT NOT NULL DEFAULT '';
+	ALTER TABLE sites ADD COLUMN proxy_opts TEXT NOT NULL DEFAULT '';`,
 }
 
 // Open opens (and creates or upgrades) the database in dataDir.

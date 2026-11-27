@@ -784,3 +784,34 @@ func TestParseCommit(t *testing.T) {
 		t.Errorf("SplitCommit = %q, %q", h, s)
 	}
 }
+
+func TestDeployJavaAppEnv(t *testing.T) {
+	// A Java app's deploy script builds with the app's Java version: its
+	// bin folder first in PATH and its JAVA_HOME (hosting.RuntimeEnv).
+	e := appEnv(t, &store.GitDeploy{Repo: testRepo, Branch: "main", Target: TargetPublic, Script: "./mvnw -q package"})
+	home := "/usr/lib/jvm/java-21-openjdk-amd64"
+	e.m.SetAppPath(func(*store.Site) string { return home + "/bin:" + userPATH })
+	e.m.SetAppEnv(func(*store.Site) []string { return []string{"JAVA_HOME=" + home} })
+	if _, err := e.m.Deploy(context.Background(), testSiteID, e.log); err != nil {
+		t.Fatalf("Deploy: %v\n%s", err, e.log)
+	}
+	if len(e.run.calls) == 0 {
+		t.Fatal("nothing ran")
+	}
+	for _, c := range e.run.calls {
+		if !slices.Contains(c.env, "PATH="+home+"/bin:"+userPATH) || !slices.Contains(c.env, "JAVA_HOME="+home) {
+			t.Errorf("%v ran with %v", c.cmd, c.env)
+		}
+	}
+	// A PHP site's commands get no runtime variables.
+	e = newEnv(t, &store.GitDeploy{Repo: testRepo, Branch: "main", Target: TargetPublic})
+	e.m.SetAppEnv(func(*store.Site) []string { return []string{"JAVA_HOME=" + home} })
+	if _, err := e.m.Deploy(context.Background(), testSiteID, e.log); err != nil {
+		t.Fatalf("Deploy: %v\n%s", err, e.log)
+	}
+	for _, c := range e.run.calls {
+		if slices.Contains(c.env, "JAVA_HOME="+home) {
+			t.Errorf("%v of a PHP site ran with JAVA_HOME", c.cmd)
+		}
+	}
+}

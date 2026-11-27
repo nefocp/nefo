@@ -131,6 +131,19 @@ var RewritePresets = []RewritePreset{
     location / {
         try_files $uri $uri/ /r.php?$args;
     }`},
+	{ID: "phpbb", Name: "phpBB", PHP: true, Rules: `    # Settings, cache, attachments, backups and code are never served.
+    location ~ ^/(?:config\.php|common\.php|cache|files|images/avatars/upload|includes|phpbb|store|vendor)(?:/|$) {
+        deny all;
+    }
+
+    # Paths that are not files go to phpBB's router.
+    location / {
+        try_files $uri $uri/ @phpbb;
+    }
+
+    location @phpbb {
+        rewrite ^(.*)$ /app.php$1 last;
+    }`},
 	{ID: "spa", Name: "Single-page app", Rules: `    location / {
         try_files $uri $uri/ /index.html;
     }`},

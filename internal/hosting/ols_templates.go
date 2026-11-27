@@ -48,6 +48,9 @@ include                   {{.Hook}}
 type olsHookData struct {
 	Home, SnippetDir, SitesDir, EmptyRoot, DataDir, Hook string
 	IPv6, WAF                                            bool
+	// GeoDB is the country database, loaded while a site uses country
+	// blocking (see geo.go).
+	GeoDB string
 }
 
 var olsHookTmpl = mustOLSTemplate("ols-hook", `# Managed by {{app}}. Do not edit: the panel rewrites this file.
@@ -124,6 +127,14 @@ accessDenyDir {
 accessControl {
   allow                   ALL
 }
+{{- if .GeoDB}}
+
+# Country blocking (Websites → Country blocking), loaded while a website
+# uses it: DB-IP's IP to Country Lite database (CC BY 4.0).
+geoipDB {{.GeoDB}} {
+  geoipDBName             COUNTRY_DB
+}
+{{- end}}
 
 # The sites' Git push webhooks go to the panel's listener.
 extprocessor panel_githook {
@@ -213,8 +224,26 @@ var olsVhostTmpl = func() *template.Template {
 	t := mustOLSTemplate("ols-vhost", olsVhostText)
 	template.Must(t.New("auth").Parse(olsAuth))
 	template.Must(t.New("hsts").Parse(olsHSTS))
+	template.Must(t.New("geo").Parse(olsGeo))
+	template.Must(t.New("upstream").Parse(olsUpstream))
+	template.Must(t.New("upstreamctx").Parse(olsUpstreamContext))
 	return t
 }()
+
+// olsGeo is country blocking (see geo.go): the country from OpenLiteSpeed's
+// GeoIP lookup (GEOIP_COUNTRY_CODE; empty for reserved addresses), except
+// for the server's own addresses, and for requests from Cloudflare's proxy
+// the country Cloudflare sends (CF-IPCountry). OpenLiteSpeed's "Use Client
+// IP in Header" is not used: it trusts the header from every client.
+const olsGeo = `
+{{- if .GeoMode}}
+RewriteCond %{REMOTE_ADDR} !^(?:{{.GeoCF}}{{with .GeoSelf}}|{{.}}{{end}})$
+RewriteCond %{ENV:GEOIP_COUNTRY_CODE} {{if eq .GeoMode "allow"}}!^(?:{{.GeoRegex}})?${{else}}^(?:{{.GeoRegex}})${{end}}
+RewriteRule !^/403\.html$ - [F]
+RewriteCond %{REMOTE_ADDR} ^(?:{{.GeoCF}})$
+RewriteCond %{HTTP:CF-IPCountry} {{if eq .GeoMode "allow"}}!^(?:{{.GeoRegex}})?${{else}}^(?:{{.GeoRegex}})${{end}}
+RewriteRule !^/403\.html$ - [F]
+{{- end}}`
 
 // olsHSTS sends Strict-Transport-Security from a context that serves the
 // site, in OpenLiteSpeed's "Name: value" header form. The virtual host
@@ -252,6 +281,9 @@ virtualHost {{.Domain}} {
   setUIDMode              0
   docRoot                 {{if .Files}}{{.Public}}{{else}}{{.EmptyRoot}}{{end}}/
   enableGzip              1
+{{- if .GeoMode}}
+  enableIpGeo             1
+{{- end}}
 
   errorlog {{.LogDir}}/{{.Domain}}.error.log {
     useServer             0
@@ -353,6 +385,7 @@ virtualHost {{.Domain}} {
     address               127.0.0.1:{{.ProxyPort}}
   }
 {{- end}}
+{{- template "upstream" .}}
 
   # Let's Encrypt HTTP-01 challenges, for every site.
   context /.well-known/acme-challenge/ {
@@ -376,6 +409,8 @@ Strict-Transport-Security: {{.HSTS}}
 {{- end}}
 END_extraHeaders
   }
+{{- else if and .Upstream (not .Disabled) (not .RedirectURL)}}
+{{- template "upstreamctx" .}}
 {{- else if .Files}}
 
   context / {
@@ -419,6 +454,7 @@ RewriteRule ^/\.well-known/acme-challenge/ - [L]
 RewriteCond %{HTTP:Content-Length} -gt1048576
 RewriteRule ^/\.panel/deploy/{{.ID}}$ - [R=413,L]
 RewriteRule ^/\.panel/deploy/{{.ID}}$ http://panel_githook/git/{{.ID}} [P,L]
+{{- template "geo" .}}
 {{- if and .SSL .ForceHTTPS}}
 RewriteCond %{HTTPS} !on
 RewriteCond %{THE_REQUEST} ^\S+\s+(/[^\s?]*)
@@ -426,7 +462,7 @@ RewriteRule ^ https://%{SERVER_NAME}%1 [R=301,L,NE]
 RewriteCond %{HTTPS} !on
 RewriteRule ^/?(.*)$ https://%{SERVER_NAME}/$1 [R=301,L]
 {{- end}}
-{{- if and .BodyLimit (or .Files .ProxyPort)}}
+{{- if and .BodyLimit (or .Files .ProxyPort .Upstream)}}
 RewriteCond %{HTTP:Content-Length} -gt{{.BodyLimit}}
 RewriteRule ^ - [R=413,L]
 {{- end}}
@@ -489,6 +525,10 @@ type olsVhost struct {
 	HotlinkHosts string
 }
 
+// olsAddrRegexRe allows what addrRegex writes: addresses, digits, classes
+// and alternatives, nothing that ends a rewrite rule.
+var olsAddrRegexRe = regexp.MustCompile(`^[0-9a-f.:|?()\[\]\\*+-]+$`)
+
 var olsContextURIRe = regexp.MustCompile(`^/(?:[A-Za-z0-9_~@+-][A-Za-z0-9._~@+-]{0,127}/)*$`)
 
 func renderOLSVhost(v olsVhost, rewrite string) ([]byte, error) {
@@ -506,6 +546,10 @@ func renderOLSVhost(v olsVhost, rewrite string) ([]byte, error) {
 	if v.EmptyRoot == "" || v.Public == "" || v.LogDir == "" || !safePath(v.ErrorDir) || v.ErrorDir == "" {
 		return nil, fmt.Errorf("refusing to render %q without its folders", v.Domain)
 	}
+	if v.GeoMode != "" && (v.GeoCF == "" || !olsAddrRegexRe.MatchString(v.GeoCF) ||
+		(v.GeoSelf != "" && !olsAddrRegexRe.MatchString(v.GeoSelf))) {
+		return nil, fmt.Errorf("refusing to render the country rules of %q", v.Domain)
+	}
 	if v.UploadMB <= 0 {
 		v.UploadMB = 64
 	}
@@ -517,7 +561,7 @@ func renderOLSVhost(v olsVhost, rewrite string) ([]byte, error) {
 		v.Workers = 5
 	}
 	v.Root = path.Dir(v.Public)
-	v.Files = !v.Disabled && v.RedirectURL == "" && v.ProxyPort == 0
+	v.Files = !v.Disabled && v.RedirectURL == "" && v.ProxyPort == 0 && v.Upstream == nil
 	v.BodyLimit = int64(v.UploadMB) << 20
 	rules := olsRewriteRules(rewrite, v.PHPSocket != "")
 	v.ServerRules = rules.Server
@@ -604,6 +648,9 @@ RewriteRule ^(.+)$ /index.php?_route_=$1 [L,QSA]`},
 	"moodle": {Dir: `RewriteCond %{REQUEST_FILENAME} !-f
 RewriteCond %{REQUEST_FILENAME} !-d
 RewriteRule ^ /r.php [L]`, Nested: true},
+	"phpbb": {Dir: `RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+RewriteRule ^ /app.php [L]`, Nested: true},
 	"spa": {Dir: olsFallbackHTML, Nested: true},
 	// The whole path, not a back-reference: in a folder with its own
 	// .htaccess, the pattern only sees the part below that folder.

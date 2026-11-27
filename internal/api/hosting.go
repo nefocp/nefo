@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -13,6 +12,7 @@ import (
 	"github.com/nefocp/nefo/internal/hosting"
 	"github.com/nefocp/nefo/internal/jobs"
 	"github.com/nefocp/nefo/internal/store"
+	"github.com/nefocp/nefo/internal/usererr"
 )
 
 type siteResponse struct {
@@ -43,7 +43,10 @@ type siteResponse struct {
 	ProxyPort    int        `json:"proxy_port"`
 	AppCommand   string     `json:"app_command"`
 	AppRuntime   string     `json:"app_runtime"`
+	AppMemory    int        `json:"app_memory"`
 	AppStatus    string     `json:"app_status"`
+	ProxyURL     string     `json:"proxy_url,omitempty"`
+	Proxy        *proxyJSON `json:"proxy,omitempty"`
 	Disabled     bool       `json:"disabled"`
 	RedirectURL  string     `json:"redirect_url"`
 	AuthUser     string     `json:"auth_user"`
@@ -55,6 +58,8 @@ type siteResponse struct {
 	WAF          string     `json:"waf"`
 	RateLimit    int        `json:"rate_limit"`
 	BlockedIPs   int        `json:"blocked_ips"`
+	GeoMode      string     `json:"geo_mode"`  // country blocking: "", block or allow
+	FileLock     bool       `json:"file_lock"` // the site's files are locked
 	Note         string     `json:"note"`
 	CreatedAt    time.Time  `json:"created_at"`
 }
@@ -86,6 +91,7 @@ func (s *Server) siteJSON(site *store.Site) siteResponse {
 		ProxyPort:    site.ProxyPort,
 		AppCommand:   site.AppCommand,
 		AppRuntime:   site.AppRuntime,
+		AppMemory:    site.AppMemory,
 		Disabled:     site.Disabled,
 		RedirectURL:  site.RedirectURL,
 		AuthUser:     site.AuthUser,
@@ -111,7 +117,48 @@ func (s *Server) siteJSON(site *store.Site) siteResponse {
 	if site.ProxyPort != 0 {
 		r.AppStatus = s.hosting.AppStatus(context.Background(), site)
 	}
+	if p, err := s.store.SiteProtect(context.Background(), site.ID); err == nil {
+		if p.GeoOn() {
+			r.GeoMode = p.GeoMode
+		}
+		r.FileLock = p.LockOn
+	}
+	if site.ProxyURL != "" {
+		r.ProxyURL = site.ProxyURL
+		o := site.ProxyOpts
+		r.Proxy = &proxyJSON{HostHeader: "site", WebSocket: o.WebSocket, Forwarded: o.Forwarded, Timeout: o.Timeout, Insecure: o.Insecure}
+		if o.UpstreamHost {
+			r.Proxy.HostHeader = "upstream"
+		}
+	}
 	return r
+}
+
+// proxyJSON are a reverse proxy site's options: host_header is "site" (the
+// site's domain) or "upstream" (the upstream's host name).
+type proxyJSON struct {
+	HostHeader string `json:"host_header"`
+	WebSocket  bool   `json:"websocket"`
+	Forwarded  bool   `json:"forwarded"`
+	Timeout    int    `json:"timeout"`
+	Insecure   bool   `json:"insecure"`
+}
+
+// options turns the request's options into the stored ones; nil gives the
+// defaults.
+func (p *proxyJSON) options() (store.ProxyOptions, error) {
+	if p == nil {
+		return hosting.DefaultProxyOptions(), nil
+	}
+	if p.HostHeader != "" && p.HostHeader != "site" && p.HostHeader != "upstream" {
+		return store.ProxyOptions{}, usererr.New("invalid_proxy_option", p.HostHeader)
+	}
+	o := store.ProxyOptions{UpstreamHost: p.HostHeader == "upstream", WebSocket: p.WebSocket, Forwarded: p.Forwarded,
+		Timeout: p.Timeout, Insecure: p.Insecure}
+	if o.Timeout == 0 {
+		o.Timeout = hosting.DefaultProxyOptions().Timeout
+	}
+	return o, nil
 }
 
 func siteID(r *http.Request) (int64, bool) {
@@ -172,107 +219,36 @@ func (s *Server) handleListSites(w http.ResponseWriter, r *http.Request, a *auth
 
 func (s *Server) handleCreateSite(w http.ResponseWriter, r *http.Request, a *authed) {
 	var req struct {
-		Domain     string   `json:"domain"`
-		Aliases    []string `json:"aliases"`
-		PHPVersion string   `json:"php_version"`
-		ProxyPort  int      `json:"proxy_port"`
-		AppCommand string   `json:"app_command"`
-		AppRuntime string   `json:"app_runtime"`
+		Domain     string     `json:"domain"`
+		Aliases    []string   `json:"aliases"`
+		PHPVersion string     `json:"php_version"`
+		ProxyPort  int        `json:"proxy_port"`
+		AppCommand string     `json:"app_command"`
+		AppRuntime string     `json:"app_runtime"`
+		ProxyURL   string     `json:"proxy_url"`
+		Proxy      *proxyJSON `json:"proxy"`
 	}
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	site, err := s.hosting.CreateSite(r.Context(), hosting.CreateRequest{
+	cr := hosting.CreateRequest{
 		Domain: req.Domain, Aliases: req.Aliases, PHPVersion: req.PHPVersion, ProxyPort: req.ProxyPort, AppCommand: req.AppCommand,
-	})
+	}
+	if strings.TrimSpace(req.ProxyURL) != "" {
+		opts, err := req.Proxy.options()
+		if err != nil {
+			s.opError(w, r, err)
+			return
+		}
+		cr.ProxyURL, cr.ProxyOpts = req.ProxyURL, opts
+	}
+	site, err := s.hosting.CreateSite(r.Context(), cr)
 	if err != nil {
 		s.opError(w, r, err)
 		return
 	}
 	s.audit(r.Context(), a.user.Username, "site_created", clientIP(r), site.Domain)
 	writeJSON(w, http.StatusCreated, s.siteJSON(site))
-}
-
-func (s *Server) handleDeleteSite(w http.ResponseWriter, r *http.Request, a *authed) {
-	id, ok := siteID(r)
-	if !ok {
-		writeError(w, http.StatusNotFound, "site_not_found")
-		return
-	}
-	var req struct {
-		Confirm         string `json:"confirm"`
-		DeleteDatabases bool   `json:"delete_databases"`
-	}
-	if !decodeJSON(w, r, &req) {
-		return
-	}
-	site, err := s.store.SiteByID(r.Context(), id)
-	if err != nil {
-		s.opError(w, r, err)
-		return
-	}
-	// Read the linked databases first: deleting the site unlinks them.
-	linked, err := s.store.DatabasesForSite(r.Context(), id)
-	if err != nil {
-		s.opError(w, r, err)
-		return
-	}
-	pgLinked, err := s.store.PGDatabasesForSite(r.Context(), id)
-	if err != nil {
-		s.opError(w, r, err)
-		return
-	}
-	// A deploy writes into the site's folder as its user: let it finish first.
-	if s.gitDeployRunning(site.Domain) {
-		s.opError(w, r, jobs.ErrBusy)
-		return
-	}
-	// Background programs run as the site's user: stop them first, or userdel refuses.
-	s.removeSiteDaemons(r.Context(), site, req.Confirm)
-	warnings, err := s.hosting.DeleteSite(r.Context(), id, req.Confirm)
-	if err != nil {
-		s.opError(w, r, err)
-		return
-	}
-	s.audit(r.Context(), a.user.Username, "site_deleted", clientIP(r), req.Confirm)
-	s.forgetStagingLink(r.Context(), id)
-	s.gitDeploy().SiteDeleted(r.Context(), id) // the key went with the site folder
-	if err := s.files.DropSiteTrash(site.Domain); err != nil {
-		s.log.Warn("remove the site's trash", "site", site.Domain, "err", err)
-	}
-	s.store.DeleteSchedulesFor(r.Context(), "site", req.Confirm)
-	s.store.DeleteSchedulesFor(r.Context(), "app", site.SysUser) // its Docker app went with it
-	// Cron jobs of the site's Linux user cannot run any more.
-	if jobs, err := s.store.ListCronJobs(r.Context()); err == nil {
-		for _, c := range jobs {
-			if c.RunAs == site.SysUser {
-				s.store.DeleteCronJob(r.Context(), c.ID)
-			}
-		}
-		s.cron.Sync(r.Context())
-	}
-	if req.DeleteDatabases {
-		for _, d := range linked {
-			if err := s.db.Delete(r.Context(), d.ID, d.Name); err != nil {
-				warnings = append(warnings, fmt.Sprintf("database %s: %v", d.Name, err))
-				continue
-			}
-			s.store.DeleteSchedulesFor(r.Context(), "database", d.Name)
-			s.audit(r.Context(), a.user.Username, "db_deleted", clientIP(r), d.Name)
-		}
-		if len(linked) > 0 {
-			s.restartDBIfNeeded(r.Context(), a.user.Username, clientIP(r))
-		}
-		for _, d := range pgLinked {
-			if err := s.pg.Delete(r.Context(), d.ID, d.Name); err != nil {
-				warnings = append(warnings, fmt.Sprintf("PostgreSQL database %s: %v", d.Name, err))
-				continue
-			}
-			s.store.DeleteSchedulesFor(r.Context(), "database", d.Name)
-			s.audit(r.Context(), a.user.Username, "pg_db_deleted", clientIP(r), d.Name)
-		}
-	}
-	writeJSON(w, http.StatusOK, map[string]any{"warnings": warnings})
 }
 
 func (s *Server) handleIssueSSL(w http.ResponseWriter, r *http.Request, a *authed) {
@@ -472,6 +448,7 @@ func (s *Server) handleSiteSettings(w http.ResponseWriter, r *http.Request, a *a
 		ProxyPort  int      `json:"proxy_port"`
 		AppCommand string   `json:"app_command"`
 		AppRuntime string   `json:"app_runtime"`
+		AppMemory  int      `json:"app_memory"`
 	}
 	if !decodeJSON(w, r, &req) {
 		return
@@ -479,7 +456,7 @@ func (s *Server) handleSiteSettings(w http.ResponseWriter, r *http.Request, a *a
 	site, reissue, err := s.hosting.UpdateSettings(r.Context(), id, hosting.Settings{
 		Aliases: req.Aliases, PHPVersion: req.PHPVersion, PHPMemory: req.PHPMemory, PHPUpload: req.PHPUpload, PHPTime: req.PHPTime,
 		PHPWorkers: req.PHPWorkers, PHPPM: req.PHPPM, PHPAllow: req.PHPAllow,
-		ProxyPort: req.ProxyPort, AppCommand: req.AppCommand, AppRuntime: req.AppRuntime,
+		ProxyPort: req.ProxyPort, AppCommand: req.AppCommand, AppRuntime: req.AppRuntime, AppMemory: req.AppMemory,
 	})
 	if err != nil {
 		s.opError(w, r, err)
@@ -700,7 +677,11 @@ func (s *Server) handleQuarantine(w http.ResponseWriter, r *http.Request, a *aut
 	if !decodeJSON(w, r, &req) {
 		return
 	}
-	q, err := s.hosting.Quarantine(r.Context(), id, req.Path, req.Rule)
+	var q *store.Quarantined
+	err := s.hosting.WithUnlocked(r.Context(), id, nil, func() (err error) {
+		q, err = s.hosting.Quarantine(r.Context(), id, req.Path, req.Rule)
+		return err
+	})
 	if err != nil {
 		s.opError(w, r, err)
 		return
@@ -721,7 +702,8 @@ func (s *Server) handleQuarantineAction(w http.ResponseWriter, r *http.Request, 
 		action = "quarantine_deleted"
 		err = s.hosting.DeleteQuarantined(r.Context(), id, qid)
 	} else {
-		err = s.hosting.RestoreQuarantined(r.Context(), id, qid)
+		// The file goes back into the site: a locked one is unlocked meanwhile.
+		err = s.hosting.WithUnlocked(r.Context(), id, nil, func() error { return s.hosting.RestoreQuarantined(r.Context(), id, qid) })
 	}
 	if err != nil {
 		s.opError(w, r, err)
@@ -817,4 +799,34 @@ func (s *Server) handleSetSFTP(w http.ResponseWriter, r *http.Request, a *authed
 	}
 	s.audit(r.Context(), a.user.Username, action, clientIP(r), info.Username)
 	writeJSON(w, http.StatusOK, sftpResponse{info, s.security.SSHSettings(r.Context()).Port})
+}
+
+// handleSiteProxy changes a reverse proxy site's upstream and options:
+// {"proxy_url": "https://10.0.0.5:8443", "proxy": {"host_header": "site",
+// "websocket": true, "forwarded": true, "timeout": 60, "insecure": false}}.
+func (s *Server) handleSiteProxy(w http.ResponseWriter, r *http.Request, a *authed) {
+	id, ok := pathID(r)
+	if !ok {
+		writeError(w, http.StatusNotFound, "not_found")
+		return
+	}
+	var req struct {
+		ProxyURL string     `json:"proxy_url"`
+		Proxy    *proxyJSON `json:"proxy"`
+	}
+	if !decodeJSON(w, r, &req) {
+		return
+	}
+	opts, err := req.Proxy.options()
+	if err != nil {
+		s.opError(w, r, err)
+		return
+	}
+	site, err := s.hosting.SetProxy(r.Context(), id, req.ProxyURL, opts)
+	if err != nil {
+		s.opError(w, r, err)
+		return
+	}
+	s.audit(r.Context(), a.user.Username, "site_proxy_changed", clientIP(r), site.Domain+" "+site.ProxyURL)
+	writeJSON(w, http.StatusOK, s.siteJSON(site))
 }
