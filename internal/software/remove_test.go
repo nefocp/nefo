@@ -73,6 +73,10 @@ func sandbox(t *testing.T) string {
 	dir := t.TempDir()
 	old := []string{redisBin, dockerBin, nodeLinkDir, optDir, composeDir, dockerContainersDir, phpEtc}
 	oldData := dockerDataDirs
+	// Memcached too: on a machine that has it, PHP installs would add
+	// phpX-memcached (GitHub's runners, for one).
+	oldMC, oldMCConf := memcachedBin, memcachedConf
+	memcachedBin, memcachedConf = filepath.Join(dir, "usr/bin/memcached"), filepath.Join(dir, "etc/memcached.conf")
 	redisBin = filepath.Join(dir, "usr/bin/redis-server")
 	dockerBin = filepath.Join(dir, "usr/bin/docker")
 	nodeLinkDir = filepath.Join(dir, "usr/local/bin")
@@ -94,6 +98,7 @@ func sandbox(t *testing.T) string {
 	t.Cleanup(func() {
 		redisBin, dockerBin, nodeLinkDir, optDir, composeDir, dockerContainersDir, phpEtc = old[0], old[1], old[2], old[3], old[4], old[5], old[6]
 		dockerDataDirs = oldData
+		memcachedBin, memcachedConf = oldMC, oldMCConf
 		sysRoot, suryBase = oldRoot, oldSury
 	})
 	return dir

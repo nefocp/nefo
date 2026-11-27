@@ -127,8 +127,11 @@ func TestFoundOnStorages(t *testing.T) {
 	if err != nil || len(res.Found) != 2 || res.Known != 0 {
 		t.Fatalf("scan: %+v %v", res, err)
 	}
+	// The two backups were made a minute apart: their archives may differ
+	// by a few bytes, so each found copy has the size of one of them.
+	sizes := map[int64]bool{b1.Size: true, b2.Size: true}
 	for _, f := range res.Found {
-		if f.Readable || !f.Encrypted || !strings.Contains(f.Error, "passphrase does not unlock") || f.ErrorCode != "wrong_passphrase" || f.Kind != KindFolder || f.Size != b1.Size {
+		if f.Readable || !f.Encrypted || !strings.Contains(f.Error, "passphrase does not unlock") || f.ErrorCode != "wrong_passphrase" || f.Kind != KindFolder || !sizes[f.Size] {
 			t.Fatalf("without the passphrase: %+v", f)
 		}
 	}
