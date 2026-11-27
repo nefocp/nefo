@@ -250,7 +250,7 @@ const appLabel = computed(() => (s.value.app ? appName(s.value.app) : ''))
           >
             <img v-if="x.logo && logoURL(x.logo)" :src="logoURL(x.logo)" alt="" />
             <Icon v-else :name="x.icon || 'file'" :size="17" :stroke="1.9" />
-            <span class="truncate">{{ x.label }}</span>
+            <span class="vtab-label">{{ x.label }}</span>
             <span v-if="x.count" class="vtab-end muted small">{{ x.count }}</span>
             <span v-if="x.dot" class="vtab-end dot" :class="'dot-' + x.dot" :aria-label="x.dotLabel || t('drawer.ssl_state_' + x.dot)" role="img"></span>
           </button>

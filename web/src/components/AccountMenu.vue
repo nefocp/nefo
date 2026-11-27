@@ -46,7 +46,7 @@ async function signOut() {
         </button>
       </div>
       <div class="menu-label">{{ t('common.language') }}</div>
-      <div class="tabs account-seg" role="group" :aria-label="t('common.language')">
+      <div class="tabs account-langs" role="group" :aria-label="t('common.language')">
         <button v-for="l in LOCALES" :key="l.code" type="button" :aria-pressed="locale === l.code" :lang="l.code" @click="setLocale(l.code)">{{ l.name }}</button>
       </div>
       <div class="menu-sep"></div>
@@ -58,11 +58,15 @@ async function signOut() {
 </template>
 
 <style scoped>
-.account-menu { width: 296px; top: calc(100% + 8px); }
+.account-menu { width: min(324px, calc(100vw - 24px)); top: calc(100% + 8px); }
 .account-head { display: flex; align-items: center; gap: 10px; padding: 8px 8px 6px; }
 .account-head .avatar { width: 34px; height: 34px; cursor: default; }
 .account-name { font-weight: 700; }
 .account-seg { display: flex; margin: 2px 6px 8px; width: calc(100% - 12px); }
 .account-seg { flex-wrap: nowrap; }
 .account-seg button { flex: 1; justify-content: center; padding: 0 8px; }
+/* seven languages: two columns, the odd last one across */
+.tabs.account-langs { display: grid; grid-template-columns: 1fr 1fr; margin: 2px 6px 8px; width: calc(100% - 12px); }
+.account-langs button { justify-content: center; padding: 0 8px; white-space: nowrap; }
+.account-langs button:last-child:nth-child(odd) { grid-column: 1 / -1; }
 </style>

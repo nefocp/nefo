@@ -682,6 +682,11 @@ a.alert-row:hover { background: var(--hover); text-decoration: none; }
 .vtab[aria-selected='true'] { background: var(--accent-soft); color: var(--accent); font-weight: 700; }
 .vtab[aria-selected='true'] .icon { color: var(--accent); }
 .vtab .vtab-end { margin-left: auto; }
+/* a long label (Russian, Portuguese…) takes a second line rather than "…" */
+.vtab-label {
+  min-width: 0; padding: 7px 0; line-height: 1.25; overflow-wrap: break-word;
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+}
 .drawer-tabs-select { display: none; }
 
 /* ---- empty states, skeletons, spinners ---- */

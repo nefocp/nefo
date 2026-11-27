@@ -1361,7 +1361,9 @@ func (m *Manager) StartDriveConnect(ctx context.Context, c DriveConfig, saved fu
 	}
 	m.drive.gen++
 	gen := m.drive.gen
-	bg, cancel := context.WithDeadline(context.Background(), st.ExpiresAt.Add(5*time.Minute))
+	// A duration, not st.ExpiresAt: that comes from driveNow, which tests
+	// fix to a date, while a context deadline is measured on the real clock.
+	bg, cancel := context.WithTimeout(context.Background(), time.Duration(dc.ExpiresIn)*drivePollUnit+5*time.Minute)
 	m.drive.cur, m.drive.cancel = st, cancel
 	res := *st
 	m.drive.mu.Unlock()
