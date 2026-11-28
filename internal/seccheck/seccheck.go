@@ -19,6 +19,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/nefocp/nefo/internal/docker"
@@ -119,6 +120,10 @@ type Facts struct {
 	// WordPress is the WordPress toolkit's last check of each site, by
 	// domain; sites it never checked are missing.
 	WordPress map[string]WordPress
+	// Partial are the checks whose facts could not be read in time (a
+	// program that did not answer, see Gather): they are not run, and the
+	// report lists them as partial.
+	Partial []string
 }
 
 // Panel describes the panel itself.
@@ -181,37 +186,108 @@ type runner struct {
 	ctx     context.Context
 	f       *Facts
 	env     Env
-	partial []string
+	mu      sync.Mutex
+	partial map[string]bool
 }
 
-// Run runs every check. It stops early when ctx is done; the checks not
-// run by then are listed as partial.
+// stopped marks a check as partial: it stopped at a limit (files walked,
+// requests made, time) before it was done. Checks run at the same time,
+// so this is the one thing they share.
+func (r *runner) stopped(key string) {
+	r.mu.Lock()
+	r.partial[key] = true
+	r.mu.Unlock()
+}
+
+func (r *runner) isPartial(key string) bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.partial[key]
+}
+
+// lateGrace is how long Run waits, once ctx is done, for checks to notice
+// it: a check still busy after that (a folder on a file system that does
+// not answer) is left out as partial.
+var lateGrace = 2 * time.Second
+
+// Run runs every check, all at the same time: most take no time, and the
+// slow ones (requests to the web server, walking the websites' folders)
+// wait on the disk and the network rather than the processor. It stops
+// early when ctx is done; the checks not done by then, and those whose
+// facts are missing (Facts.Partial), are listed as partial.
 func Run(ctx context.Context, f *Facts, env Env) *Report {
 	start := time.Now()
 	env = env.withDefaults()
-	r := &runner{ctx: ctx, f: f, env: env}
+	r := &runner{ctx: ctx, f: f, env: env, partial: map[string]bool{}}
 	rep := &Report{CheckedAt: env.Now, Findings: []Finding{}, Passed: []string{}, Skipped: []string{}}
-	for _, c := range checks {
-		if ctx.Err() != nil {
-			r.partial = append(r.partial, c.key)
+
+	type result struct {
+		found   []Finding
+		applies bool
+		done    bool
+	}
+	var mu sync.Mutex
+	results := make([]result, len(checks))
+	var wg sync.WaitGroup
+	for i, c := range checks {
+		if slices.Contains(f.Partial, c.key) {
+			r.stopped(c.key)
 			continue
 		}
-		found, applies := c.run(r)
-		switch {
-		case !applies:
-			rep.Skipped = append(rep.Skipped, c.key)
-		case len(found) == 0:
-			rep.Passed = append(rep.Passed, c.key)
-		default:
-			for i := range found {
-				found[i].Hash = hashOf(found[i])
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if ctx.Err() != nil {
+				r.stopped(c.key)
+				return
 			}
-			rep.Findings = append(rep.Findings, found...)
+			found, applies := c.run(r)
+			mu.Lock()
+			results[i] = result{found: found, applies: applies, done: true}
+			mu.Unlock()
+		}()
+	}
+	all := make(chan struct{})
+	go func() { wg.Wait(); close(all) }()
+	select {
+	case <-all:
+	case <-ctx.Done():
+		select {
+		case <-all:
+		case <-time.After(lateGrace):
+		}
+	}
+	mu.Lock()
+	got := slices.Clone(results) // a check that ends later writes to results, not got
+	mu.Unlock()
+
+	for i, c := range checks {
+		res := got[i]
+		partial := r.isPartial(c.key)
+		switch {
+		case !res.done:
+			if !partial {
+				r.stopped(c.key)
+			}
+			partial = true
+		case !res.applies:
+			rep.Skipped = append(rep.Skipped, c.key)
+		case len(res.found) == 0:
+			if !partial {
+				rep.Passed = append(rep.Passed, c.key)
+			}
+		default:
+			for j := range res.found {
+				res.found[j].Hash = hashOf(res.found[j])
+			}
+			rep.Findings = append(rep.Findings, res.found...)
+		}
+		if partial {
+			rep.Partial = append(rep.Partial, c.key)
 		}
 	}
 	rank := map[string]int{Critical: 0, Warning: 1, Info: 2}
 	sort.SliceStable(rep.Findings, func(i, j int) bool { return rank[rep.Findings[i].Severity] < rank[rep.Findings[j].Severity] })
-	rep.Partial = slices.Compact(r.partial)
 	rep.Millis = time.Since(start).Milliseconds()
 	return rep
 }

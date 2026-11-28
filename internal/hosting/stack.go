@@ -103,25 +103,68 @@ func (m *Manager) Warm(ctx context.Context) {
 	}
 }
 
-// distroPHP asks apt which PHP version the php-fpm package stands for, such
-// as 8.3 on Ubuntu 24.04. The answer is cached.
+// distroPHP asks apt which PHP version the distribution's php-fpm package
+// stands for, such as 8.3 on Ubuntu 24.04. The answer is cached.
 func (m *Manager) distroPHP(ctx context.Context) string {
 	m.defaultPHPMu.Lock()
 	defer m.defaultPHPMu.Unlock()
 	if m.defaultPHP != "" {
 		return m.defaultPHP
 	}
-	out, err := m.run.Output(ctx, "apt-cache", "depends", "php-fpm")
-	if err == nil {
-		if mm := phpDependsRe.FindStringSubmatch(out); mm != nil && validate.PHPVersion(mm[1]) == nil {
-			m.defaultPHP = mm[1]
-			return m.defaultPHP
-		}
+	out, err := m.run.Output(ctx, "apt-cache", "show", "php-fpm")
+	madison, _ := m.run.Output(ctx, "apt-cache", "madison", "php-fpm")
+	if v := distroPHPFrom(out, phpRepoVersions(madison)); err == nil && v != "" {
+		m.defaultPHP = v
+		return m.defaultPHP
 	}
 	// A fresh server whose package lists apt has not downloaded yet (many
 	// cloud images): the version the release ships, not cached, so apt's
 	// own answer replaces it once it has one.
 	return distroPHPByRelease[osCodename()]
+}
+
+// distroPHPFrom reads "apt-cache show php-fpm": one record per version apt
+// knows, each with its Version and Depends (php8.3-fpm). The PHP
+// repository (packages.sury.org, and the ondrej PPA built from it) has a
+// php-fpm of its own for its newest PHP, and apt's candidate is that one
+// once the repository is added (8.6 on Ubuntu 24.04, whose own is 8.3).
+// Its records are skipped: the versions "apt-cache madison" lists from it
+// (repo), and any with "sury" in it ("2:8.6+106~exp1+debsuryorg24.04.1+1",
+// "…+deb.sury.org+1"), so the distribution's ("2:8.3+93ubuntu2") counts.
+func distroPHPFrom(out string, repo map[string]bool) string {
+	for _, rec := range strings.Split(strings.ReplaceAll(out, "\r\n", "\n"), "\n\n") {
+		version, php := "", ""
+		for _, line := range strings.Split(rec, "\n") {
+			if v, ok := strings.CutPrefix(line, "Version:"); ok {
+				version = strings.TrimSpace(v)
+			}
+			if mm := phpDependsRe.FindStringSubmatch(line); mm != nil && php == "" {
+				php = mm[1]
+			}
+		}
+		if php != "" && !repo[version] && !strings.Contains(strings.ToLower(version), "sury") && validate.PHPVersion(php) == nil {
+			return php
+		}
+	}
+	return ""
+}
+
+// phpRepoVersions reads "apt-cache madison php-fpm" ("php-fpm | 2:8.6+106…
+// | https://packages.sury.org/php noble/main amd64 Packages") for the
+// versions that come from the PHP repository.
+func phpRepoVersions(madison string) map[string]bool {
+	out := map[string]bool{}
+	for _, l := range strings.Split(madison, "\n") {
+		f := strings.Split(l, "|")
+		if len(f) < 3 {
+			continue
+		}
+		src := strings.TrimSpace(f[2])
+		if strings.Contains(src, "packages.sury.org") || strings.Contains(src, "/ondrej/php") || strings.Contains(src, "ondrej_php") {
+			out[strings.TrimSpace(f[1])] = true
+		}
+	}
+	return out
 }
 
 // distroPHPByRelease is the PHP version of each supported release's

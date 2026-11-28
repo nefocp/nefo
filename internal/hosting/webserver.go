@@ -263,7 +263,7 @@ func (m *Manager) InstallServer(ctx context.Context, kind string, lg Logger) err
 	}
 	php := m.distroPHP(ctx)
 	if php == "" {
-		return errors.New("could not find out which PHP version this distribution offers (apt-cache depends php-fpm)")
+		return errors.New("could not find out which PHP version this distribution offers (apt-cache show php-fpm)")
 	}
 	pkgs := append(ws.packages(), phpPackages(php)...)
 	lg.Logf("Installing %s", strings.Join(pkgs, " "))

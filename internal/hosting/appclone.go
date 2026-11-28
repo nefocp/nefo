@@ -320,6 +320,12 @@ func (m *Manager) FreeAppPort(ctx context.Context) (int, error) {
 	return 0, errors.New("no free port for the app")
 }
 
+// CheckAppPort checks that an app website may use port: a port the panel
+// allows that no other website uses.
+func (m *Manager) CheckAppPort(ctx context.Context, port int) error {
+	return m.checkApp(ctx, port, "", 0)
+}
+
 // CheckRuntime checks that an app runtime ("node:22", "python"…) can run
 // apps on this server.
 func (m *Manager) CheckRuntime(rt string) error { return checkRuntime(rt) }

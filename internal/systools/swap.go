@@ -65,6 +65,13 @@ func (m *Manager) Swap() Swap {
 	mem := parseMeminfo(readTrim(m.p.Meminfo))
 	s.TotalKB, s.FreeKB = mem["SwapTotal"], mem["SwapFree"]
 	s.MemTotalKB, s.MemAvailableKB = mem["MemTotal"], mem["MemAvailable"]
+	// In a container whose /proc/meminfo is the host's: the container's
+	// memory, as the dashboard counts it (see meminfo).
+	if m.memory != nil {
+		if mm, err := m.memory(); err == nil && mm.Limited {
+			s.MemTotalKB, s.MemAvailableKB = int64(mm.Total>>10), int64(mm.Available>>10)
+		}
+	}
 	if v, err := strconv.Atoi(readTrim(m.p.Swappiness)); err == nil {
 		s.Swappiness = v
 	}

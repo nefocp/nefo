@@ -43,48 +43,84 @@ func (s *Server) secEnv() seccheck.Env {
 
 var secEnvHooks sync.Map // *Server → func() seccheck.Env, in tests
 
-// securityFacts gathers what the check needs from the panel's managers.
+// secFactTimeout bounds each part of the facts (see seccheck.Gather): the
+// programs answer in well under a second unless their server is busy.
+const secFactTimeout = 5 * time.Second
+
+// securityFacts gathers what the check needs from the panel's managers,
+// all at the same time.
 func (s *Server) securityFacts(ctx context.Context) *seccheck.Facts {
 	if h, ok := secFactsHooks.Load(s); ok {
 		return h.(func(context.Context) *seccheck.Facts)(ctx)
 	}
-	f := &seccheck.Facts{}
-	if fileExistsAPI("/usr/sbin/sshd") {
-		ssh := s.security.SSHSettings(ctx)
-		f.SSH = &ssh
-	}
-	f.Firewall = s.security.Firewall(ctx)
-	f.Fail2ban = s.security.Fail2banStatus(ctx)
-	if fileExistsAPI("/usr/bin/apt-get") {
-		u := s.systools.Updates(ctx)
-		f.Updates = &u
-	}
-	if ports, err := s.procsManager().Ports(ctx); err == nil {
-		f.Ports = ports
-	}
-	if s.docker.Installed() {
-		if cs, err := s.docker.Containers(ctx); err == nil {
-			f.Docker = cs
-		}
-	}
-	f.Panel = seccheck.Panel{TLS: s.cfg.TLS.Enabled, Loopback: loopbackListen(s.cfg.Listen)}
-	if s.cfg.TLS.Enabled && s.cfg.TLS.Cert == "" && !fileExistsAPI(filepath.Join(s.cfg.DataDir, "certs", "_panel", "fullchain.pem")) {
-		f.Panel.SelfSigned = true
-	}
-	if users, err := s.store.ListUsers(ctx); err == nil {
-		for _, u := range users {
-			f.Panel.Users = append(f.Panel.Users, seccheck.User{Name: u.Username, TOTP: u.TOTPEnabled})
-		}
-	}
-	if sites, err := s.store.ListSites(ctx); err == nil {
-		for _, st := range sites {
-			f.Sites = append(f.Sites, seccheck.Site{ID: st.ID, Domain: st.Domain, Dir: s.hosting.Root(st.Domain), SSL: st.SSL,
-				ForceHTTPS: st.ForceHTTPS, CertExpiry: st.CertNotAfter, CustomCert: st.SSLSource == "custom", Disabled: st.Disabled,
-				Password: st.AuthUser != "", Redirect: st.RedirectURL != "", Proxy: st.ProxyPort != 0})
-		}
-	}
-	f.WordPress = s.wpLastChecks(ctx)
-	return f
+	none := func(*seccheck.Facts) {}
+	return seccheck.Gather(ctx, secFactTimeout,
+		// fail2ban's check looks for a jail for SSH only when there is SSH.
+		seccheck.Source{Keys: []string{"ssh_root", "ssh_password", "ssh_port", "fail2ban"}, Read: func(ctx context.Context) func(*seccheck.Facts) {
+			if !fileExistsAPI("/usr/sbin/sshd") {
+				return none
+			}
+			ssh := s.security.SSHSettings(ctx)
+			return func(f *seccheck.Facts) { f.SSH = &ssh }
+		}},
+		// The services' and Redis's checks say how far the firewall lets them be reached.
+		seccheck.Source{Keys: []string{"firewall", "public_services", "redis_password"}, Read: func(ctx context.Context) func(*seccheck.Facts) {
+			fw := s.security.Firewall(ctx)
+			return func(f *seccheck.Facts) { f.Firewall = fw }
+		}},
+		seccheck.Source{Keys: []string{"fail2ban"}, Read: func(ctx context.Context) func(*seccheck.Facts) {
+			st := s.security.Fail2banJails(ctx) // the jails' names: no banned addresses needed
+			return func(f *seccheck.Facts) { f.Fail2ban = st }
+		}},
+		seccheck.Source{Keys: []string{"os_updates", "os_auto_updates", "os_reboot"}, Read: func(ctx context.Context) func(*seccheck.Facts) {
+			if !fileExistsAPI("/usr/bin/apt-get") {
+				return none
+			}
+			u := s.systools.Updates(ctx)
+			return func(f *seccheck.Facts) { f.Updates = &u }
+		}},
+		seccheck.Source{Keys: []string{"public_services", "redis_password"}, Read: func(ctx context.Context) func(*seccheck.Facts) {
+			ports, err := s.procsManager().Ports(ctx)
+			if err != nil {
+				return none
+			}
+			return func(f *seccheck.Facts) { f.Ports = ports }
+		}},
+		seccheck.Source{Keys: []string{"docker_ports"}, Read: func(ctx context.Context) func(*seccheck.Facts) {
+			if !s.docker.Installed() {
+				return none
+			}
+			cs, err := s.docker.Containers(ctx)
+			if err != nil {
+				return none
+			}
+			return func(f *seccheck.Facts) { f.Docker = cs }
+		}},
+		seccheck.Source{Keys: []string{"panel_https", "panel_2fa"}, Read: func(ctx context.Context) func(*seccheck.Facts) {
+			p := seccheck.Panel{TLS: s.cfg.TLS.Enabled, Loopback: loopbackListen(s.cfg.Listen)}
+			if s.cfg.TLS.Enabled && s.cfg.TLS.Cert == "" && !fileExistsAPI(filepath.Join(s.cfg.DataDir, "certs", "_panel", "fullchain.pem")) {
+				p.SelfSigned = true
+			}
+			if users, err := s.store.ListUsers(ctx); err == nil {
+				for _, u := range users {
+					p.Users = append(p.Users, seccheck.User{Name: u.Username, TOTP: u.TOTPEnabled})
+				}
+			}
+			return func(f *seccheck.Facts) { f.Panel = p }
+		}},
+		seccheck.Source{Keys: []string{"site_https", "site_certs", "site_files", "site_permissions", "wordpress"}, Read: func(ctx context.Context) func(*seccheck.Facts) {
+			var sites []seccheck.Site
+			if list, err := s.store.ListSites(ctx); err == nil {
+				for _, st := range list {
+					sites = append(sites, seccheck.Site{ID: st.ID, Domain: st.Domain, Dir: s.hosting.Root(st.Domain), SSL: st.SSL,
+						ForceHTTPS: st.ForceHTTPS, CertExpiry: st.CertNotAfter, CustomCert: st.SSLSource == "custom", Disabled: st.Disabled,
+						Password: st.AuthUser != "", Redirect: st.RedirectURL != "", Proxy: st.ProxyPort != 0})
+				}
+			}
+			wp := s.wpLastChecks(ctx)
+			return func(f *seccheck.Facts) { f.Sites, f.WordPress = sites, wp }
+		}},
+	)
 }
 
 var secFactsHooks sync.Map // *Server → func(ctx) *seccheck.Facts, in tests
@@ -141,11 +177,15 @@ func (s *Server) handleSecurityCheck(w http.ResponseWriter, r *http.Request, a *
 	writeJSON(w, http.StatusOK, out)
 }
 
-// handleRunSecurityCheck runs the check now. It takes a few seconds: every
-// check is bounded, and the whole run stops after 45 seconds (the checks not
-// done by then are listed as partial).
+// secRunLimit bounds a run on demand: it usually takes a second or two,
+// since every check is bounded and they run at the same time.
+const secRunLimit = 25 * time.Second
+
+// handleRunSecurityCheck runs the check now. The checks not done after
+// secRunLimit (or whose facts did not come in time) are listed as partial:
+// the answer is the report so far, never an error.
 func (s *Server) handleRunSecurityCheck(w http.ResponseWriter, r *http.Request, a *authed) {
-	ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
+	ctx, cancel := context.WithTimeout(r.Context(), secRunLimit)
 	defer cancel()
 	rep, _, err := s.seccheck().Run(ctx, s.securityFacts, s.secEnv())
 	if err != nil {

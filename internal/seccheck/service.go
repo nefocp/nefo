@@ -137,6 +137,10 @@ func (s *Service) Run(ctx context.Context, facts func(context.Context) *Facts, e
 	rep := Run(ctx, facts(ctx), env)
 	rep.Millis = time.Since(start).Milliseconds() // with gathering the facts
 
+	// A run that reached its time limit is kept as it is (partial): the
+	// settings table is written without that limit.
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+	defer cancel()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	prev, err := s.load(ctx)

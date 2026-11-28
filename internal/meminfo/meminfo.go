@@ -6,8 +6,10 @@
 // then in the memory cgroup the panel sees as its root (/sys/fs/cgroup):
 // memory.max with cgroup v2, memory/memory.limit_in_bytes with v1. Read
 // takes the smaller of the two totals, and the used memory that goes with
-// it. Containers whose /proc/meminfo is already the container's own (LXCFS,
-// OpenVZ's) give the same figures either way.
+// it, counted as on a server of its own: the page cache and the slab the
+// kernel frees when programs need the room are not in use (see
+// cgroup.used). Containers whose /proc/meminfo is already the container's
+// own (LXCFS, OpenVZ's) give the same figures either way.
 package meminfo
 
 import (
@@ -130,20 +132,28 @@ func parseMeminfo(b []byte) (Memory, error) {
 
 // cgroup is the memory cgroup the panel sees as its root.
 type cgroup struct {
-	limit        uint64 // 0: no limit
-	usage        uint64 // memory.current or memory.usage_in_bytes
-	inactiveFile uint64 // page cache the kernel drops first
-	swapLimit    int64  // -1: none or unknown
-	swapUsed     uint64
+	limit       uint64 // 0: no limit
+	usage       uint64 // memory.current or memory.usage_in_bytes
+	reclaimable uint64 // page cache and slab the kernel frees when it needs room
+	swapLimit   int64  // -1: none or unknown
+	swapUsed    uint64
 }
 
 // used is the memory the container's programs use: its usage without the
-// inactive page cache, as docker stats counts it.
+// page cache (active_file and inactive_file) and the reclaimable slab
+// (cached folder entries and inodes). A container's usage counts every
+// file it has read: after a backup, a walk of the websites or a big
+// download, most of it is cache. MemAvailable, which the panel counts on
+// a server of its own (and free shows), leaves the same out. docker stats
+// subtracts only inactive_file, which still counts the cache read lately:
+// on a small container that is hundreds of MB more "used" than its
+// programs take. Shared memory (tmpfs) is on the anon lists and stays
+// counted, as it must: it cannot be dropped.
 func (c cgroup) used() uint64 {
-	if c.inactiveFile < c.usage {
-		return c.usage - c.inactiveFile
+	if c.reclaimable < c.usage {
+		return c.usage - c.reclaimable
 	}
-	return c.usage
+	return 0
 }
 
 // cgroupMemory reads the limit of /sys/fs/cgroup (v2) or
@@ -157,7 +167,8 @@ func cgroupMemory() (cgroup, bool) {
 		}
 		c.limit = limit
 		c.usage, _ = readUint("sys/fs/cgroup/memory.current")
-		c.inactiveFile = statValue("sys/fs/cgroup/memory.stat", "inactive_file")
+		st := statValues("sys/fs/cgroup/memory.stat")
+		c.reclaimable = st["active_file"] + st["inactive_file"] + st["slab_reclaimable"]
 		if s, unlimited, ok := readLimit("sys/fs/cgroup/memory.swap.max"); ok && !unlimited {
 			c.swapLimit = int64(min(s, unlimitedV1))
 			c.swapUsed, _ = readUint("sys/fs/cgroup/memory.swap.current")
@@ -167,7 +178,10 @@ func cgroupMemory() (cgroup, bool) {
 	if limit, unlimited, ok := readLimit("sys/fs/cgroup/memory/memory.limit_in_bytes"); ok && !unlimited && limit > 0 {
 		c.limit = limit
 		c.usage, _ = readUint("sys/fs/cgroup/memory/memory.usage_in_bytes")
-		c.inactiveFile = statValue("sys/fs/cgroup/memory/memory.stat", "total_inactive_file")
+		// v1's memory.stat has no slab figures; total_ counts the child
+		// cgroups too, as usage_in_bytes does.
+		st := statValues("sys/fs/cgroup/memory/memory.stat")
+		c.reclaimable = st["total_active_file"] + st["total_inactive_file"]
 		return c, true
 	}
 	return c, false
@@ -208,17 +222,20 @@ func readUint(p string) (uint64, bool) {
 	return v, err == nil
 }
 
-// statValue reads one key of memory.stat.
-func statValue(p, key string) uint64 {
+// statValues reads memory.stat: "key value" lines, in bytes (nothing when
+// the file is missing).
+func statValues(p string) map[string]uint64 {
+	out := map[string]uint64{}
 	b, err := os.ReadFile(path(p))
 	if err != nil {
-		return 0
+		return out
 	}
 	for _, line := range strings.Split(string(b), "\n") {
-		if k, v, ok := strings.Cut(line, " "); ok && k == key {
-			n, _ := strconv.ParseUint(strings.TrimSpace(v), 10, 64)
-			return n
+		if k, v, ok := strings.Cut(line, " "); ok {
+			if n, err := strconv.ParseUint(strings.TrimSpace(v), 10, 64); err == nil {
+				out[k] = n
+			}
 		}
 	}
-	return 0
+	return out
 }

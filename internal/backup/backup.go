@@ -91,6 +91,16 @@ type manifest struct {
 	Aliases     []string `json:"aliases,omitempty"`
 	Rewrite     string   `json:"rewrite,omitempty"`
 	NginxCustom string   `json:"nginx_custom,omitempty"`
+	// An app website (a program the panel runs behind the web server): its
+	// port, start command, runtime and memory limit. A reverse proxy
+	// website: the address it forwards to, and how. Older backups lack
+	// them, and their websites come back static.
+	ProxyPort  int                 `json:"proxy_port,omitempty"`
+	AppCommand string              `json:"app_command,omitempty"`
+	AppRuntime string              `json:"app_runtime,omitempty"`
+	AppMemory  int                 `json:"app_memory,omitempty"`
+	ProxyURL   string              `json:"proxy_url,omitempty"`
+	ProxyOpts  *store.ProxyOptions `json:"proxy_options,omitempty"`
 	// Label names why the backup was made ("before-delete"); it is part
 	// of the file name.
 	Label string `json:"label,omitempty"`
@@ -192,8 +202,7 @@ func (m *Manager) backupSite(ctx context.Context, domain string, scheduleID int6
 	if err != nil {
 		return nil, nil, err
 	}
-	man := manifest{Format: 1, Kind: KindSite, Domain: site.Domain, PHPVersion: site.PHPVersion, App: site.App,
-		Aliases: site.Aliases, Rewrite: site.Rewrite, NginxCustom: site.NginxCustom, Label: label}
+	man := siteManifest(site, label)
 	for _, d := range dbs {
 		man.Databases = append(man.Databases, d.Name)
 		man.addPassword(d)
@@ -587,6 +596,7 @@ func (m *Manager) RestoreWith(ctx context.Context, id int64, opt RestoreOptions,
 	var site *store.Site
 	var x *files.Extractor
 	var root *os.Root
+	var start *appStart // the program of an app website created again, started once its files are back
 	if b.Kind == KindSite {
 		if site, err = m.siteByDomain(ctx, b.Target); err != nil {
 			if userCodeOf(err) != "site_missing" {
@@ -597,7 +607,7 @@ func (m *Manager) RestoreWith(ctx context.Context, id int64, opt RestoreOptions,
 			if man.Domain != b.Target {
 				return errors.New("the backup's manifest names another website than the backup")
 			}
-			if site, err = m.recreateSite(ctx, man, lg); err != nil {
+			if site, start, err = m.recreateSite(ctx, man, lg); err != nil {
 				return err
 			}
 		}
@@ -659,6 +669,9 @@ func (m *Manager) RestoreWith(ctx context.Context, id int64, opt RestoreOptions,
 	}
 	if x != nil {
 		lg.Logf("%d files restored", x.Count())
+	}
+	if start != nil {
+		m.startApp(ctx, site, start, lg)
 	}
 
 	// wp-config.php from the backup may hold an older database password.

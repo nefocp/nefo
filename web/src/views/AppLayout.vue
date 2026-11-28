@@ -117,12 +117,80 @@ onMounted(() => {
   refreshAttention()
   load('api/databases', { ttl: 60000 }).catch(() => {})
   document.addEventListener('keydown', onKey)
+  watchTopbar()
 })
 onBeforeUnmount(() => {
+  fitResize?.disconnect()
+  fitMutations?.disconnect()
+  cancelAnimationFrame(fitFrame)
   stopStats?.()
   stopJobsPolling()
   document.removeEventListener('keydown', onKey)
 })
+
+// ---- top bar on one line ----
+// The page's buttons (teleported into #topbar-actions), the search and the
+// account buttons share one line. When they do not fit (long labels in
+// Spanish or Russian, three buttons, a running job) the bar gives room
+// step by step instead of wrapping: a shorter search, then the page's
+// less used buttons as icons (their label as a tooltip), then the search
+// as an icon, then every button as an icon. Phones (640 px and less) put
+// the buttons on a row of their own on purpose.
+const topEl = ref(null)
+const FIT_STEPS = ['tb-narrow', 'tb-icons', 'tb-search', 'tb-all']
+const ICONIFIED = '.top-actions .btn'
+
+// wrapped reports whether an item of the bar starts below another one's
+// bottom: on one line, centred items all overlap.
+function wrapped(el) {
+  const rects = [...el.children].filter((c) => c.offsetHeight > 0).map((c) => c.getBoundingClientRect())
+  if (rects.length < 2) return false
+  const top = Math.min(...rects.map((r) => r.bottom))
+  return rects.some((r) => r.top >= top - 0.5)
+}
+
+function fitTopbar() {
+  const el = topEl.value
+  if (!el) return
+  el.classList.remove(...FIT_STEPS)
+  if (!window.matchMedia('(max-width: 640px)').matches) {
+    for (const step of FIT_STEPS) {
+      if (!wrapped(el)) break
+      el.classList.add(step)
+    }
+  }
+  // A button shown as an icon keeps its label as a tooltip.
+  for (const b of el.querySelectorAll(ICONIFIED)) {
+    const iconOnly = getComputedStyle(b).fontSize === '0px'
+    if (iconOnly && (!b.title || b.dataset.tbTitle)) {
+      b.title = b.textContent.trim()
+      b.dataset.tbTitle = '1'
+    } else if (!iconOnly && b.dataset.tbTitle) {
+      b.removeAttribute('title')
+      delete b.dataset.tbTitle
+    }
+  }
+}
+
+let fitFrame = 0
+const scheduleFit = () => {
+  cancelAnimationFrame(fitFrame)
+  fitFrame = requestAnimationFrame(fitTopbar)
+}
+let fitResize = null
+let fitMutations = null
+function watchTopbar() {
+  // The bar's size (the window's width; its height settles after one
+  // more fit) and what it holds (a page's buttons, the language, the job
+  // pill's text). The classes and titles set here are attributes, which
+  // the mutation observer does not watch.
+  fitResize = new ResizeObserver(scheduleFit)
+  fitResize.observe(topEl.value)
+  fitMutations = new MutationObserver(scheduleFit)
+  fitMutations.observe(topEl.value, { childList: true, subtree: true, characterData: true })
+  document.fonts?.ready.then(scheduleFit)
+  scheduleFit()
+}
 
 const shortVersion = computed(() => {
   const v = server.info?.panel_version || ''
@@ -183,7 +251,7 @@ const shortVersion = computed(() => {
     <div v-if="open" class="side-backdrop" @click="open = false"></div>
 
     <div class="main">
-      <header class="topbar">
+      <header ref="topEl" class="topbar">
         <button type="button" class="icon-btn menu-toggle" :aria-label="t('nav.menu')" aria-controls="sidebar" :aria-expanded="open" @click="open = !open">
           <Icon name="menu" />
         </button>

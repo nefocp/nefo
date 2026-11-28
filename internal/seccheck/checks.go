@@ -1,6 +1,9 @@
 package seccheck
 
 import (
+	"context"
+	"errors"
+	"net"
 	"net/netip"
 	"os"
 	"path/filepath"
@@ -9,6 +12,8 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/nefocp/nefo/internal/security"
@@ -525,10 +530,17 @@ func checkSiteFiles(c *runner) ([]Finding, bool) {
 	if len(c.f.Sites) == 0 || c.env.Probe == nil {
 		return nil, false
 	}
-	probes := 0
-	var out []Finding
-	for _, s := range c.f.Sites {
-		if s.Disabled || s.Redirect || s.Proxy || s.Password {
+	// The files to ask for, from the web roots (no request yet).
+	type probe struct {
+		site   int
+		path   string
+		secret bool
+		served bool
+	}
+	var probes []probe
+	limited := false
+	for i, s := range c.f.Sites {
+		if s.Disabled || s.Redirect || s.Proxy || s.Password || limited {
 			continue
 		}
 		public := filepath.Join(s.Dir, "public")
@@ -536,8 +548,6 @@ func checkSiteFiles(c *runner) ([]Finding, bool) {
 		if err != nil {
 			continue
 		}
-		var found []string
-		secret := false
 		for _, e := range entries {
 			kind := fileKind(e.Name(), s.Domain, e.IsDir())
 			if kind == "" || e.Type()&os.ModeSymlink != 0 {
@@ -557,17 +567,47 @@ func checkSiteFiles(c *runner) ([]Finding, bool) {
 					continue
 				}
 			}
-			if probes >= c.env.ProbeLimit || c.ctx.Err() != nil {
-				c.partial = append(c.partial, "site_files")
+			if len(probes) >= c.env.ProbeLimit {
+				limited = true
 				break
 			}
-			probes++
-			code, err := c.env.Probe(c.ctx, s.Domain, path)
-			if err != nil || (code != 200 && code != 206) {
-				continue
+			probes = append(probes, probe{site: i, path: path, secret: kind == "secret"})
+		}
+	}
+	if limited {
+		c.stopped("site_files")
+	}
+	// A few requests at a time. A website that does not answer one in time
+	// (a slow PHP application) is asked nothing more: the check is partial.
+	slow := make([]atomic.Bool, len(c.f.Sites))
+	if !each(c.ctx, c.env.Workers, len(probes), func(i int) {
+		p := &probes[i]
+		if slow[p.site].Load() {
+			return
+		}
+		code, err := c.env.Probe(c.ctx, c.f.Sites[p.site].Domain, p.path)
+		if err != nil {
+			if timedOut(err) {
+				slow[p.site].Store(true)
 			}
-			found = append(found, path)
-			secret = secret || kind == "secret"
+			return
+		}
+		p.served = code == 200 || code == 206
+	}) {
+		c.stopped("site_files")
+	}
+	var out []Finding
+	for i, s := range c.f.Sites {
+		if slow[i].Load() {
+			c.stopped("site_files")
+		}
+		var found []string
+		secret := false
+		for _, p := range probes {
+			if p.site == i && p.served {
+				found = append(found, p.path)
+				secret = secret || p.secret
+			}
 		}
 		if len(found) == 0 {
 			continue
@@ -576,10 +616,44 @@ func checkSiteFiles(c *runner) ([]Finding, bool) {
 		if secret {
 			sev = Critical
 		}
-		f := finding("site_exposed:"+s.Domain, "site_exposed", sev, page("files", "path", public), "domain", s.Domain, "files", list(found, 5))
+		f := finding("site_exposed:"+s.Domain, "site_exposed", sev, page("files", "path", filepath.Join(s.Dir, "public")), "domain", s.Domain, "files", list(found, 5))
 		out = append(out, f)
 	}
 	return out, true
+}
+
+// timedOut reports whether a request failed for lack of time (its own
+// limit or the run's), rather than being refused.
+func timedOut(err error) bool {
+	var ne net.Error
+	return errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) || (errors.As(err, &ne) && ne.Timeout())
+}
+
+// each runs fn(0) … fn(n-1) on at most workers goroutines at a time, and
+// returns false when ctx ended before every one was started.
+func each(ctx context.Context, workers, n int, fn func(i int)) bool {
+	var next atomic.Int64
+	var missed atomic.Bool
+	var wg sync.WaitGroup
+	for w := 0; w < min(max(workers, 1), n); w++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for {
+				i := int(next.Add(1)) - 1
+				if i >= n {
+					return
+				}
+				if ctx.Err() != nil {
+					missed.Store(true)
+					return
+				}
+				fn(i)
+			}
+		}()
+	}
+	wg.Wait()
+	return !missed.Load()
 }
 
 // readDirN reads at most n entries of a folder, sorted by name.
@@ -605,24 +679,31 @@ func checkSitePermissions(c *runner) ([]Finding, bool) {
 	if len(c.f.Sites) == 0 || !unixPerms {
 		return nil, false
 	}
-	total := 0
-	var out []Finding
-	for _, s := range c.f.Sites {
-		if total >= c.env.WalkTotal || c.ctx.Err() != nil {
-			c.partial = append(c.partial, "site_permissions")
-			break
-		}
-		limit := min(c.env.WalkLimit, c.env.WalkTotal-total)
-		count, examples, walked, done := worldWritable(c, s.Dir, limit)
-		total += walked
+	// A few websites at a time (the walk waits on the disk), sharing one
+	// budget of entries.
+	type walk struct {
+		count    int
+		examples []string
+	}
+	walks := make([]walk, len(c.f.Sites))
+	var budget atomic.Int64
+	budget.Store(int64(c.env.WalkTotal))
+	if !each(c.ctx, c.env.Workers, len(c.f.Sites), func(i int) {
+		count, examples, done := worldWritable(c, c.f.Sites[i].Dir, c.env.WalkLimit, &budget)
 		if !done {
-			c.partial = append(c.partial, "site_permissions")
+			c.stopped("site_permissions")
 		}
-		if count == 0 {
+		walks[i] = walk{count, examples}
+	}) {
+		c.stopped("site_permissions")
+	}
+	var out []Finding
+	for i, s := range c.f.Sites {
+		if walks[i].count == 0 {
 			continue
 		}
-		f := finding("site_world_writable:"+s.Domain, "site_world_writable", Warning, page("files", "path", s.Dir), "domain", s.Domain, "count", itoa(count))
-		f.Extra = map[string]string{"examples": list(examples, 3)}
+		f := finding("site_world_writable:"+s.Domain, "site_world_writable", Warning, page("files", "path", s.Dir), "domain", s.Domain, "count", itoa(walks[i].count))
+		f.Extra = map[string]string{"examples": list(walks[i].examples, 3)}
 		out = append(out, f)
 	}
 	return out, true
@@ -630,9 +711,11 @@ func checkSitePermissions(c *runner) ([]Finding, bool) {
 
 // worldWritable walks dir (symbolic links are not followed) for files and
 // folders anyone on the server may change. A folder with the sticky bit,
-// such as a shared tmp, is fine. It stops after limit entries.
-func worldWritable(c *runner, dir string, limit int) (count int, examples []string, walked int, done bool) {
+// such as a shared tmp, is fine. It stops after limit entries, or when
+// the budget shared with the other websites' walks runs out.
+func worldWritable(c *runner, dir string, limit int, budget *atomic.Int64) (count int, examples []string, done bool) {
 	done = true
+	walked := 0
 	filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
 		if err != nil {
 			if d != nil && d.IsDir() {
@@ -641,7 +724,7 @@ func worldWritable(c *runner, dir string, limit int) (count int, examples []stri
 			return nil
 		}
 		walked++
-		if walked > limit || (walked%512 == 0 && c.ctx.Err() != nil) {
+		if walked > limit || budget.Add(-1) < 0 || (walked%512 == 0 && c.ctx.Err() != nil) {
 			done = false
 			return filepath.SkipAll
 		}
@@ -662,7 +745,7 @@ func worldWritable(c *runner, dir string, limit int) (count int, examples []stri
 		}
 		return nil
 	})
-	return count, examples, walked, done
+	return count, examples, done
 }
 
 // ---- PHP ----

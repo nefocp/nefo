@@ -56,12 +56,14 @@ func TestHostWithoutLimit(t *testing.T) {
 
 func TestCgroupV2Limit(t *testing.T) {
 	// A 1 GB container on a 64 GB host: 400 MB in use, of which 100 MB is
-	// inactive page cache.
+	// page cache read lately, 50 MB older page cache and 20 MB cached
+	// folder entries and inodes.
 	fakeRoot(t, map[string]string{
-		"proc/meminfo":                      hostMeminfo,
-		"sys/fs/cgroup/memory.max":          "1073741824\n",
-		"sys/fs/cgroup/memory.current":      "419430400\n",
-		"sys/fs/cgroup/memory.stat":         "anon 200000000\nfile 150000000\nactive_file 50000000\ninactive_file 104857600\n",
+		"proc/meminfo":                 hostMeminfo,
+		"sys/fs/cgroup/memory.max":     "1073741824\n",
+		"sys/fs/cgroup/memory.current": "419430400\n",
+		"sys/fs/cgroup/memory.stat": "anon 200000000\nfile 160000000\nactive_file 104857600\ninactive_file 52428800\nshmem 2000000\n" +
+			"slab_reclaimable 20971520\nslab_unreclaimable 9000000\n",
 		"sys/fs/cgroup/memory.swap.max":     "536870912\n",
 		"sys/fs/cgroup/memory.swap.current": "104857600\n",
 	})
@@ -72,14 +74,50 @@ func TestCgroupV2Limit(t *testing.T) {
 	if !m.Limited || m.Total != 1024*mb {
 		t.Fatalf("total %d limited %v", m.Total>>20, m.Limited)
 	}
-	if m.Used() != 300*mb || m.Available != 724*mb {
+	if m.Used() != 230*mb || m.Available != 794*mb {
 		t.Fatalf("used %d MB, available %d MB", m.Used()>>20, m.Available>>20)
 	}
 	if m.SwapTotal != 512*mb || m.SwapFree != 412*mb {
 		t.Fatalf("swap %d/%d MB", m.SwapFree>>20, m.SwapTotal>>20)
 	}
-	if Total() != 1024*mb || AvailableBytes() != 724*mb {
+	if Total() != 1024*mb || AvailableBytes() != 794*mb {
 		t.Fatalf("Total %d AvailableBytes %d", Total(), AvailableBytes())
+	}
+}
+
+func TestCgroupV2PageCacheIsNotUsed(t *testing.T) {
+	// The screenshot sandbox: a 900 MB container whose programs take about
+	// 250 MB, its page cache full after seeding. memory.current less
+	// inactive_file (what docker stats shows) was 677 MB.
+	fakeRoot(t, map[string]string{
+		"proc/meminfo":                 hostMeminfo,
+		"sys/fs/cgroup/memory.max":     "943718400\n",
+		"sys/fs/cgroup/memory.current": "912261120\n", // 870 MB
+		"sys/fs/cgroup/memory.stat": "anon 209715200\nfile 587202560\nkernel 104857600\nshmem 10485760\n" +
+			"active_file 383778816\ninactive_file 202375168\nslab_reclaimable 73400320\nslab_unreclaimable 20971520\n",
+	})
+	m, _ := Read()
+	if m.Total != 900*mb || m.Used() != 241*mb || m.Available != 659*mb {
+		t.Fatalf("total %d used %d avail %d MB", m.Total>>20, m.Used()>>20, m.Available>>20)
+	}
+	// All of it cache: nothing in use, not an underflow.
+	fakeRoot(t, map[string]string{
+		"proc/meminfo":                 hostMeminfo,
+		"sys/fs/cgroup/memory.max":     "943718400\n",
+		"sys/fs/cgroup/memory.current": "104857600\n",
+		"sys/fs/cgroup/memory.stat":    "active_file 104857600\ninactive_file 1048576\n",
+	})
+	if m, _ := Read(); m.Used() != 0 || m.Available != 900*mb {
+		t.Fatalf("used %d avail %d", m.Used(), m.Available)
+	}
+	// Without memory.stat, the whole usage counts.
+	fakeRoot(t, map[string]string{
+		"proc/meminfo":                 hostMeminfo,
+		"sys/fs/cgroup/memory.max":     "943718400\n",
+		"sys/fs/cgroup/memory.current": "104857600\n",
+	})
+	if m, _ := Read(); m.Used() != 100*mb {
+		t.Fatalf("no memory.stat: used %d MB", m.Used()>>20)
 	}
 }
 
@@ -117,10 +155,11 @@ func TestCgroupV1Limit(t *testing.T) {
 		"proc/meminfo": hostMeminfo,
 		"sys/fs/cgroup/memory/memory.limit_in_bytes": "2147483648\n",
 		"sys/fs/cgroup/memory/memory.usage_in_bytes": "1073741824\n",
-		"sys/fs/cgroup/memory/memory.stat":           "cache 600000000\ninactive_file 1\ntotal_inactive_file 536870912\n",
+		// The cgroup's own figures, then the total_ ones with its children.
+		"sys/fs/cgroup/memory/memory.stat": "cache 800000000\nactive_file 1\ninactive_file 1\ntotal_active_file 268435456\ntotal_inactive_file 536870912\n",
 	})
 	m, _ := Read()
-	if !m.Limited || m.Total != 2048*mb || m.Used() != 512*mb || m.Available != 1536*mb {
+	if !m.Limited || m.Total != 2048*mb || m.Used() != 256*mb || m.Available != 1792*mb {
 		t.Fatalf("total %d used %d avail %d", m.Total>>20, m.Used()>>20, m.Available>>20)
 	}
 	// Swap: v1 is left to meminfo.

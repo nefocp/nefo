@@ -283,6 +283,17 @@ hr { border: 0; border-top: 1px solid var(--border); margin: 16px 0; }
 .top-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .top-actions:empty { display: none; }
 .topbar .menu-toggle { display: none; }
+/* One line from 641 px up: when the items do not fit, AppLayout's
+   fitTopbar adds these steps one by one (see there). */
+@media (min-width: 641px) {
+  .top-actions { flex-wrap: nowrap; }
+}
+.topbar.tb-narrow .search-btn { flex-basis: 200px; }
+.topbar.tb-icons .top-actions .btn:not(.btn-primary),
+.topbar.tb-all .top-actions .btn { font-size: 0; gap: 0; min-width: 36px; padding: 6px 9px; }
+.topbar.tb-search .search-btn { flex: 0 0 auto; width: 40px; padding: 0; justify-content: center; }
+.topbar.tb-search .search-btn .search-label, .topbar.tb-search .search-btn kbd { display: none; }
+.topbar.tb-all .job-pill { max-width: 180px; }
 .avatar {
   width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; flex: none; border: 0; cursor: pointer;
   background: var(--accent); color: var(--on-accent); font-weight: 700; font-size: 14px; text-transform: uppercase;

@@ -869,28 +869,11 @@ type Fail2ban struct {
 
 // Fail2banStatus reads the jails and banned addresses.
 func (m *Manager) Fail2banStatus(ctx context.Context) Fail2ban {
-	st := Fail2ban{Jails: []Jail{}}
-	if _, err := os.Stat("/usr/bin/fail2ban-client"); err != nil {
-		return st
-	}
-	st.Installed = true
-	out, err := m.run.Output(ctx, "fail2ban-client", "status")
-	if err != nil {
-		return st
-	}
-	st.Running = true
-	var names []string
-	for _, line := range strings.Split(out, "\n") {
-		if _, list, ok := strings.Cut(line, "Jail list:"); ok {
-			for _, n := range strings.Split(list, ",") {
-				if n = strings.TrimSpace(n); jailRe.MatchString(n) {
-					names = append(names, n)
-				}
-			}
-		}
-	}
-	for _, n := range names {
-		j := Jail{Name: n, Banned: []string{}}
+	st := m.Fail2banJails(ctx)
+	jails := st.Jails
+	st.Jails = []Jail{}
+	for _, j := range jails {
+		n := j.Name
 		out, err := m.run.Output(ctx, "fail2ban-client", "status", n)
 		if err != nil {
 			continue
@@ -920,6 +903,32 @@ func (m *Manager) Fail2banStatus(ctx context.Context) Fail2ban {
 }
 
 var jailRe = regexp.MustCompile(`^[a-zA-Z0-9_-]{1,40}$`)
+
+// Fail2banJails is Fail2banStatus without each jail's counts and banned
+// addresses (their Banned is empty): one fail2ban-client run instead of
+// one more per jail, for the security check.
+func (m *Manager) Fail2banJails(ctx context.Context) Fail2ban {
+	st := Fail2ban{Jails: []Jail{}}
+	if _, err := os.Stat("/usr/bin/fail2ban-client"); err != nil {
+		return st
+	}
+	st.Installed = true
+	out, err := m.run.Output(ctx, "fail2ban-client", "status")
+	if err != nil {
+		return st
+	}
+	st.Running = true
+	for _, line := range strings.Split(out, "\n") {
+		if _, list, ok := strings.Cut(line, "Jail list:"); ok {
+			for _, n := range strings.Split(list, ",") {
+				if n = strings.TrimSpace(n); jailRe.MatchString(n) {
+					st.Jails = append(st.Jails, Jail{Name: n, Banned: []string{}})
+				}
+			}
+		}
+	}
+	return st
+}
 
 // InstallFail2ban installs fail2ban with a jail for SSH and one for the
 // panel's sign-in page.

@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/nefocp/nefo/internal/fsutil"
+	cgmem "github.com/nefocp/nefo/internal/meminfo" // not meminfo: a test of this package has a const of that name
 	"github.com/nefocp/nefo/internal/run"
 )
 
@@ -123,6 +124,8 @@ type Manager struct {
 	// trustedDir reports whether the cleanup may delete old logs in a
 	// folder: only root's own folders, so nobody can swap one for a link.
 	trustedDir func(fs.FileInfo) bool
+	// memory reads the memory the panel counts (package meminfo); nil in tests.
+	memory func() (cgmem.Memory, error)
 
 	cacheMu sync.Mutex
 	cache   *UpdateCheck // the last update check, loaded from settings on first use
@@ -132,7 +135,7 @@ type Manager struct {
 // New returns a Manager for this server.
 func New(r run.Runner, st Settings) *Manager {
 	return &Manager{run: r, settings: st, p: DefaultPaths(),
-		now: time.Now, hostname: os.Hostname, diskFree: diskFree, trustedDir: rootOwned}
+		now: time.Now, hostname: os.Hostname, diskFree: diskFree, trustedDir: rootOwned, memory: cgmem.Read}
 }
 
 func rootOwned(fi fs.FileInfo) bool {

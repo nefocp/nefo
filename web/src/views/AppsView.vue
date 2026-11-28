@@ -5,6 +5,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { api } from '../api.js'
 import { errorMessage } from '../errors.js'
 import { load as loadData, put, list } from '../data.js'
+import { rememberCatalog } from '../logos.js'
 import { toast } from '../toast.js'
 import { useJob } from '../composables/useJob.js'
 import { usePageMeta } from '../page.js'
@@ -161,7 +162,11 @@ function onInstalledChanged() {
   load()
 }
 // keep the shared cache up to date for the palette and other pages
-watch(data, (d) => d && put('api/apps', d))
+watch(data, (d) => {
+  if (!d) return
+  put('api/apps', d)
+  rememberCatalog(d.apps) // the names and logos other pages show (logos.js)
+})
 </script>
 
 <template>

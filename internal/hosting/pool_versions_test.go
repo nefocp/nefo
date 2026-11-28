@@ -2,6 +2,7 @@ package hosting
 
 import (
 	"bytes"
+	"context"
 	"runtime"
 	"strings"
 	"testing"
@@ -88,5 +89,42 @@ func TestPoolBytesUsesSitePHP(t *testing.T) {
 	}
 	if _, err := m.poolBytes(&store.Site{Domain: "x.example.com", SysUser: "x_example_com", PHPVersion: "8.3; rm"}); err == nil {
 		t.Fatal("a pool for a bad version")
+	}
+}
+
+func TestDistroPHPSkipsThePHPRepository(t *testing.T) {
+	// Ubuntu 24.04 with packages.sury.org added: apt's candidate php-fpm is
+	// the repository's, for PHP 8.6; the distribution's is 8.3.
+	sury := "Package: php-fpm\nVersion: 2:8.6+106~exp1+debsuryorg24.04.1+1\nDepends: php8.6-fpm\n\n" +
+		"Package: php-fpm\nVersion: 2:8.3+93ubuntu2\nDepends: php8.3-fpm\n\n"
+	ppa := "Package: php-fpm\nVersion: 2:8.4+96+ubuntu22.04.1+deb.sury.org+1\nDepends: php8.4-fpm\n\n" +
+		"Package: php-fpm\nVersion: 2:8.1+92ubuntu1\nDepends: php8.1-fpm\n"
+	for _, c := range []struct{ out, want string }{
+		{sury, "8.3"},
+		{ppa, "8.1"},
+		{"Package: php-fpm\nVersion: 2:8.2+93\nDepends: php8.2-fpm\n", "8.2"},              // Debian 12 alone
+		{"Package: php-fpm\nVersion: 2:8.6+106+debsuryorg12+1\nDepends: php8.6-fpm\n", ""}, // only the repository's lists
+		{"", ""},
+	} {
+		if got := distroPHPFrom(c.out, nil); got != c.want {
+			t.Errorf("%q: got %q, want %q", c.out, got, c.want)
+		}
+	}
+	// An older build of the repository, without "sury" in its version:
+	// madison says where it comes from.
+	old := "Package: php-fpm\nVersion: 2:93+0~20240105.50+debian12~1.gbp1a2b3c\nDepends: php8.3-fpm\n\n" +
+		"Package: php-fpm\nVersion: 2:8.2+93\nDepends: php8.2-fpm\n"
+	madison := "   php-fpm | 2:93+0~20240105.50+debian12~1.gbp1a2b3c | https://packages.sury.org/php bookworm/main amd64 Packages\n" +
+		"   php-fpm |    2:8.2+93 | http://deb.debian.org/debian bookworm/main amd64 Packages\n"
+	if got := distroPHPFrom(old, phpRepoVersions(madison)); got != "8.2" {
+		t.Errorf("old repository build: %q", got)
+	}
+	ppaMadison := "   php-fpm | 2:8.4+96+ubuntu22.04.1+deb.sury.org+1 | https://ppa.launchpadcontent.net/ondrej/php/ubuntu jammy/main amd64 Packages\n"
+	if !phpRepoVersions(ppaMadison)["2:8.4+96+ubuntu22.04.1+deb.sury.org+1"] {
+		t.Error("the PPA's version")
+	}
+	m := &Manager{run: &fakeRunner{outputs: map[string]fakeResult{"apt-cache": {out: sury}}}}
+	if got := m.distroPHP(context.Background()); got != "8.3" {
+		t.Fatalf("distroPHP %q", got)
 	}
 }

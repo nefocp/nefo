@@ -8,6 +8,8 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -269,9 +271,12 @@ func TestSiteFiles(t *testing.T) {
 	write(t, filepath.Join(pub, "wp-config.php"), "x", 0o644) // served as PHP, never as text
 	write(t, filepath.Join(pub, "style.css.bak"), "x", 0o644) // a copy
 	var asked []string
+	var mu sync.Mutex
 	// The web server hides dot files (like the panel's Nginx) and serves the rest.
 	env.Probe = func(_ context.Context, domain, path string) (int, error) {
+		mu.Lock()
 		asked = append(asked, domain+path)
+		mu.Unlock()
 		if strings.HasPrefix(path, "/.") {
 			return 403, nil
 		}
@@ -521,5 +526,92 @@ func TestCancelled(t *testing.T) {
 	rep := Run(ctx, goodFacts(dir), goodEnv(t, dir))
 	if len(rep.Partial) != len(checks) {
 		t.Fatalf("partial %v", rep.Partial)
+	}
+}
+
+func TestSlowWebsite(t *testing.T) {
+	// One website's application does not answer: it is asked once, the
+	// check is partial, and the other website's files are still found.
+	dir := t.TempDir()
+	env := goodEnv(t, dir)
+	f := goodFacts(dir)
+	f.Sites = append(f.Sites, Site{ID: 2, Domain: "slow.test", Dir: filepath.Join(dir, "www", "slow.test")})
+	write(t, filepath.Join(dir, "www", "example.com", "public", "backup.sql"), "x", 0o644)
+	for _, name := range []string{"info.php", "a.bak", "b.bak", "c.bak"} {
+		write(t, filepath.Join(dir, "www", "slow.test", "public", name), "x", 0o644)
+	}
+	var slowAsked, running, most atomic.Int32
+	env.Workers = 2
+	env.Probe = func(ctx context.Context, domain, _ string) (int, error) {
+		n := running.Add(1)
+		defer running.Add(-1)
+		for m := most.Load(); n > m && !most.CompareAndSwap(m, n); m = most.Load() {
+		}
+		if domain == "slow.test" {
+			slowAsked.Add(1)
+			return 0, context.DeadlineExceeded // what an http.Client timeout wraps
+		}
+		time.Sleep(5 * time.Millisecond)
+		return 206, nil
+	}
+	rep := Run(context.Background(), f, env)
+	if !slices.Contains(rep.Partial, "site_files") || slices.Contains(rep.Passed, "site_files") {
+		t.Fatalf("partial %v passed %v", rep.Partial, rep.Passed)
+	}
+	if !slices.Contains(ids(rep), "site_exposed:example.com=critical") {
+		t.Fatalf("findings %v", ids(rep))
+	}
+	if n := slowAsked.Load(); n > 2 { // at most one per worker before the site is marked slow
+		t.Fatalf("the slow site was asked %d times", n)
+	}
+	if m := most.Load(); m > 2 {
+		t.Fatalf("%d requests at a time with 2 workers", m)
+	}
+}
+
+func TestFactsPartial(t *testing.T) {
+	// fail2ban-client did not answer in time: the check is partial, not
+	// "fail2ban stopped".
+	dir := t.TempDir()
+	f := goodFacts(dir)
+	f.Fail2ban = security.Fail2ban{Installed: true}
+	f.Partial = []string{"fail2ban"}
+	rep := Run(context.Background(), f, goodEnv(t, dir))
+	if len(rep.Findings) != 0 || !slices.Equal(rep.Partial, []string{"fail2ban"}) || slices.Contains(rep.Passed, "fail2ban") {
+		t.Fatalf("findings %v partial %v", ids(rep), rep.Partial)
+	}
+}
+
+func TestGather(t *testing.T) {
+	old := lateGrace
+	lateGrace = 50 * time.Millisecond
+	t.Cleanup(func() { lateGrace = old })
+	release := make(chan struct{})
+	t.Cleanup(func() { close(release) })
+	start := time.Now()
+	f := Gather(context.Background(), 100*time.Millisecond,
+		Source{Keys: []string{"ssh_port"}, Read: func(context.Context) func(*Facts) {
+			return func(f *Facts) { f.SSH = &security.SSH{Port: 2222} }
+		}},
+		// A program that waits on a busy server until it is stopped.
+		Source{Keys: []string{"fail2ban"}, Read: func(ctx context.Context) func(*Facts) {
+			<-ctx.Done()
+			return func(f *Facts) { f.Fail2ban = security.Fail2ban{Installed: true} }
+		}},
+		// One that does not even notice: it is left behind.
+		Source{Keys: []string{"docker_ports"}, Read: func(context.Context) func(*Facts) {
+			<-release
+			return func(f *Facts) { f.Docker = []docker.Container{} }
+		}},
+	)
+	if took := time.Since(start); took > time.Second {
+		t.Fatalf("took %v", took)
+	}
+	if f.SSH == nil || f.SSH.Port != 2222 || f.Fail2ban.Installed || f.Docker != nil {
+		t.Fatalf("facts %+v", f)
+	}
+	sort.Strings(f.Partial)
+	if !slices.Equal(f.Partial, []string{"docker_ports", "fail2ban"}) {
+		t.Fatalf("partial %v", f.Partial)
 	}
 }

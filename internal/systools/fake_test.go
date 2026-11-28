@@ -188,6 +188,7 @@ func newTest(t *testing.T) *testEnv {
 	m.hostname = func() (string, error) { return "old-name", nil }
 	m.diskFree = func(string) (uint64, string, error) { return e.free, e.fsType, nil }
 	m.trustedDir = func(fs.FileInfo) bool { return true }
+	m.memory = nil // the fake /proc/meminfo only, never this machine's cgroup
 	e.m = m
 	return e
 }

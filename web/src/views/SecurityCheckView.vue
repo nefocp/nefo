@@ -146,6 +146,7 @@ usePageMeta(() => ({ sub: report.value ? t('seccheck.last_run', { when: relative
           </h2>
           <div class="svc-meta">
             <span v-if="report"><Icon name="clock" :size="14" />{{ t('seccheck.last_run', { when: relativeTime(report.checked_at, locale) }) }} · {{ tookText }}</span>
+            <span v-if="partial.length" class="text-warn" :title="t('seccheck.partial', { list: names(partial) })"><Icon name="alert" :size="14" />{{ t('seccheck.partial_short') }}</span>
             <span v-else>{{ t('seccheck.never') }}</span>
           </div>
         </div>
