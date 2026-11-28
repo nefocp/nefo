@@ -5,11 +5,13 @@ description: Get free Let's Encrypt certificates, wildcard certificates through 
 
 # SSL certificates
 
-Nefo gets free certificates from Let's Encrypt and renews them by itself. This page covers the requirements, the redirect to HTTPS and HSTS, wildcard certificates through Cloudflare DNS, installing a certificate you already have, turning HTTPS off again, and what to do when a certificate fails.
+Nefo gets a free Let's Encrypt certificate for each website in one click and renews it by itself. It can also get wildcard certificates through Cloudflare DNS, install a certificate you already have, redirect HTTP to HTTPS and send HSTS. Before each request it checks that every name reaches the server, so failed attempts don't count against Let's Encrypt's limits.
+
+This page covers the requirements, the redirect to HTTPS and HSTS, wildcard certificates through Cloudflare DNS, installing a certificate you already have, turning HTTPS off again, and what to do when a certificate fails.
 
 ## Before you start
 
-For a normal certificate, Let's Encrypt checks over plain HTTP that each name of the website reaches your server. Every name must pass: the domain and each of its [extra domain names](./websites).
+For a normal certificate, Let's Encrypt checks over plain HTTP that each name of the website reaches your server. Every name must pass: the domain and each of its [extra domain names](./websites#domains-and-aliases).
 
 - **DNS:** each name has an A record that points to this server's IP address, for example `203.0.113.10`. If a name also has an AAAA (IPv6) record, it must point to this server too, or be removed.
 - **Port 80:** the server answers on port 80 from the internet. Nefo opens ports 80 and 443 in ufw when it installs the web server. If your hosting provider has its own firewall, open port 80 there as well.
@@ -37,7 +39,7 @@ Before it asks Let's Encrypt, Nefo puts a test file on the server and fetches it
 | `example.com (203.0.113.10): no answer over HTTP on port 80 (…). Check the DNS record and the firewall.` | Open port 80 in your provider's firewall, and check that the web server runs. |
 | `example.com (198.51.100.7) answered HTTP 404, but not from this server. Check that the DNS record points here.` | The name points to another server: an old IP address, an AAAA record elsewhere, or a proxy such as Cloudflare. |
 
-The addresses in brackets are what the name resolves to. Compare them with your server's IP address.
+The addresses in parentheses are what the name resolves to. Compare them with your server's IP address.
 
 ## Redirect HTTP to HTTPS
 
@@ -173,7 +175,7 @@ To test without using up the limits, add `"acme_directory": "https://acme-stagin
 
 | Message | What to fix |
 |---|---|
-| `DNS validation needs a Cloudflare API token: add one in Settings → Cloudflare DNS` | Save a token on the **Settings** page, **Cloudflare** tab. |
+| `DNS validation needs a Cloudflare API token: add one in Settings → Cloudflare` | Save a token on the **Settings** page, **Cloudflare** tab. |
 | `Cloudflare did not accept this token.` | The token is wrong, expired or not active. Create a new one. |
 | `none of the Cloudflare zones this API token can use holds example.com` | Add the domain's zone to the token's zone resources in Cloudflare. |
 | `the DNS record _acme-challenge.example.com did not appear on … in time` | Cloudflare's name servers were slow. Try again a few minutes later. |

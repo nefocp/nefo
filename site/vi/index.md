@@ -1,8 +1,12 @@
 ---
 layout: home
-title: Nefo, bảng điều khiển máy chủ Linux miễn phí
-titleTemplate: false
+pageClass: nf-home-page
 markdownStyles: false
 ---
+
+<script setup>
+// The text of this page is in .vitepress/locales/vi.json under "home".
+import HomePage from '../.vitepress/theme/components/HomePage.vue'
+</script>
 
 <HomePage />

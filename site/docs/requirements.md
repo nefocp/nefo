@@ -5,6 +5,8 @@ description: The operating systems, CPU types, memory, ports and firewall settin
 
 # Requirements
 
+Nefo needs a 64-bit server, x86-64 or ARM64, running Ubuntu 22.04, 24.04 or 26.04 or Debian 12 or 13, with root access and systemd. It is built for a VPS with 1 GB of RAM: the panel itself uses about 34 MB of memory, measured on a test server after the update to v0.24.0.
+
 This page lists what your server needs before you [install Nefo](./install): the operating system, the CPU type, memory and disk, and the network ports.
 
 ## Operating system
@@ -15,6 +17,8 @@ The installer supports these systems:
 |---|---|
 | Ubuntu | 22.04, 24.04, 26.04 |
 | Debian | 12, 13 |
+
+The installer has been tested on fresh servers with each of these systems, on x86-64. The ARM64 version hasn't been tested on real ARM hardware yet.
 
 On any other system the installer stops and says that the system "is not supported yet". You can set `NEFO_FORCE=1` to try anyway (see [Install](./install#environment-variables)), but website management needs `apt-get`, `systemctl` and `useradd`. Without them the **Websites** page shows "Website management needs a Debian or Ubuntu server with systemd, so it is not available on this machine."
 
@@ -33,7 +37,9 @@ Nefo runs on 64-bit x86 (`x86_64`, also called amd64) and 64-bit ARM (`aarch64`,
 
 ## Memory and disk
 
-Nefo is built for small VPSes with 1 GB of RAM. The panel itself is one program, and you install only the components you need. The **Software** page shows roughly how much memory each component uses. For example, the web servers use about 15 MB (Nginx), 26 MB (OpenLiteSpeed) or 40 MB (Apache) while idle.
+Nefo is built for small VPSes with 1 GB of RAM. The panel itself is one program of about 25 MB, and it uses about 34 MB of memory (measured on a test server after the update to v0.24.0). You install only the components you need. The **Software** page shows roughly how much memory each component uses. For example, the web servers use about 15 MB (Nginx), 26 MB (OpenLiteSpeed) or 40 MB (Apache) while idle.
+
+On a VPS that is a container (LXC, OpenVZ), Nefo counts the container's own memory limit, not the host's memory (see [A VPS that is a container](./first-steps#a-vps-that-is-a-container)).
 
 One component needs much more memory: the optional ClamAV antivirus needs about 1.4 GB of free memory while it scans, so it suits servers with 2 GB or more.
 
@@ -58,7 +64,8 @@ The installer refuses to run a second time on the same server: when `/etc/nefo/c
 | 80 and 443 (TCP) | The web server | Once you install a web server from the panel |
 | 443 (UDP) | HTTP/3 on OpenLiteSpeed | When OpenLiteSpeed is the web server |
 | Your SSH port (22 by default) | SSH | Always |
-| 3306 (TCP) | MariaDB | Only if you allow remote access to a database, and only for the addresses you list |
+| 3306 (TCP) | MariaDB or MySQL | Only if you allow remote access to a database, and only for the addresses you list |
+| 5432 (TCP) | PostgreSQL | Only if you allow remote access to a PostgreSQL database, and only for the addresses you list |
 
 Some services listen on the server itself only (127.0.0.1), so you don't open them: the receiver for Git push webhooks (port 7809, reached through the web server), the ports of Docker containers, and the local mail relay.
 

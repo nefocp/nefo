@@ -5,15 +5,17 @@ description: The dashboard, cron jobs, services, background programs, processes 
 
 # System tools
 
-This page covers the server tools in Nefo: the dashboard, cron jobs, services, background programs, processes and listening ports, SSH sign-ins, the web terminal, where to find logs, and how to restart the panel or reboot the server. Most of them are in the **Server** group of the left menu. Operating system updates, swap, the time zone and host name, TCP BBR and disk cleanup are on the [System](./os) page.
+The **Dashboard** shows the server's live CPU, memory, disk and load with 7 days of history, and lists what needs attention. Nefo's server tools also manage cron jobs, systemd services, background programs that must keep running, processes and listening ports, SSH sign-ins and a root terminal in the browser, and restart the panel or reboot the server.
+
+This page covers each of these tools, and where to find the logs. Most of them are in the **Server** group of the left menu. Operating system updates, swap, the time zone and host name, TCP BBR and disk cleanup are on the [System](./os) page.
 
 ## Dashboard {#dashboard}
 
 The **Dashboard** opens after you sign in.
 
-- The top of the page shows the server's name, operating system, uptime, CPU count and memory. Buttons there let you **Check for updates**, open the **Terminal**, and use the **Power** menu.
+- The top of the page shows the server's name, operating system, uptime, CPU count and memory. On a VPS that is a container (LXC), the memory is the container's limit, marked "container limit" (see [A VPS that is a container](./first-steps#a-vps-that-is-a-container)). Buttons there let you **Check for updates**, open the **Terminal**, and use the **Power** menu.
 - Four gauges show the live **System load**, CPU, **Memory** and **Disk /**. They refresh every 5 seconds. System load is the 1-minute load average divided by the number of CPUs.
-- Tiles count websites, databases, SFTP accounts, cron jobs, backups and security risks. Select a tile to open its page.
+- Tiles count websites, databases, SFTP accounts, cron jobs, backups and security risks. Select a tile to open its page. When no serious problem is open, the **Security risks** tile shows when the [security check](./security-check) last ran.
 - **Resource history** draws a chart of CPU, RAM, Disk, Load or Network, over 1 hour, 24 hours or 7 days. Under the chart are the **Now**, **Average** and **Highest** values. For the network, it shows the **In** and **Out** rates and the totals for the time range.
 - **Needs attention** lists problems that need you, worst first.
 - **Installed software** shows the main components and their state.
@@ -31,8 +33,10 @@ The panel records the load every minute and keeps 7 days of history. After a fre
 - The disk is 90% full or more.
 - Security updates of the operating system are waiting (see [Updates](./os#updates)).
 - The server needs a restart to finish installing updates.
+- The last [security check](./security-check) found critical problems or warnings.
+- A monitored website is down (see [Monitoring](./websites#monitoring)).
 
-The bell at the top right (**Notifications**) shows the same list. Both are only visible while you're signed in. To get a message by Telegram or e-mail instead, set up [alerts](./mail-alerts).
+The bell at the top right (**Notifications**) shows the same list. Both are only visible while you're signed in. To get a message by Telegram, e-mail, Discord, Slack or a webhook instead, set up [alerts](./mail-alerts).
 
 ## Cron jobs
 
@@ -95,8 +99,10 @@ Above the list, show **All** jobs or only those **On** or **Off**, and search by
 | Nefo | `nefo` |
 | Nginx, Apache or OpenLiteSpeed | `nginx`, `apache2`, `lshttpd` |
 | PHP-FPM, one per installed version | such as `php8.3-fpm` |
-| MariaDB | `mariadb` |
+| MariaDB or MySQL | `mariadb` or `mysql` |
+| PostgreSQL | such as `postgresql@16-main` |
 | Redis | `redis-server` |
+| Memcached | `memcached` |
 | fail2ban | `fail2ban` |
 | SSH | `ssh` |
 | Cron | `cron` |

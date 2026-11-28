@@ -5,7 +5,9 @@ description: Điều khiển panel bằng script với khóa API, cho triển kh
 
 # Khóa API
 
-Khóa API cho phép script dùng panel mà không cần trình duyệt: triển khai website từ CI, chạy sao lưu từ một cron job trên máy chủ khác, hay đọc trạng thái website từ công cụ giám sát. Script gửi khóa kèm mỗi yêu cầu, tới đúng địa chỉ và đường dẫn bí mật của panel.
+Khóa API cho phép script dùng panel Nefo mà không cần trình duyệt, ví dụ để triển khai website từ CI, chạy sao lưu từ một cron job trên máy chủ khác, hay đọc trạng thái các website từ công cụ giám sát. Mỗi khóa là chỉ đọc hoặc toàn quyền, có thể giới hạn theo các địa chỉ bạn liệt kê, và có thể hết hạn.
+
+Script gửi khóa kèm mỗi yêu cầu, dưới dạng Bearer token, tới đúng địa chỉ và đường dẫn bí mật của panel.
 
 Khóa API nằm ở **Cài đặt** → **Khóa API**.
 
@@ -34,7 +36,7 @@ Khóa toàn quyền mạnh ngang bạn: nó ghi được file, thêm cron job ch
 1. Vào **Cài đặt** → **Khóa API** và chọn **Tạo khóa**.
 2. Nhập **Tên**, ví dụ `deploy-bot`: tối đa 32 ký tự, gồm chữ, số, dấu cách, dấu chấm, gạch ngang và gạch dưới. Tên hiện trong nhật ký hoạt động.
 3. Chọn **Chỉ đọc** hoặc **Toàn quyền**.
-4. Không bắt buộc: ở **Địa chỉ được phép**, nhập các địa chỉ IP hoặc dải mạng được dùng khóa, như `203.0.113.7` hay `198.51.100.0/24`, IPv4 hoặc IPv6, cách nhau bằng dấu cách hoặc xuống dòng. Để trống nếu cho phép mọi địa chỉ.
+4. Không bắt buộc: ở **Địa chỉ được phép (tùy chọn)**, nhập các địa chỉ IP hoặc dải mạng được dùng khóa, như `203.0.113.7` hay `198.51.100.0/24`, IPv4 hoặc IPv6, cách nhau bằng dấu cách hoặc xuống dòng. Để trống nếu cho phép mọi địa chỉ.
 5. Chọn khi nào khóa **Hết hạn**: sau 30, 90 hoặc 365 ngày, hoặc **Không hết hạn**.
 6. Chọn **Tạo khóa**.
 
@@ -132,7 +134,7 @@ jq -n --rawfile cert fullchain.pem --rawfile key privkey.pem '{cert: $cert, key:
     --data-binary @- "$NEFO/api/sites/3/certificate"
 ```
 
-Yêu cầu trả về `200` kèm website và danh sách `warnings`, hoặc `400` kèm lý do, như khóa riêng không khớp với chứng chỉ (xem [Dùng chứng chỉ riêng](./ssl#chung-chi-rieng)).
+Yêu cầu trả về `200` kèm website và danh sách `warnings`, hoặc `400` kèm lý do, như khóa riêng không khớp với chứng chỉ (xem [Dùng chứng chỉ riêng](./ssl#use-your-own-certificate)).
 
 ## Mã lỗi {#errors}
 

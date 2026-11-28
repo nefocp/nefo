@@ -1,0 +1,477 @@
+{
+  "langLabel": "简体中文",
+  "description": "免费、开源的 Linux 服务器控制面板。网站、数据库、应用、备份和安全，尽在一个轻量的程序中。",
+  "nav": {
+    "docs": "文档",
+    "install": "安装",
+    "releases": "版本发布",
+    "compare": "对比",
+    "changelog": "更新日志",
+    "roadmap": "路线图",
+    "securityPolicy": "安全策略",
+    "about": "关于",
+    "more": "更多"
+  },
+  "groups": {
+    "Getting started": "快速开始",
+    "Websites": "网站",
+    "Data": "数据",
+    "Server": "服务器",
+    "Help": "帮助"
+  },
+  "pages": {
+    "": "Nefo 是什么？",
+    "requirements": "系统要求",
+    "install": "安装",
+    "first-steps": "入门步骤",
+    "cli": "命令行",
+    "update": "更新",
+    "uninstall": "卸载",
+    "websites": "网站",
+    "import": "导入网站",
+    "ssl": "SSL 证书",
+    "dns": "DNS（Cloudflare）",
+    "git-deploy": "从 Git 部署",
+    "wordpress": "WordPress 工具箱",
+    "apps": "应用商店",
+    "databases": "数据库",
+    "postgresql": "PostgreSQL",
+    "files": "文件",
+    "backups": "备份",
+    "restore-new-server": "在新服务器上恢复",
+    "software": "软件",
+    "docker": "Docker",
+    "security": "安全",
+    "security-check": "安全检查",
+    "website-protection": "国家/地区拦截与文件锁定",
+    "api": "API 密钥",
+    "os": "系统",
+    "system": "系统工具",
+    "mail-alerts": "邮件与告警",
+    "troubleshooting": "故障排除",
+    "faq": "常见问题"
+  },
+  "editLink": "在 GitHub 上编辑此页",
+  "footer": {
+    "message": "遵循 GNU AGPLv3 的自由软件。",
+    "copyright": "© 2026 Nefo 贡献者",
+    "about": "免费、开源的控制面板，管理一台 Linux 服务器。",
+    "product": "产品",
+    "docs": "文档",
+    "project": "项目",
+    "languages": "语言",
+    "features": "功能",
+    "screens": "界面",
+    "apps": "应用商店",
+    "issues": "报告问题",
+    "beta": "Nefo 处于测试阶段：请做好备份。"
+  },
+  "outline": "本页内容",
+  "docFooter": {
+    "prev": "上一页",
+    "next": "下一页"
+  },
+  "darkModeSwitchLabel": "外观",
+  "lightModeSwitchTitle": "切换到浅色主题",
+  "darkModeSwitchTitle": "切换到深色主题",
+  "sidebarMenuLabel": "菜单",
+  "returnToTopLabel": "返回顶部",
+  "langMenuLabel": "切换语言",
+  "skipToContentLabel": "跳转到内容",
+  "notFound": {
+    "title": "页面未找到",
+    "quote": "此页面不存在或已移动。",
+    "linkLabel": "返回首页",
+    "linkText": "带我回首页",
+    "docsText": "阅读文档"
+  },
+  "search": {
+    "buttonText": "搜索",
+    "buttonAriaLabel": "搜索",
+    "noResultsText": "无法找到相关结果",
+    "resetButtonTitle": "清除",
+    "displayDetails": "显示详细列表",
+    "footer": {
+      "selectText": "选择",
+      "navigateText": "切换",
+      "closeText": "关闭"
+    }
+  },
+  "lastUpdated": "最后更新",
+  "docMeta": {
+    "updated": "更新于",
+    "readTime": "阅读约 {n} 分钟",
+    "release": "当前版本",
+    "notes": "发布说明",
+    "released": "发布于 {date}"
+  },
+  "llms": {
+    "summary": "Nefo 是一款免费、开源（AGPLv3）的控制面板，用来管理一台 Linux 服务器：在 Web 界面中管理网站、SSL、数据库、一键安装的应用和备份，并检查服务器安全。它是单个程序，内存占用约 {ram}，不会回传任何数据。",
+    "facts": [
+      "当前版本：{version}（{status}），发布于 {date}。",
+      "支持 Ubuntu 22.04、24.04 和 26.04，以及 Debian 12 和 13，在 x86-64 上测试；为 1 GB 内存的 VPS 设计。",
+      "在全新的服务器上以 root 身份安装：`curl -fsSL https://github.com/nefocp/nefo/releases/latest/download/install.sh | sudo bash`",
+      "面板本身约占用 {ram} 内存，在实际运行的服务器上测得。",
+      "应用商店有 {apps} 个应用；界面支持 {languages} 种语言。",
+      "遵循 GNU AGPLv3 的自由软件。无需注册账户，没有遥测，所有功能免费。",
+      "有意不包含：邮件服务器、DNS 服务器、在一个面板中管理多台服务器。"
+    ]
+  },
+  "home": {
+    "title": "Nefo：免费、开源的 Linux 服务器控制面板",
+    "metaDesc": "为一台 Linux 服务器提供网站、SSL、数据库、{apps} 个一键安装的应用、备份和安全检查。开源（AGPLv3），内存占用约 {ram}，不回传任何数据。",
+    "ogAlt": "Nefo，免费、开源的 Linux 服务器控制面板，及其仪表盘",
+    "releaseBar": {
+      "text": "Nefo {version} 已发布：界面支持 {languages} 种语言，可备份到 Google Drive，可在新服务器上恢复，新增安全检查。",
+      "short": "Nefo {version} 已发布。",
+      "link": "发行说明"
+    },
+    "badges": {
+      "license": "开源 · AGPLv3",
+      "version": "v{version} · beta"
+    },
+    "h1": "免费的 <em>Linux 服务器</em>控制面板",
+    "lead": "网站、SSL、数据库、{apps} 个一键安装的应用、备份和安全检查，都在一个 Web 界面中。Nefo 是单个程序，内存占用约 {ram}。所有功能免费，不回传任何数据。",
+    "ctaInstall": "安装 Nefo",
+    "ctaDocs": "阅读文档",
+    "cmdTitle": "在全新的服务器上，以 root 身份运行",
+    "copy": "复制",
+    "copied": "已复制",
+    "languages": "{languages} 种语言",
+    "shotAlt": "Nefo 仪表盘：服务器负载、CPU、内存和磁盘，网站、数据库和备份的数量，资源历史，以及需要注意的事项",
+    "phoneAlt": "手机上的 Nefo 仪表盘",
+    "stackLabel": "安装并管理",
+    "tour": {
+      "eyebrow": "面板",
+      "h2": "Nefo {version} 的界面",
+      "lead": "截图来自一台测试服务器，上面有八个网站和两个 Docker 应用；一周的负载和流量历史是示例数据。选择一个页面，并在浅色和深色之间切换窗口。",
+      "light": "浅色",
+      "dark": "深色",
+      "docs": "查看文档",
+      "tabs": {
+        "websites": {
+          "label": "网站",
+          "caption": "每个网站及其<b>类型、PHP 版本、证书、访问量和备份</b>：PHP、静态、WordPress、Node.js、Docker 应用和反向代理，都在一个列表中。",
+          "alt": "“网站”页面：八个网站及其类型、PHP 版本、证书、访问量和备份"
+        },
+        "site": {
+          "label": "网站设置",
+          "caption": "每个网站一个抽屉面板：<b>域名、PHP、SSL、访问、Git、备份、日志和安全</b>，无需离开列表。",
+          "alt": "一个网站的设置抽屉面板，包含域名、PHP、SSL、访问、Git、备份、日志和安全标签页"
+        },
+        "apps": {
+          "label": "应用商店",
+          "caption": "<b>{apps} 个应用</b>，按类别排列。PHP 应用装进一个网站，带有自己的数据库；Docker 应用各自拥有一个网站。",
+          "alt": "“应用商店”页面：按类别排列的应用，每个都有一键安装按钮"
+        },
+        "databases": {
+          "label": "数据库",
+          "caption": "<b>MariaDB、PostgreSQL 和 Redis 在同一个页面</b>，每个数据库关联到它的网站，显示大小、访问权限，并可导入和导出。",
+          "alt": "“数据库”页面：MariaDB 和 PostgreSQL 数据库及其网站、大小和访问权限，以及 Redis"
+        },
+        "backups": {
+          "label": "备份",
+          "caption": "副本保存在这台服务器上，以及 <b>SFTP、S3 或 Google Drive</b> 上；计划带有保留策略，恢复前先检查校验和。",
+          "alt": "“备份”页面：网站、数据库、文件夹和应用的备份，保存在这台服务器上和 SFTP 上"
+        },
+        "security": {
+          "label": "安全检查",
+          "caption": "<b>22 项服务器检查</b>，每项都给出发现的情况和修复入口。",
+          "alt": "“安全检查”页面：22 项服务器检查，每项都有结果和修复入口"
+        },
+        "software": {
+          "label": "软件",
+          "caption": "已安装了什么，<b>每个部分占用多少内存和磁盘</b>，以及可以添加或移除什么。",
+          "alt": "“软件”页面：Web 服务器和 PHP 版本，以及每个所需的内存"
+        }
+      }
+    },
+    "features": {
+      "eyebrow": "功能",
+      "h2": "Nefo 能做什么",
+      "lead": "只安装你用得到的。菜单会隐藏未安装的部分，每个部分都可以再卸载。",
+      "more": "了解更多",
+      "rows": {
+        "web": {
+          "kicker": "网站",
+          "h3": "PHP、Node.js、Python 和 Java 网站，或反向代理到任意地址",
+          "p": "每个网站都有自己的 Linux 用户、自己的 PHP 设置和免费证书，可运行在 Nginx、Apache 或 OpenLiteSpeed 上。",
+          "ticks": [
+            "PHP 5.6 到 8.6 并存，每个网站可用不同版本",
+            "自动续期的 Let's Encrypt 证书，通过 Cloudflare DNS 签发通配符证书，或使用你自己的证书",
+            "SFTP 限制在网站文件夹内，使用密码或 SSH 密钥登录",
+            "克隆网站、创建 WordPress 预发布副本、每次推送时从 Git 部署",
+            "从 cPanel 完整备份导入，或从网站压缩包和 SQL 转储导入"
+          ],
+          "alt": "Nefo 中一个网站的设置抽屉面板",
+          "more": "文档中的“网站”"
+        },
+        "db": {
+          "kicker": "数据库",
+          "h3": "MariaDB 或 MySQL、PostgreSQL 和 Redis",
+          "p": "数据库关联到它的网站，所以网站的备份会包含它们。升级前先做转储，出错时自动回滚。",
+          "ticks": [
+            "MariaDB 11.4、11.8 或 12.3 LTS，或 MySQL 8.4，并可连同数据在两者之间切换",
+            "PostgreSQL 15 到 19，可按数据库开启经 TLS 的远程访问",
+            "按数据库开启远程访问，只允许你指定的地址",
+            "Adminer 和 phpMyAdmin，只能通过面板登录后访问",
+            "Redis 键浏览器，以及 Memcached"
+          ],
+          "alt": "Nefo 中的数据库列表，每个数据库关联到它的网站",
+          "more": "文档中的“数据库”"
+        },
+        "bak": {
+          "kicker": "备份",
+          "h3": "备份到 S3、SFTP 或 Google Drive，可选加密",
+          "p": "网站、数据库、文件夹和 Docker 应用，可手动备份，也可每天或每周自动备份，并设定保留的份数。",
+          "ticks": [
+            "S3 兼容存储：AWS S3、Cloudflare R2、Backblaze B2、Wasabi、MinIO",
+            "SFTP 固定主机密钥；Google Drive 只能访问 Nefo 创建的文件",
+            "副本离开服务器之前，用你的密码短语加密（scrypt 和 AES-256-GCM）",
+            "恢复前先检查 SHA-256；新服务器能在存储上找到备份，并重新创建网站"
+          ],
+          "alt": "Nefo 中的备份列表，显示每份副本的存储位置",
+          "more": "文档中的“备份”"
+        },
+        "sec": {
+          "kicker": "安全",
+          "h3": "对整台服务器做安全检查",
+          "p": "22 项快速检查，可随时运行，也可每天运行一次，每项都给出发现的情况和修复入口。两次检查之间不会有任何程序持续运行。",
+          "ticks": [
+            "SSH、防火墙、待安装的更新、对互联网开放的数据库或 Redis、绕过 ufw 的 Docker 端口",
+            "可通过 HTTP 访问的文件、证书、PHP 设置",
+            "Web 应用防火墙（ModSecurity 加 OWASP 规则）、速率限制、封禁地址、国家/地区拦截",
+            "文件锁定，让网站代码对 PHP 只读；带隔离功能的恶意软件扫描器",
+            "SSH 登录告警，以及连续登录失败告警"
+          ],
+          "alt": "Nefo 中的安全检查结果",
+          "more": "文档中的“安全”"
+        },
+        "sw": {
+          "kicker": "软件",
+          "h3": "在一个页面中安装和卸载软件",
+          "p": "每个部分在安装前都会显示它占用的内存和磁盘。仍有网站或数据库在使用时，卸载会被拒绝；除非你确认，否则数据会保留。",
+          "ticks": [
+            "Web 服务器、PHP 5.6 到 8.6（含 ionCube Loader）、MariaDB 或 MySQL、PostgreSQL",
+            "Redis、Memcached、Node.js、Python、Java（OpenJDK 17、21、25）、Composer、WP-CLI",
+            "Docker 和 Compose 项目，会检查特权容器和公开端口",
+            "Web 应用防火墙和 ClamAV，只在你需要时安装"
+          ],
+          "alt": "Nefo 的“软件”页面，显示每个部分所需的内存",
+          "more": "文档中的“软件”"
+        }
+      },
+      "alsoTitle": "面板中还有",
+      "also": {
+        "files": {
+          "title": "文件管理",
+          "text": "编辑器、搜索、从网址下载、30 天回收站。"
+        },
+        "terminal": {
+          "title": "终端",
+          "text": "浏览器中的 root shell。"
+        },
+        "cron": {
+          "title": "定时任务与后台程序",
+          "text": "由 systemd 以网站用户的身份保持运行。"
+        },
+        "monitoring": {
+          "title": "监控",
+          "text": "实时负载、7 天历史、按网站的可用率检查。"
+        },
+        "alerts": {
+          "title": "告警",
+          "text": "Telegram、邮件、Discord、Slack 或带签名的 Webhook。"
+        },
+        "dns": {
+          "title": "Cloudflare DNS",
+          "text": "记录、清除缓存，以及为你的邮件服务商设置 MX、SPF 和 DMARC。"
+        },
+        "wordpress": {
+          "title": "WordPress 工具箱",
+          "text": "更新前先备份数据库、预发布副本、维护模式。"
+        },
+        "docker": {
+          "title": "Docker",
+          "text": "容器、镜像和 Compose 项目。"
+        },
+        "api": {
+          "title": "API 密钥",
+          "text": "只读或完全权限，地址允许列表和到期日期。"
+        }
+      }
+    },
+    "apps": {
+      "eyebrow": "应用商店",
+      "h2": "{apps} 个应用，一键安装",
+      "lead": "PHP 应用装进一个网站，带有自己的数据库。Docker 应用运行在自己的网站后面，在替换默认登录信息之前，这个网站保持关闭。",
+      "all": "全部",
+      "showAll": "显示全部 {apps} 个应用",
+      "showLess": "收起",
+      "docs": "文档中的“应用商店”",
+      "kinds": {
+        "php": "PHP 应用",
+        "docker": "Docker 应用",
+        "service": "服务"
+      },
+      "cats": {
+        "cms": "网站与内容",
+        "ecommerce": "商店与商务",
+        "education": "教育",
+        "productivity": "效率",
+        "storage": "文件与存储",
+        "ai": "AI",
+        "devtools": "开发工具",
+        "database": "数据库",
+        "monitoring": "监控",
+        "security": "安全与网络",
+        "media": "媒体",
+        "communication": "通讯"
+      }
+    },
+    "install": {
+      "eyebrow": "安装",
+      "h2": "在全新的服务器上运行一条命令",
+      "lead": "安装程序只装一个程序和一个 systemd 服务。其余软件在配置页面上由你选择。",
+      "steps": [
+        {
+          "title": "准备一台全新的服务器",
+          "text": "x86-64 上的 Ubuntu 22.04、24.04 或 26.04，或 Debian 12 或 13。为 1 GB 内存的 VPS 设计。"
+        },
+        {
+          "title": "以 root 身份运行安装程序",
+          "text": "它会检查发布版本的 Ed25519 签名和校验和，安装 <code>/usr/local/bin/nefo</code> 和一个 systemd 服务，并选择随机端口和秘密路径。"
+        },
+        {
+          "title": "登录并选择软件",
+          "text": "打开它打印出的地址，用一次性密码登录。在配置页面上选择 Web 服务器、PHP 版本和数据库，同时可以看到它们占用的内存和磁盘。"
+        }
+      ],
+      "guide": "安装指南"
+    },
+    "compare": {
+      "eyebrow": "对比",
+      "h2": "Nefo 与其他面板",
+      "lead": "简要列出区别。其他面板各不相同；右栏是常见的情况。",
+      "us": "Nefo",
+      "them": "其他面板（常见情况）",
+      "rows": [
+        {
+          "label": "面板本身的内存占用",
+          "us": "约 {ram}",
+          "them": "常常达到数百 MB",
+          "mark": "yes"
+        },
+        {
+          "label": "使用前需要注册账户",
+          "us": "不需要",
+          "them": "很多需要",
+          "mark": "yes"
+        },
+        {
+          "label": "遥测",
+          "us": "没有",
+          "them": "各不相同",
+          "mark": "yes"
+        },
+        {
+          "label": "登录页面",
+          "us": "只在秘密路径上；其他地址一律返回 404",
+          "them": "在众所周知的端口和路径上",
+          "mark": "yes"
+        },
+        {
+          "label": "更新",
+          "us": "用 Ed25519 签名，安装前先验证",
+          "them": "各不相同",
+          "mark": "yes"
+        },
+        {
+          "label": "防火墙和 SSH 的防锁定保护",
+          "us": "有",
+          "them": "少见",
+          "mark": "yes"
+        },
+        {
+          "label": "源代码",
+          "us": "全部开放，AGPLv3",
+          "them": "闭源、部分开源或开源",
+          "mark": "yes"
+        },
+        {
+          "label": "邮件服务器和 DNS 服务器",
+          "us": "有意不包含",
+          "them": "常常包含",
+          "mark": "na"
+        },
+        {
+          "label": "在一个面板中管理多台服务器",
+          "us": "不支持，每台服务器一个面板",
+          "them": "部分支持",
+          "mark": "na"
+        }
+      ],
+      "note": "内存在运行 Nefo {version} 的实际服务器上测得。",
+      "more": "完整对比"
+    },
+    "faq": {
+      "eyebrow": "常见问题",
+      "h2": "大家常问的问题",
+      "lead": "更多内容见<a href=\"{docs}\">文档</a>及其<a href=\"{faq}\">常见问题</a>。",
+      "items": [
+        {
+          "q": "Nefo 真的免费吗？",
+          "a": "是的。所有功能都在同一个版本中，遵循 AGPLv3。无需注册账户，也不会回传任何数据。"
+        },
+        {
+          "q": "它支持哪些系统？",
+          "a": "x86-64 上的 Ubuntu 22.04、24.04 和 26.04，以及 Debian 12 和 13，每个都在全新的服务器上测试过。它为 1 GB 内存的 VPS 设计。"
+        },
+        {
+          "q": "它占用多少内存？",
+          "a": "面板本身约占用 {ram} 内存，在运行 Nefo {version} 的实际服务器上测得。你在它旁边安装的软件，如 Web 服务器、PHP 和数据库，另外占用各自的内存。"
+        },
+        {
+          "q": "能从其他面板迁移网站吗？",
+          "a": "能：从 cPanel 完整备份迁移（文件、数据库及其用户和密码、证书、定时任务），或者从任何其他面板制作的网站压缩包和 SQL 转储迁移。"
+        },
+        {
+          "q": "它包含邮件服务器吗？",
+          "a": "不包含，这是有意的：邮件服务器需要大量维护和内存。网站通过你的 SMTP 服务商发信，DNS 页面可以为 Google Workspace、Microsoft 365、Zoho 或 Cloudflare Email Routing 设置 MX、SPF 和 DMARC。"
+        },
+        {
+          "q": "它能用于生产环境吗？",
+          "a": "Nefo 处于测试阶段。它每天都在测试服务器上使用，但还没有经过外部安全审计。请做好备份，并先在可以重建的服务器上试用。"
+        },
+        {
+          "q": "界面支持哪些语言？",
+          "a": "英语、越南语、中文、西班牙语、葡萄牙语、俄语和印度尼西亚语。浏览器只加载正在使用的语言。"
+        },
+        {
+          "q": "如何更新？",
+          "a": "在服务器上运行 <code>nefo update</code>。每个发布版本都用 Ed25519 签名，更新安装前会先验证签名。"
+        }
+      ]
+    },
+    "help": {
+      "docs": {
+        "title": "文档",
+        "text": "面板的每个页面都有说明，使用的就是你在屏幕上看到的标签。"
+      },
+      "github": {
+        "title": "GitHub 上的源代码",
+        "text": "阅读代码、报告问题或关注开发进展。"
+      },
+      "releases": {
+        "title": "发行说明",
+        "text": "每个版本的变化，包括 {version}。"
+      }
+    },
+    "band": {
+      "h2": "先在可以重建的服务器上试试",
+      "p": "一条命令就能安装面板，并打印出它的地址和一次性密码。",
+      "install": "安装 Nefo",
+      "github": "GitHub 上的源代码"
+    }
+  }
+}

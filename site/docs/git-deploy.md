@@ -5,9 +5,9 @@ description: Deploy a website from GitHub, GitLab, Gitea or any Git server, by h
 
 # Deploy from Git
 
-Nefo can deploy a website from a Git repository on GitHub, GitLab, Gitea, Forgejo or any Git server, over HTTPS or SSH. It deploys when you click a button, or on every push through a signed webhook, and it can run a deploy script afterwards. Everything runs as the website's own Linux user.
+Nefo deploys a website from a Git repository on GitHub, GitLab, Gitea, Forgejo or any Git server, over HTTPS or SSH with a deploy key per website. It deploys when you click a button or on every push through a signed webhook, then runs your deploy script. Everything runs as the website's own Linux user.
 
-Git deploy is on the **Git deploy** tab of each website, except Docker app websites.
+Git deploy is on the **Git deploy** tab of each website, except Docker app websites. On a website whose [files are locked](./website-protection#lock-a-website-s-files), the panel unlocks them for the deploy and locks them again afterwards.
 
 ## Before you start
 
@@ -21,8 +21,8 @@ Git deploy is on the **Git deploy** tab of each website, except Docker app websi
   - **The web folder** (`/var/www/example.com/public`): for a website that is the repository itself, with `index.html` or `index.php` at the top.
   - **The site folder** (`/var/www/example.com`): for projects with their own `public` folder, such as Laravel or Symfony. The website then shows the repository's `public` folder.
 
-  A Node.js or Python app website has no choice: the files go into **The app folder** (`/var/www/example.com/app`), where its program runs. Put `package.json` or `requirements.txt` at the top of the repository.
-- **An empty folder for the first deploy.** The panel's placeholder page doesn't count, nor do the `logs`, `tmp` and `.ssh` folders in the site folder, nor a Python app's `.venv` folder in the app folder. Move other files away first, or deploy into the other folder.
+  A Node.js, Python or Java app website has no choice: the files go into **The app folder** (`/var/www/example.com/app`), where its program runs. Put `package.json` or `requirements.txt` at the top of the repository.
+- **An empty folder for the first deploy.** The panel's welcome page doesn't count, nor do the `logs`, `tmp` and `.ssh` folders in the site folder, nor a Python app's `.venv` folder in the app folder. Move other files away first, or deploy into the other folder.
 - **Git** doesn't need to be installed: Nefo installs it on the first deploy if it is missing.
 
 ## Set up the repository
@@ -56,7 +56,7 @@ Under **Deploy**, click **Deploy now**. If you changed the settings, save them f
 2. The tracked files take the repository's version of the branch.
 3. The deploy script runs, if you wrote one.
 
-Untracked files stay, so uploads and files that the repository ignores (such as `.env`) are kept on each deploy. After the first deploy, Nefo removes its placeholder page when the repository has put a website in `public`.
+Untracked files stay, so uploads and files that the repository ignores (such as `.env`) are kept on each deploy. After the first deploy, Nefo removes its welcome page when the repository has put a website in `public`.
 
 ::: warning
 Changes you make on the server to files that the repository tracks are overwritten on the next deploy. Commit them to the repository instead.
@@ -68,12 +68,12 @@ When a fetch fails, the log explains the usual reasons:
 
 | Message | What to do |
 |---|---|
-| The repository refused the deploy key | Add the key shown in the panel to the repository. |
-| The repository is private or does not exist | Check the address. For a private repository, use its SSH address and add the deploy key. |
-| The repository has no branch … | Check the **Branch**. |
-| The Git server's SSH host key is not the one seen before | See the deploy key section above. |
-| The repository's host name was not found | Check the address. |
-| It took longer than 10 minutes | Try again; check the repository's size and the network. |
+| `The repository refused the deploy key` | Add the key shown in the panel to the repository. |
+| `The repository is private or does not exist` | Check the address. For a private repository, use its SSH address and add the deploy key. |
+| `The repository has no branch …` | Check the **Branch**. |
+| `The Git server's SSH host key is not the one seen before` | See the deploy key section above. |
+| `The repository's host name was not found` | Check the address. |
+| `It took longer than 10 minutes` | Try again; check the repository's size and the network. |
 
 ## The deploy script
 
@@ -84,7 +84,7 @@ composer install --no-dev --optimize-autoloader
 php artisan migrate --force
 ```
 
-On an app website the script runs in the `app` folder, for example `npm ci` followed by `npm run build`. Its `node` and `npm` are the Node.js version chosen for the website, and on a Python website `python` and `pip` are those of its virtual environment (`app/.venv`).
+On an app website the script runs in the `app` folder, for example `npm ci` followed by `npm run build`. Its `node` and `npm` are the Node.js version chosen for the website, and on a Python website `python` and `pip` are those of its virtual environment (`app/.venv`). On a Java website, `java`, `javac` and `JAVA_HOME` are those of the Java version chosen for it, so `./mvnw package` or `./gradlew build` build with that version.
 
 - It runs with `sh -e`: the script stops at the first command that fails, and the deploy is marked **Failed**. The new files are in place by then.
 - `php` is the website's PHP version, also for Composer.
@@ -123,6 +123,8 @@ GitHub sends a test (ping) right away, and the panel answers it, so the first de
 2. Paste the **Webhook URL** as the target URL and the **Secret** as the secret.
 3. Set the content type to `application/json`, trigger on push events, and add the webhook.
 
+Gogs works the same way: pick Gogs in step 1.
+
 ### How the panel checks a webhook
 
 - GitHub, Gitea, Forgejo and Gogs sign each webhook with the secret (HMAC-SHA256). GitLab sends the secret itself. A webhook with a wrong or missing signature gets HTTP 401 and is logged with the sender's address.
@@ -135,7 +137,7 @@ The repository host shows the panel's answer in its list of recent deliveries: `
 ## The deploy log
 
 - The **Git deploy** tab shows the log of the current or last deploy, also one that a push started.
-- **Account → Recent activity** lists every deploy as "Deployed from Git" or "Git deploy failed", with the website, the commit and what started it (`manual` or a push from the repository host).
+- **Account** → **Recent activity** lists every deploy as "Deployed from Git" or "Git deploy failed", with the website, the commit and what started it (`manual` or a push from the repository host).
 
 ## Stop deploying from Git
 

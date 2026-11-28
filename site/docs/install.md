@@ -5,7 +5,11 @@ description: Install Nefo on an Ubuntu or Debian server with one command, then o
 
 # Install
 
+To install Nefo, run one command as root on a fresh Ubuntu 22.04, 24.04 or 26.04 or Debian 12 or 13 server: `curl -fsSL https://github.com/nefocp/nefo/releases/latest/download/install.sh | sudo bash`. The installer checks the release's Ed25519 signature, installs the panel as the systemd service `nefo` in a few seconds, and prints the panel's address and a one-time admin password.
+
 This page shows how to install Nefo, what the installer does, and how to open the panel for the first time. Check the [requirements](./requirements) first.
+
+Nefo installs on Ubuntu 22.04, 24.04 and 26.04 and Debian 12 and 13, on x86-64 or ARM64. The installer has been tested on fresh servers with each of these systems, on x86-64. The ARM64 version hasn't been tested on real ARM hardware yet.
 
 ## Run the installer
 

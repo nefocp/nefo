@@ -1,13 +1,15 @@
 ---
 title: Dòng lệnh
-description: Mọi lệnh nefo và tùy chọn của chúng, tệp cấu hình, và cách quản lý dịch vụ nefo bằng systemctl và journalctl.
+description: Mọi lệnh nefo và tùy chọn của chúng (info, reset-password, update, setup, unlock-files, decrypt-backup), tệp cấu hình, và cách quản lý dịch vụ nefo bằng systemctl và journalctl.
 ---
 
 # Dòng lệnh
 
-Chương trình `nefo` ở `/usr/local/bin/nefo` vừa chạy panel, vừa có vài lệnh dành cho root trên máy chủ. Trang này liệt kê các lệnh đó, rồi hướng dẫn quản lý dịch vụ `nefo` và giải thích tệp cấu hình. Hãy chạy mọi lệnh bằng root.
+Chương trình `nefo` ở `/usr/local/bin/nefo` vừa chạy panel, vừa có các lệnh dành cho root trên máy chủ: `nefo info` hiện địa chỉ của panel, `nefo reset-password` đặt mật khẩu mới (và có thể tắt 2FA), `nefo update` cài bản phát hành mới nhất, và `nefo setup` cài phần mềm. Hãy chạy mọi lệnh bằng root.
 
-## Các lệnh
+Trang này liệt kê các lệnh, rồi hướng dẫn quản lý dịch vụ `nefo` và giải thích tệp cấu hình.
+
+## Các lệnh {#commands}
 
 | Lệnh | Tác dụng |
 |---|---|
@@ -15,14 +17,16 @@ Chương trình `nefo` ở `/usr/local/bin/nefo` vừa chạy panel, vừa có v
 | `nefo reset-password` | Đặt mật khẩu ngẫu nhiên mới và đăng xuất mọi phiên |
 | `nefo update` | Cài bản phát hành mới nhất và khởi động lại panel |
 | `nefo setup` | Cài web server, các phiên bản PHP, máy chủ cơ sở dữ liệu và các thành phần thêm |
+| `nefo unlock-files` | Trả lại tệp cho các website đang bị khóa (trước khi bạn gỡ panel) |
+| `nefo decrypt-backup` | Giải mã một bản sao lưu đã được kho lưu trữ từ xa mã hóa |
 | `nefo version` | Hiện phiên bản |
 | `nefo init` | Tạo tệp cấu hình và tài khoản quản trị đầu tiên |
 | `nefo serve` | Chạy panel (systemd làm việc này cho bạn) |
 | `nefo help` | Hiện danh sách lệnh |
 
-Chạy `nefo <lệnh> -h` để xem các tùy chọn của một lệnh. Tùy chọn viết với một hay hai dấu gạch đều được: `-port` và `--port` là như nhau.
+Chạy `nefo <command> -h` để xem các tùy chọn của một lệnh. Tùy chọn viết với một hay hai dấu gạch đều được: `-port` và `--port` là như nhau.
 
-Mọi lệnh, trừ `version` và `help`, đều đọc tệp cấu hình `/etc/nefo/config.json`. Muốn dùng tệp khác, thêm `--config /đường/dẫn/config.json`, hoặc đặt biến môi trường `NEFO_CONFIG`.
+Mọi lệnh, trừ `version`, `help` và `decrypt-backup`, đều đọc tệp cấu hình `/etc/nefo/config.json`. Muốn dùng tệp khác, thêm `--config /path/to/config.json`, hoặc đặt biến môi trường `NEFO_CONFIG`.
 
 ## nefo info
 
@@ -77,7 +81,7 @@ Two-factor authentication is off. Turn it on again after signing in.
 | Tùy chọn | Tác dụng |
 |---|---|
 | `--disable-2fa` | Tắt luôn xác thực hai lớp |
-| `--user` | Tên tài khoản (mặc định `admin`) |
+| `--user` | Tên tài khoản (mặc định `admin`, tài khoản duy nhất của panel) |
 | `--config` | Tệp cấu hình cần đọc |
 
 Panel vẫn chạy bình thường, bạn không cần khởi động lại. Việc đặt lại được ghi vào nhật ký hoạt động.
@@ -137,7 +141,7 @@ Khi panel đang chạy, `nefo setup` nhờ panel thực hiện việc cài đặ
 |---|---|
 | `--web` | `nginx`, `apache`, `openlitespeed` hoặc `none`. Web server đi kèm phiên bản PHP của hệ điều hành |
 | `--php` | Các phiên bản PHP, cách nhau bằng dấu phẩy, ví dụ `8.3,8.4`, hoặc `none` |
-| `--db` | `mariadb`, `mysql` hoặc `none`. `--mariadb` giống `--db mariadb` |
+| `--db` | `mariadb`, `mysql` hoặc `none`; `mariadb-11.4`, `mariadb-11.8` hoặc `mariadb-12.3` để cài một dòng LTS từ kho của MariaDB, khi máy chủ hỗ trợ (xem [Phiên bản MariaDB](./databases#mariadb-versions)). `--mariadb` giống `--db mariadb` |
 | `--redis`, `--node`, `--python`, `--docker` | Cài thêm Redis, Node.js (bản LTS mới nhất), Python cho website ứng dụng, hoặc Docker |
 | `--adminer`, `--waf` | Cài thêm Adminer hoặc tường lửa web. Cả hai đều cần web server |
 | `--clamav` | Cài thêm ClamAV, trên máy chủ có từ 2 GB RAM |
@@ -150,6 +154,50 @@ Khi panel đang chạy, `nefo setup` nhờ panel thực hiện việc cài đặ
 | `--config` | Tệp cấu hình cần đọc |
 
 Trình cài đặt nhận đúng các tùy chọn này để thiết lập máy chủ ngay trong lần cài (xem [Cài đặt](./install#set-the-server-up-in-the-same-run)).
+
+## nefo unlock-files
+
+Trả lại tệp cho mọi website đang bị khóa tệp (**Website** → (website) → **Khóa file**, xem [Chặn quốc gia và khóa file](./website-protection#lock-a-website-s-files)), với đúng chủ sở hữu, nhóm và quyền mà từng tệp có trước khi khóa, rồi xóa các nhóm khóa của website. Hãy chạy lệnh bằng root, khi panel đã dừng, trước khi gỡ Nefo (xem [Gỡ cài đặt](./uninstall#unlock-the-websites-files)).
+
+```sh
+systemctl stop nefo
+nefo unlock-files
+```
+
+```
+Unlocked the files of example.com
+Unlocked the files of blog.example.com
+```
+
+Khi không có website nào bị khóa, lệnh in `No website's files are locked.`
+
+| Tùy chọn | Tác dụng |
+|---|---|
+| `--config` | Tệp cấu hình cần đọc |
+
+## nefo decrypt-backup
+
+Giải mã một bản sao lưu đã được kho lưu trữ từ xa mã hóa (tệp `.tar.gz.enc`), ví dụ một bản bạn tải về từ Google Drive. Chỉ cần passphrase: lệnh chạy được trên bất kỳ máy chủ nào, kể cả máy chưa thiết lập panel, và không đọc tệp cấu hình. Xem [Khôi phục trên máy chủ mới](./restore-new-server#decrypt-a-copy-by-hand).
+
+```sh
+nefo decrypt-backup example.com_20261126-030000.tar.gz.enc
+```
+
+```
+Passphrase:
+Decrypted to example.com_20261126-030000.tar.gz
+SHA-256: 3f1c…
+```
+
+Passphrase không bao giờ được đưa trên dòng lệnh, nơi người dùng khác có thể nhìn thấy. Trong terminal, lệnh hỏi passphrase mà không hiện ký tự nào; nếu không có terminal, passphrase là dòng đầu tiên của đầu vào chuẩn (stdin) hoặc của `-passphrase-file`.
+
+| Tùy chọn | Tác dụng |
+|---|---|
+| `-o` | Tệp đầu ra. Mặc định là tên tệp đầu vào bỏ đi `.enc`. `-o -` ghi ra đầu ra chuẩn (stdout), ví dụ `nefo decrypt-backup -o - FILE.enc \| tar xz` |
+| `-passphrase-file` | Đọc passphrase từ dòng đầu tiên của tệp này |
+| `-force` | Thay tệp đầu ra nếu tệp đã tồn tại |
+
+Kết quả được ghi vào một tệp tạm và chỉ được đổi tên khi toàn bộ bản sao đã giải mã xong, nên passphrase sai hay tệp hỏng sẽ không để lại gì (trừ khi dùng `-o -`, khi đó phần cuối tệp được kiểm tra sau cùng). Tệp không được mã hóa thì được chép nguyên như cũ, kèm một ghi chú. Mã SHA-256 lệnh in ra là mã mà panel đã ghi lại cho bản sao lưu đó.
 
 ## nefo version
 
@@ -181,7 +229,7 @@ Lệnh chọn một cổng ngẫu nhiên từ 20000 đến 49999 và một đư�
 
 Chạy panel. Dịch vụ `nefo` khởi động nó bằng `nefo serve --config /etc/nefo/config.json`, nên bạn không cần tự chạy. Chạy thêm một bản nữa sẽ lỗi, vì dịch vụ đang dùng cổng đó.
 
-## Quản lý dịch vụ nefo
+## Quản lý dịch vụ nefo {#manage-the-nefo-service}
 
 | Lệnh | Tác dụng |
 |---|---|
@@ -194,7 +242,7 @@ Chạy panel. Dịch vụ `nefo` khởi động nó bằng `nefo serve --config 
 | `journalctl -u nefo -n 100 --no-pager` | Xem 100 dòng cuối |
 | `journalctl -u nefo --since "1 hour ago"` | Xem log trong một giờ qua |
 
-Khởi động lại panel không làm dừng website, database hay các dịch vụ khác. Bạn cũng có thể khởi động lại từ **Cài đặt → Panel → Khởi động lại panel**.
+Khởi động lại panel không làm dừng website, database hay các dịch vụ khác. Bạn cũng có thể khởi động lại từ **Cài đặt** → **Panel** → **Nguồn** → **Khởi động lại panel**.
 
 Khi dừng, panel để tác vụ đang chạy (như cài phần mềm) chạy xong trước, tối đa 75 giây. Nếu panel dừng vì lỗi, systemd tự bật lại sau 3 giây.
 

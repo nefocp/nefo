@@ -1,0 +1,477 @@
+{
+  "langLabel": "English",
+  "description": "A free, open-source control panel for your Linux server. Websites, databases, apps, backups and security in one light binary.",
+  "nav": {
+    "docs": "Docs",
+    "install": "Install",
+    "releases": "Releases",
+    "compare": "Compare",
+    "changelog": "Changelog",
+    "roadmap": "Roadmap",
+    "securityPolicy": "Security policy",
+    "about": "About",
+    "more": "More"
+  },
+  "groups": {
+    "Getting started": "Getting started",
+    "Websites": "Websites",
+    "Data": "Data",
+    "Server": "Server",
+    "Help": "Help"
+  },
+  "pages": {
+    "": "What is Nefo?",
+    "requirements": "Requirements",
+    "install": "Install",
+    "first-steps": "First steps",
+    "cli": "Command line",
+    "update": "Update",
+    "uninstall": "Uninstall",
+    "websites": "Websites",
+    "import": "Import websites",
+    "ssl": "SSL certificates",
+    "dns": "DNS (Cloudflare)",
+    "git-deploy": "Deploy from Git",
+    "wordpress": "WordPress toolkit",
+    "apps": "App store",
+    "databases": "Databases",
+    "postgresql": "PostgreSQL",
+    "files": "Files",
+    "backups": "Backups",
+    "restore-new-server": "Restore on a new server",
+    "software": "Software",
+    "docker": "Docker",
+    "security": "Security",
+    "security-check": "Security check",
+    "website-protection": "Country blocking and file lock",
+    "api": "API keys",
+    "os": "System",
+    "system": "System tools",
+    "mail-alerts": "Mail and alerts",
+    "troubleshooting": "Troubleshooting",
+    "faq": "FAQ"
+  },
+  "editLink": "Edit this page on GitHub",
+  "footer": {
+    "message": "Free software under the GNU AGPLv3.",
+    "copyright": "© 2026 the Nefo contributors",
+    "about": "A free, open-source control panel for one Linux server.",
+    "product": "Product",
+    "docs": "Docs",
+    "project": "Project",
+    "languages": "Languages",
+    "features": "Features",
+    "screens": "Screens",
+    "apps": "App store",
+    "issues": "Report a problem",
+    "beta": "Nefo is beta: keep backups."
+  },
+  "outline": "On this page",
+  "docFooter": {
+    "prev": "Previous page",
+    "next": "Next page"
+  },
+  "darkModeSwitchLabel": "Appearance",
+  "lightModeSwitchTitle": "Switch to light theme",
+  "darkModeSwitchTitle": "Switch to dark theme",
+  "sidebarMenuLabel": "Menu",
+  "returnToTopLabel": "Return to top",
+  "langMenuLabel": "Change language",
+  "skipToContentLabel": "Skip to content",
+  "notFound": {
+    "title": "PAGE NOT FOUND",
+    "quote": "This page doesn't exist or has moved.",
+    "linkLabel": "go to home",
+    "linkText": "Take me home",
+    "docsText": "Read the docs"
+  },
+  "search": {
+    "buttonText": "Search",
+    "buttonAriaLabel": "Search",
+    "noResultsText": "No results for",
+    "resetButtonTitle": "Clear",
+    "displayDetails": "Display detailed list",
+    "footer": {
+      "selectText": "to select",
+      "navigateText": "to navigate",
+      "closeText": "to close"
+    }
+  },
+  "lastUpdated": "Last updated",
+  "docMeta": {
+    "updated": "Updated",
+    "readTime": "{n} min read",
+    "release": "Current release",
+    "notes": "Release notes",
+    "released": "released {date}"
+  },
+  "llms": {
+    "summary": "Nefo is a free, open-source (AGPLv3) control panel for one Linux server: websites, SSL, databases, one-click apps, backups and a security check from a web interface. It is a single program that uses about {ram} of RAM, and nothing is sent home.",
+    "facts": [
+      "Current version: {version} ({status}), released {date}.",
+      "Runs on Ubuntu 22.04, 24.04 and 26.04 and Debian 12 and 13, tested on x86-64; built for a VPS with 1 GB of RAM.",
+      "Install as root on a fresh server: `curl -fsSL https://github.com/nefocp/nefo/releases/latest/download/install.sh | sudo bash`",
+      "The panel itself uses about {ram} of RAM, measured on a live server.",
+      "{apps} apps in the app store; the interface in {languages} languages.",
+      "Free software under the GNU AGPLv3. No account, no telemetry, every feature free.",
+      "Not included by design: a mail server, a DNS server, several servers in one panel."
+    ]
+  },
+  "home": {
+    "title": "Nefo: a free, open-source control panel for your Linux server",
+    "metaDesc": "Websites, SSL, databases, {apps} one-click apps, backups and a security check for one Linux server. Open source (AGPLv3), about {ram} of RAM, nothing sent home.",
+    "ogAlt": "Nefo, a free and open-source control panel for Linux servers, with its dashboard",
+    "releaseBar": {
+      "text": "Nefo {version} is out: the interface in {languages} languages, backups to Google Drive, restore on a new server, a security check.",
+      "short": "Nefo {version} is out.",
+      "link": "Release notes"
+    },
+    "badges": {
+      "license": "Open source · AGPLv3",
+      "version": "v{version} · beta"
+    },
+    "h1": "A free control panel for your <em>Linux server</em>",
+    "lead": "Websites, SSL, databases, {apps} one-click apps, backups and a security check in one web interface. Nefo is a single program that uses about {ram} of RAM. Every feature is free, and nothing is sent home.",
+    "ctaInstall": "Install Nefo",
+    "ctaDocs": "Read the docs",
+    "cmdTitle": "as root, on a fresh server",
+    "copy": "Copy",
+    "copied": "Copied",
+    "languages": "{languages} languages",
+    "shotAlt": "The Nefo dashboard: server load, CPU, memory and disk, counts of websites, databases and backups, resource history and what needs attention",
+    "phoneAlt": "The Nefo dashboard on a phone",
+    "stackLabel": "Installs and manages",
+    "tour": {
+      "eyebrow": "The panel",
+      "h2": "Screens from Nefo {version}",
+      "lead": "Taken on a test server with eight websites and two Docker apps; the week of load and traffic history is sample data. Pick a page, and switch the window between light and dark.",
+      "light": "Light",
+      "dark": "Dark",
+      "docs": "In the docs",
+      "tabs": {
+        "websites": {
+          "label": "Websites",
+          "caption": "Every site with its <b>type, PHP version, certificate, visits and backups</b>: PHP, static, WordPress, Node.js, Docker apps and reverse proxies in one list.",
+          "alt": "The Websites page: eight websites with their type, PHP version, certificate, visits and backups"
+        },
+        "site": {
+          "label": "Site settings",
+          "caption": "One drawer per website: <b>domain, PHP, SSL, access, Git, backups, logs and security</b>, without leaving the list.",
+          "alt": "The settings drawer of one website, with its domain, PHP, SSL, access, Git, backups, logs and security tabs"
+        },
+        "apps": {
+          "label": "App store",
+          "caption": "<b>{apps} apps</b> by category. PHP apps go into a website with their own database; Docker apps get a website of their own.",
+          "alt": "The App store page: apps by category, each with a one-click install button"
+        },
+        "databases": {
+          "label": "Databases",
+          "caption": "<b>MariaDB, PostgreSQL and Redis on one page</b>, each database linked to its website, with its size, access, import and export.",
+          "alt": "The Databases page: MariaDB and PostgreSQL databases with their website, size and access, and Redis"
+        },
+        "backups": {
+          "label": "Backups",
+          "caption": "Copies on this server and on <b>SFTP, S3 or Google Drive</b>, schedules with retention, restore after a checksum check.",
+          "alt": "The Backups page: backups of websites, databases, folders and apps, kept on this server and on SFTP"
+        },
+        "security": {
+          "label": "Security check",
+          "caption": "<b>22 checks of the server</b>, each with what was found and a link to the fix.",
+          "alt": "The Security check page: 22 checks of the server, each with its result and a link to the fix"
+        },
+        "software": {
+          "label": "Software",
+          "caption": "What is installed, <b>what each part costs in RAM and disk</b>, and what you can add or remove.",
+          "alt": "The Software page: the web server and PHP versions, with the memory each one needs"
+        }
+      }
+    },
+    "features": {
+      "eyebrow": "Features",
+      "h2": "What Nefo does",
+      "lead": "Install only what you use. The menu hides what isn't installed, and every part can be removed again.",
+      "more": "Read more",
+      "rows": {
+        "web": {
+          "kicker": "Websites",
+          "h3": "PHP, Node.js, Python and Java sites, or a proxy to any address",
+          "p": "Each website gets its own Linux user, its own PHP settings and a free certificate, on Nginx, Apache or OpenLiteSpeed.",
+          "ticks": [
+            "PHP 5.6 to 8.6 side by side, a version per site",
+            "Let's Encrypt certificates that renew themselves, wildcard through Cloudflare DNS, or your own",
+            "SFTP locked to the site's folder, with a password or SSH keys",
+            "Clone a site, make a WordPress staging copy, deploy from Git on every push",
+            "Import from a cPanel full backup, or a site archive and SQL dump"
+          ],
+          "alt": "The settings drawer of a website in Nefo",
+          "more": "Websites in the docs"
+        },
+        "db": {
+          "kicker": "Databases",
+          "h3": "MariaDB or MySQL, PostgreSQL and Redis",
+          "p": "Databases are linked to their website, so its backup includes them. Upgrades make a dump first and roll back if something fails.",
+          "ticks": [
+            "MariaDB 11.4, 11.8 or 12.3 LTS, or MySQL 8.4, and a switch between them with the data",
+            "PostgreSQL 15 to 19, with remote access per database over TLS",
+            "Remote access per database, only from the addresses you allow",
+            "Adminer and phpMyAdmin, reachable only through the panel's sign-in",
+            "A Redis key browser, and Memcached"
+          ],
+          "alt": "The list of databases in Nefo, each linked to its website",
+          "more": "Databases in the docs"
+        },
+        "bak": {
+          "kicker": "Backups",
+          "h3": "Backups to S3, SFTP or Google Drive, encrypted if you like",
+          "p": "Websites, databases, folders and Docker apps, by hand or every day or week, with the number of copies to keep.",
+          "ticks": [
+            "S3-compatible storage: AWS S3, Cloudflare R2, Backblaze B2, Wasabi, MinIO",
+            "SFTP with the host key pinned; Google Drive with access only to the files Nefo creates",
+            "Encryption with your passphrase (scrypt and AES-256-GCM) before a copy leaves the server",
+            "Restore checks the SHA-256 first; a new server finds the backups on a storage and creates the websites again"
+          ],
+          "alt": "The list of backups in Nefo, with where each copy is stored",
+          "more": "Backups in the docs"
+        },
+        "sec": {
+          "kicker": "Security",
+          "h3": "A security check of the whole server",
+          "p": "22 quick checks, on demand or once a day, each with what was found and a link to the fix. Nothing keeps running between checks.",
+          "ticks": [
+            "SSH, firewall, pending updates, databases or Redis open to the internet, Docker ports that skip ufw",
+            "Files reachable over HTTP, certificates, PHP settings",
+            "Web application firewall (ModSecurity with OWASP rules), rate limits, blocked addresses, country blocking",
+            "File lock that keeps a website's code read-only for PHP; malware scanner with quarantine",
+            "Alerts for SSH sign-ins and bursts of failed logins"
+          ],
+          "alt": "The results of the security check in Nefo",
+          "more": "Security in the docs"
+        },
+        "sw": {
+          "kicker": "Software",
+          "h3": "Install and remove software from one page",
+          "p": "Each part shows its RAM and disk cost before you install it. Removal is refused while a website or database still uses it, and data is kept unless you confirm.",
+          "ticks": [
+            "Web server, PHP 5.6 to 8.6 with the ionCube Loader, MariaDB or MySQL, PostgreSQL",
+            "Redis, Memcached, Node.js, Python, Java (OpenJDK 17, 21, 25), Composer, WP-CLI",
+            "Docker with Compose projects, checked for privileged containers and public ports",
+            "Web application firewall and ClamAV, only if you want them"
+          ],
+          "alt": "The Software page of Nefo, with the memory each part needs",
+          "more": "Software in the docs"
+        }
+      },
+      "alsoTitle": "Also in the panel",
+      "also": {
+        "files": {
+          "title": "File manager",
+          "text": "Editor, search, download from a URL, a 30-day trash."
+        },
+        "terminal": {
+          "title": "Terminal",
+          "text": "A root shell in the browser."
+        },
+        "cron": {
+          "title": "Cron and background programs",
+          "text": "Kept running by systemd as the site's user."
+        },
+        "monitoring": {
+          "title": "Monitoring",
+          "text": "Live load, 7 days of history, uptime checks per website."
+        },
+        "alerts": {
+          "title": "Alerts",
+          "text": "Telegram, e-mail, Discord, Slack or a signed webhook."
+        },
+        "dns": {
+          "title": "Cloudflare DNS",
+          "text": "Records, cache purge, and MX, SPF and DMARC for your mail provider."
+        },
+        "wordpress": {
+          "title": "WordPress toolkit",
+          "text": "Updates with a database backup first, staging, maintenance mode."
+        },
+        "docker": {
+          "title": "Docker",
+          "text": "Containers, images and Compose projects."
+        },
+        "api": {
+          "title": "API keys",
+          "text": "Read-only or full, an address allow-list and an expiry date."
+        }
+      }
+    },
+    "apps": {
+      "eyebrow": "App store",
+      "h2": "{apps} apps, installed in one click",
+      "lead": "PHP apps go into a website with their own database. Docker apps run behind a website of their own, which stays closed until their default logins are replaced.",
+      "all": "All",
+      "showAll": "Show all {apps} apps",
+      "showLess": "Show fewer",
+      "docs": "App store in the docs",
+      "kinds": {
+        "php": "PHP app",
+        "docker": "Docker app",
+        "service": "Service"
+      },
+      "cats": {
+        "cms": "Websites & content",
+        "ecommerce": "Shops & business",
+        "education": "Education",
+        "productivity": "Productivity",
+        "storage": "Files & storage",
+        "ai": "AI",
+        "devtools": "Developer tools",
+        "database": "Databases",
+        "monitoring": "Monitoring",
+        "security": "Security & network",
+        "media": "Media",
+        "communication": "Communication"
+      }
+    },
+    "install": {
+      "eyebrow": "Install",
+      "h2": "One command on a fresh server",
+      "lead": "The installer sets up one program and a systemd service. Then you choose the rest of the software on a setup page.",
+      "steps": [
+        {
+          "title": "Get a fresh server",
+          "text": "Ubuntu 22.04, 24.04 or 26.04, or Debian 12 or 13, on x86-64. Built for a VPS with 1 GB of RAM."
+        },
+        {
+          "title": "Run the installer as root",
+          "text": "It checks the release's Ed25519 signature and checksum, installs <code>/usr/local/bin/nefo</code> and a systemd service, and picks a random port and a secret path."
+        },
+        {
+          "title": "Sign in and choose your software",
+          "text": "Open the address it prints and sign in with the one-time password. On the setup page, pick the web server, PHP versions and database, with their RAM and disk cost."
+        }
+      ],
+      "guide": "The install guide"
+    },
+    "compare": {
+      "eyebrow": "Compare",
+      "h2": "Nefo and other panels",
+      "lead": "The differences in short. Other panels vary; the right column is what you often find.",
+      "us": "Nefo",
+      "them": "Other panels, often",
+      "rows": [
+        {
+          "label": "The panel's own memory",
+          "us": "About {ram}",
+          "them": "Often hundreds of MB",
+          "mark": "yes"
+        },
+        {
+          "label": "Account needed to use it",
+          "us": "No",
+          "them": "Required by many",
+          "mark": "yes"
+        },
+        {
+          "label": "Telemetry",
+          "us": "None",
+          "them": "Varies",
+          "mark": "yes"
+        },
+        {
+          "label": "Sign-in page",
+          "us": "Only on a secret path; every other address answers 404",
+          "them": "On a well-known port and path",
+          "mark": "yes"
+        },
+        {
+          "label": "Updates",
+          "us": "Signed with Ed25519 and checked before they install",
+          "them": "Varies",
+          "mark": "yes"
+        },
+        {
+          "label": "Lock-out guards for firewall and SSH",
+          "us": "Yes",
+          "them": "Rare",
+          "mark": "yes"
+        },
+        {
+          "label": "Source code",
+          "us": "All of it, AGPLv3",
+          "them": "Closed, partly open or open",
+          "mark": "yes"
+        },
+        {
+          "label": "Mail and DNS servers",
+          "us": "Not included, by design",
+          "them": "Often included",
+          "mark": "na"
+        },
+        {
+          "label": "Several servers in one panel",
+          "us": "No, one panel per server",
+          "them": "Some",
+          "mark": "na"
+        }
+      ],
+      "note": "Memory measured on a live server running Nefo {version}.",
+      "more": "The full comparison"
+    },
+    "faq": {
+      "eyebrow": "FAQ",
+      "h2": "Questions people ask",
+      "lead": "More in the <a href=\"{docs}\">documentation</a> and its <a href=\"{faq}\">FAQ</a>.",
+      "items": [
+        {
+          "q": "Is Nefo really free?",
+          "a": "Yes. Every feature is in the one version, under the AGPLv3. There is no account to create and nothing is sent home."
+        },
+        {
+          "q": "Which systems does it run on?",
+          "a": "Ubuntu 22.04, 24.04 and 26.04, and Debian 12 and 13, on x86-64, each tested on a fresh server. It is built for a VPS with 1 GB of RAM."
+        },
+        {
+          "q": "How much memory does it use?",
+          "a": "About {ram} of RAM for the panel itself, measured on a live server running Nefo {version}. The software you install next to it, such as the web server, PHP and the database, uses its own."
+        },
+        {
+          "q": "Can I move my websites from another panel?",
+          "a": "Yes: from a cPanel full backup (files, databases with their users and passwords, certificates, cron jobs), or from a site archive and an SQL dump made by any other panel."
+        },
+        {
+          "q": "Does it include a mail server?",
+          "a": "No, on purpose: a mail server needs a lot of care and memory. Websites send mail through your SMTP provider, and the DNS page sets up MX, SPF and DMARC for Google Workspace, Microsoft 365, Zoho or Cloudflare Email Routing."
+        },
+        {
+          "q": "Is it ready for production?",
+          "a": "Nefo is beta. It is in daily use on test servers but has not had an outside security audit yet. Keep backups, and try it first on a server you can rebuild."
+        },
+        {
+          "q": "Which languages does the interface speak?",
+          "a": "English, Vietnamese, Chinese, Spanish, Portuguese, Russian and Indonesian. The browser loads only the language in use."
+        },
+        {
+          "q": "How do I update it?",
+          "a": "Run <code>nefo update</code> on the server. Every release is signed with Ed25519, and the signature is checked before the update installs."
+        }
+      ]
+    },
+    "help": {
+      "docs": {
+        "title": "Documentation",
+        "text": "Every page of the panel explained, with the labels you see on screen."
+      },
+      "github": {
+        "title": "Source on GitHub",
+        "text": "Read the code, report a problem or follow the work."
+      },
+      "releases": {
+        "title": "Release notes",
+        "text": "What changed in each version, {version} included."
+      }
+    },
+    "band": {
+      "h2": "Try it on a server you can rebuild",
+      "p": "One command installs the panel and prints its address and a one-time password.",
+      "install": "Install Nefo",
+      "github": "Source on GitHub"
+    }
+  }
+}

@@ -5,22 +5,22 @@ description: Kiểm tra và cập nhật các website WordPress sau khi sao lưu
 
 # Công cụ WordPress
 
-Công cụ WordPress cho biết phiên bản và các bản cập nhật đang chờ của từng website WordPress, cập nhật chỉ với một lần bấm sau khi sao lưu database, và bật tắt chế độ bảo trì, chế độ debug, tự động cập nhật. Công cụ này còn đặt lại mật khẩu quản trị, tạo bản sao staging và đẩy bản staging lên website chính.
+Công cụ WordPress của Nefo cho biết phiên bản và các bản cập nhật đang chờ của từng website WordPress, và cập nhật WordPress, plugin và giao diện chỉ với một lần bấm sau khi sao lưu database. Công cụ này còn bật tắt chế độ bảo trì, chế độ debug và tự động cập nhật, đặt lại mật khẩu quản trị, và tạo bản sao staging mà bạn có thể đẩy ngược lên website chính.
 
 Công cụ áp dụng cho các website WordPress do Nefo cài: từ [Kho ứng dụng](./apps), bằng nút **Cài WordPress** trên một website PHP trống, hoặc là một bản staging. WordPress bạn tự tải lên sẽ không xuất hiện ở đây. Mục **WordPress** ở menu bên trái chỉ hiện khi máy chủ đã có website WordPress.
 
 Công cụ dùng wp-cli, được Nefo tải bản phát hành mới nhất về ở lần dùng đầu và kiểm tra với checksum SHA-512 mà bản phát hành công bố. **Phần mềm** → **Công cụ** hiện phiên bản của nó và cho phép cập nhật (xem [Phần mềm](./software#tools)). wp-cli chạy bằng user Linux riêng của từng website với phiên bản PHP của website đó, và không nạp plugin hay giao diện, nên một plugin lỗi không gây cản trở.
 
-## Cài WordPress
+## Cài WordPress {#install-wordpress}
 
 Có hai cách:
 
 - **Kho ứng dụng**: cài WordPress hoặc WooCommerce vào một website PHP trống. Xem [Kho ứng dụng](./apps).
 - **Từ một website PHP trống**: mở tab **Tổng quan** của website rồi bấm **Cài WordPress**. Điền **Tên website**, **Tên đăng nhập quản trị** (đừng dùng `admin`: đó là tên kẻ tấn công thử đầu tiên), **Email quản trị** và **Mật khẩu quản trị**, hoặc để trống mật khẩu để panel tạo mật khẩu mạnh. Mật khẩu tự nhập cần 12 đến 128 ký tự, giống như trong kho ứng dụng. Bấm **Cài WordPress**.
 
-WordPress cần MariaDB: hãy cài trước ở trang **Cơ sở dữ liệu** (xem [Cơ sở dữ liệu](./databases)). Nên bật HTTPS trước khi cài để WordPress dùng địa chỉ `https://` ngay từ đầu; nếu bật sau, Nefo sẽ tự chuyển WordPress sang. Hãy lưu thông tin đăng nhập khi nó hiện ra: mật khẩu sẽ không hiện lại.
+WordPress cần MariaDB hoặc MySQL: hãy cài trước ở trang **Cơ sở dữ liệu** (xem [Cơ sở dữ liệu](./databases)). Nên bật HTTPS trước khi cài để WordPress dùng địa chỉ `https://` ngay từ đầu; nếu bật sau, Nefo sẽ tự chuyển WordPress sang. Hãy lưu thông tin đăng nhập khi nó hiện ra: mật khẩu sẽ không hiện lại.
 
-## Danh sách website
+## Danh sách website {#the-site-list}
 
 Mở **WordPress** ở menu bên trái. Với mỗi website, bảng hiện:
 
@@ -35,7 +35,7 @@ Nefo kiểm tra từng website khi bạn mở trang. Nút **Kiểm tra lại** �
 
 Menu ở cuối mỗi dòng chứa các thao tác bên dưới. Tab **WordPress** của từng website cũng có đủ các thao tác và công tắc này, cùng nút **WP Admin**.
 
-## Cập nhật WordPress, plugin và giao diện
+## Cập nhật WordPress, plugin và giao diện {#update-wordpress-plugins-and-themes}
 
 1. Bấm **Cập nhật tất cả** trên dòng của website, hoặc ở tab **WordPress** của website.
 2. Xác nhận: "Sao lưu database của example.com, rồi cập nhật WordPress, mọi plugin và mọi giao diện?"
@@ -46,15 +46,15 @@ Việc cập nhật chạy nền kèm nhật ký:
 2. Nefo cập nhật WordPress và database của nó, rồi mọi plugin và mọi giao diện.
 3. Website đang ở chế độ bảo trì thì vẫn giữ chế độ bảo trì.
 
-Nếu có plugin hay giao diện không cập nhật được, nhật ký ghi lý do và tên file sao lưu database. Muốn quay lại, hãy tải file sao lưu về từ **Tệp tin** rồi nhập vào ở trang **Cơ sở dữ liệu**: xem [Cơ sở dữ liệu](./databases). Muốn có cả bản sao file, hãy dùng [Sao lưu](./backups).
+Nếu có plugin hay giao diện không cập nhật được, nhật ký ghi lý do và tên file sao lưu database. Trên website đã [khóa file](./website-protection#lock-a-website-s-files), công cụ mở khóa file để cập nhật, bật tắt chế độ bảo trì, chế độ debug và tự động cập nhật, rồi khóa lại sau đó. Khi file đang bị khóa, bản thân WordPress không cập nhật được gì: hãy cập nhật ở đây. Muốn quay lại, hãy tải file sao lưu về từ **Tệp tin** rồi nhập vào ở trang **Cơ sở dữ liệu**: xem [Cơ sở dữ liệu](./databases). Muốn có cả bản sao file, hãy dùng [Sao lưu](./backups).
 
-## Chế độ bảo trì
+## Chế độ bảo trì {#maintenance-mode}
 
 Chọn **Bật chế độ bảo trì**, hoặc bật công tắc **Chế độ bảo trì** ở tab **WordPress** của website. Khách truy cập sẽ thấy trang bảo trì của WordPress (HTTP 503). Chế độ này giữ nguyên cho tới khi bạn tắt trong panel bằng **Tắt chế độ bảo trì**.
 
 Chế độ bảo trì là trang của chính WordPress. Muốn đóng cả website ở tầng web server, hãy tạm ngưng website: xem [Website](./websites).
 
-## Chế độ debug
+## Chế độ debug {#debug-mode}
 
 Chọn **Bật chế độ debug**, hoặc bật công tắc **Chế độ gỡ lỗi**. Nefo đặt `WP_DEBUG` và `WP_DEBUG_LOG` trong `wp-config.php` và giữ `WP_DEBUG_DISPLAY` tắt, nên lỗi được ghi vào nhật ký và không bao giờ hiện cho khách:
 
@@ -63,7 +63,7 @@ Chọn **Bật chế độ debug**, hoặc bật công tắc **Chế độ gỡ 
 
 Xong việc thì tắt bằng **Tắt chế độ debug**.
 
-## Tự động cập nhật
+## Tự động cập nhật {#automatic-updates}
 
 **Bật tự động cập nhật** cho WordPress tự cập nhật mọi thứ: WordPress kể cả phiên bản lớn, mọi plugin và mọi giao diện.
 
@@ -71,7 +71,7 @@ Xong việc thì tắt bằng **Tắt chế độ debug**.
 
 Cài đặt này áp dụng cho các plugin và giao diện đang có lúc bạn bật. Với plugin và giao diện thêm sau, hãy tắt rồi bật lại.
 
-## Đặt lại mật khẩu quản trị
+## Đặt lại mật khẩu quản trị {#reset-an-administrator-password}
 
 1. Chọn **Đặt lại mật khẩu quản trị**.
 2. Chọn tài khoản ở ô **Quản trị viên**. Danh sách gồm các user mang vai trò quản trị.
@@ -80,7 +80,7 @@ Cài đặt này áp dụng cho các plugin và giao diện đang có lúc bạn
 
 Nefo hiện mật khẩu mới một lần, kèm nút **Đăng nhập**. Tài khoản bị đăng xuất trên mọi thiết bị.
 
-## Tạo bản staging
+## Tạo bản staging {#make-a-staging-copy}
 
 Bản staging là một website thứ hai chứa bản sao của website, để bạn thử thay đổi mà không đụng tới website thật. Website thật vẫn chạy trong lúc sao chép.
 
@@ -145,4 +145,6 @@ Cài đặt trong `wp-config.php` không bao giờ được đẩy lên: hãy t�
 
 ## Xóa bản staging {#delete-a-staging-copy}
 
-Muốn xóa bản staging, hãy xóa website của nó và giữ dấu chọn **Xóa luôn các database gắn với website này**: xem [Website](./websites).
+Muốn xóa bản staging, hãy xóa website của nó và đánh dấu **Xóa luôn các database của website**: xem [Xóa website](./websites#delete-a-website). Xóa bản staging không làm thay đổi website chính của nó.
+
+Xóa website chính thì bản staging vẫn còn, nhưng không đẩy lên được nữa: hộp thoại xóa ghi "Đây là website chính của bản staging …".

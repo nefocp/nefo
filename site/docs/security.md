@@ -1,15 +1,24 @@
 ---
 title: Security
-description: How Nefo protects its own sign-in, and how to use the firewall, fail2ban, SSH settings, the web application firewall and the malware scanner.
+description: How Nefo protects its own sign-in, and how to use the security check, the firewall, fail2ban, SSH settings, the web application firewall, country blocking, the file lock and the malware scanner.
 ---
 
 # Security
 
-Nefo has root access to your server, so it protects its own sign-in first. It also gives you tools to protect the server and your websites. This page covers:
+Nefo runs as root, so it protects its own sign-in first: a secret address on a random port, HTTPS from the first start, two-factor authentication, sign-in limits and an activity log. It also manages the server's firewall (ufw), fail2ban and SSH settings with lock-out guards, and protects websites with a web application firewall, rate limits, blocked addresses and a malware scanner.
+
+This page covers:
 
 - the panel's own protection: the hidden address, HTTPS, sign-in limits, two-factor authentication, sessions and the activity log;
+- the [security check](./security-check), which lists the settings that leave the server open and where to fix each one;
 - the server's firewall (ufw), fail2ban and SSH settings, on the **Firewall & SSH** page;
-- website security: the web application firewall, rate limits, blocked addresses and the malware scanner.
+- website security: the web application firewall, rate limits, blocked addresses, country blocking, the file lock and the malware scanner.
+
+Nefo is beta and has not had an outside security audit yet. See the [security policy](../security-policy).
+
+## Security check
+
+**Security check**, in the **Security** group of the left menu, runs 22 quick checks of the server, such as SSH password sign-in, the firewall, waiting security updates, databases open to the internet, Docker ports, files a website serves by mistake and certificates. Each finding links to the page that fixes it. It runs on demand and once a day. See [Security check](./security-check).
 
 ## The panel's own protection
 
@@ -92,7 +101,7 @@ Nefo has no backup codes. You recover through the server: sign in over SSH as ro
 nefo reset-password --disable-2fa
 ```
 
-This sets a new random password for the `admin` account, turns off 2FA, signs out all sessions and prints the new password. Sign in with it, change the password and set up 2FA again. For another account, add `--user` and its name. See [Command line](./cli).
+This sets a new random password for the `admin` account, turns off 2FA, signs out all sessions and prints the new password. Sign in with it, change the password and set up 2FA again. See [Command line](./cli).
 
 ::: warning
 Without your phone, root access to the server is the only way back into the panel. Keep your SSH key or root password, or your provider's web console, safe.
@@ -174,7 +183,7 @@ These guards stop you from locking yourself out:
 
 To let only your own address reach the panel: add an **Allow** rule for the panel's port with your address in **From**, then delete the rule that allows the port from anywhere (and its IPv6 copy). If your address changes later, use your provider's web console to run `ufw allow <port>/tcp`.
 
-Rules for remote database access (port 3306) are added and removed from the **Databases** page. Change them there. See [Databases](./databases).
+Rules for remote database access (port 3306 for MariaDB and MySQL, the cluster's port, 5432 by default, for PostgreSQL) are added and removed from the **Databases** page. Change them there. See [Databases](./databases#allow-remote-access) and [PostgreSQL](./postgresql#postgresql-remote-access).
 
 ## Brute-force protection (fail2ban) {#brute-force-protection-fail2ban}
 
@@ -226,9 +235,9 @@ Keep your current SSH session open after you save. Open a new connection and che
 
 - Settings with which nobody could sign in over SSH any more. For example: turning off password sign-in while no account has an SSH key; root sign-in **With an SSH key only** while root has no key; or root **Not allowed** while no other account can sign in.
 - A port that is already taken: the panel's own port, 80, 443, or any port another program listens on.
-
-To decide, the panel looks at root and at the people's accounts (UID 1000 and up) with a login shell: their keys in `~/.ssh/authorized_keys` (or the files set by `AuthorizedKeysFile`), their passwords, and `AllowUsers`, `DenyUsers`, `AllowGroups` and `DenyGroups`. It doesn't read `Match` blocks. The page lists who can sign in now, and how (key or password). When root has no key, it also shows a warning with an **Add key** button (see [SSH keys](#ssh-keys)).
 - A new port when SSH is started by systemd socket activation. The page then shows **socket activated** and the port field is locked. Change the port on the command line.
+
+To decide whether someone could still sign in, the panel looks at root and at the people's accounts (UID 1000 and up) with a login shell: their keys in `~/.ssh/authorized_keys` (or the files set by `AuthorizedKeysFile`), their passwords, and `AllowUsers`, `DenyUsers`, `AllowGroups` and `DenyGroups`. It doesn't read `Match` blocks. The page lists who can sign in now, and how (key or password). When root has no key, it also shows a warning with an **Add key** button (see [SSH keys](#ssh-keys)).
 
 SSH can't be stopped from the **Services** page, only restarted or reloaded.
 
@@ -300,7 +309,7 @@ Each website has its own security settings. Go to **Websites**, open the website
 
 The web application firewall (WAF) is ModSecurity with the OWASP Core Rule Set, both free and open source. It checks every request and stops SQL injection, cross-site scripting (XSS), file inclusion, known scanners and other common attacks. It works with Nginx, Apache and OpenLiteSpeed.
 
-1. Install it once: **Software** → **Web firewall (ModSecurity)** → **Install**. Websites keep the firewall off until you turn it on.
+1. Install it once: **Software** → **Web firewall (ModSecurity)** → **Install**. Websites keep the firewall off until you turn it on. Where the distribution has no ModSecurity module for the web server, the card says so and offers no install: Ubuntu 22.04 has none for Nginx, while Apache and OpenLiteSpeed work there, and Nginx works from Ubuntu 24.04 on.
 2. Go to **Websites** → (site) → **Web firewall (WAF)**.
 3. Choose a mode:
    - **Off**
@@ -321,7 +330,7 @@ Go to **Websites** → (site) → **Block access**.
 - **Rate limit (requests per second per visitor, 0 = off)**: counts PHP and app requests only, not images, CSS or scripts. Bursts of up to five times the limit are allowed; above that, visitors get HTTP 429. 10 suits most websites, and the highest value is 1000. Only Nginx has this setting: on Apache and OpenLiteSpeed it isn't shown.
 - **Blocked IP addresses**: one IPv4 or IPv6 address or range per line, such as `203.0.113.7` or `198.51.100.0/24`, up to 200 per website. Blocked visitors get HTTP 403.
 
-Select **Save**. Both work on their own, without the web application firewall. The same tab has **Password protection**, described in [Websites](./websites).
+Select **Save**. Both work on their own, without the web application firewall, and on every website type, reverse proxy websites included. The same tab has **Password protection**, described in [Websites](./websites#suspend-redirect-or-password-protect-a-website).
 
 ### Malware scan
 
@@ -377,6 +386,10 @@ ClamAV is an optional, extra scan engine.
 
 ClamAV needs about 1.4 GB of free memory while it scans, so it suits servers with 2 GB or more. If less memory is free, the panel skips ClamAV and says so in the report. ClamAV runs at the lowest CPU priority and skips files over 25 MB. Its findings are marked high.
 
+### Country blocking and file lock
+
+Each website also has **Country blocking**, which refuses visitors from the countries you list or lets in only those, and a **File lock**, which makes the website's code read-only for its PHP and its SFTP account except the folders it must write to. See [Country blocking and file lock](./website-protection).
+
 ## SSH sign-in history
 
-The list of SSH sign-ins and failed attempts is on the **Processes** page. See [SSH sign-ins](./system#ssh-sign-ins).
+The list of SSH sign-ins and failed attempts is on the **Processes** page. See [SSH sign-ins](./system#ssh-sign-ins). To get a message when someone signs in over SSH or to the panel, or when SSH sign-ins keep failing, see [Sign-in alerts](./mail-alerts#sign-in-alerts).

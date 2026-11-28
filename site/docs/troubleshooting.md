@@ -5,7 +5,9 @@ description: Fixes for the most common problems with Nefo, from a panel you can'
 
 # Troubleshooting
 
-This page covers the problems people run into most often, with the fix for each. Most fixes need SSH access to the server as root. If SSH doesn't work either, use the web console in your provider's control panel.
+Most problems with Nefo have a short fix on the server, as root: `nefo info` shows a lost panel address, `nefo reset-password` sets a new password (with `--disable-2fa` it also turns off two-factor sign-in), and `journalctl -u nefo` shows why the panel doesn't start. This page also covers certificate errors, websites that show 502 or 503, and failed restores.
+
+Most fixes need SSH access to the server as root. If SSH doesn't work either, use the web console in your provider's control panel.
 
 ## You can't open the panel
 
@@ -110,7 +112,7 @@ Until the panel has its own certificate, it uses a self-signed one, and every br
 If the panel has a certificate and the browser still warns:
 
 - You opened the panel by its IP address. The certificate is for the domain: use `https://panel.example.com:28443/k3x9p2qa7m1z/`.
-- The certificate has expired because it couldn't be renewed. Check **Settings → Certificate**, and click **Get a new certificate**. The causes are the same as in the next section.
+- The certificate has expired because it couldn't be renewed. Check **Settings** → **Certificate**, and click **Get a new certificate**. The causes are the same as in the next section.
 
 ## A certificate request fails
 
@@ -126,7 +128,7 @@ Each line starts with the domain and the addresses it points to. If those aren't
 
 **Behind Cloudflare's proxy:**
 
-- For a website, either set the record to "DNS only" while the certificate is requested, or tick **Validate through DNS (Cloudflare)** on the website's **SSL / HTTPS** tab. DNS validation needs a Cloudflare API token, which you add in **Settings → Cloudflare**. Wildcard names (`*.example.com`) always need DNS validation.
+- For a website, either set the record to "DNS only" while the certificate is requested, or tick **Validate through DNS (Cloudflare)** on the website's **SSL / HTTPS** tab. DNS validation needs a Cloudflare API token, which you add in **Settings** → **Cloudflare**. Wildcard names (`*.example.com`) always need DNS validation.
 - For the panel's own domain, the record must point straight at the server, without the proxy.
 
 **For the panel's own domain,** the **Certificate** tab says "This needs the web server" until you install one, because the web server answers Let's Encrypt on port 80. Install it on the **Websites** page first.
@@ -146,6 +148,12 @@ When an automatic renewal fails, the panel shows "Certificate renewal failed for
 | HTTP 403 | The visitor's address is in the website's blocked addresses, or the web application firewall blocked the request. | Check **Blocked IP addresses** on the **Block access** tab, and the recent firewall events on the **Web firewall (WAF)** tab. |
 
 For other errors, read the website's error log and PHP errors on its **Logs** tab.
+
+## A backup upload or restore fails
+
+- **A restore fails with "the passphrase does not unlock it".** The copy was encrypted with another passphrase than the storage's current one. Restore again and enter that passphrase in **Encryption passphrase (optional)**. See [Encrypt the copies](./backups#encrypt-the-copies).
+- **Google Drive uploads fail after a week.** The OAuth consent screen is still in **Testing**: set it to **In production** in the Google Cloud console, then select **Change** → **Connect again** under **Backups** → **Remote storage**. See [Google Drive](./backups#google-drive).
+- **A website backup restores as a static website.** The backup was made by a version before 0.24.1, which records only the PHP version. For an app or reverse proxy website, create the website again with its type first, then restore. Backups made by 0.24.1 or later bring the website back with its type. See [Restore a website that was deleted](./backups#restore-a-website-that-was-deleted).
 
 ## Where the logs are
 

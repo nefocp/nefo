@@ -1,11 +1,13 @@
 ---
 title: First steps
-description: What to do after installing Nefo, from securing your account to your first website and backups.
+description: What to do after installing Nefo, from the setup page and securing your account to your first website, backups and the security check.
 ---
 
 # First steps
 
-After you [install Nefo](./install), work through these steps in order. Each one is short and links to a page with the details.
+After you [install Nefo](./install), sign in with the address and password the installer printed, pick the software on the setup page, change the password, turn on two-factor authentication, give the panel its own domain, then create your first website, set up backups and run the security check. Each step is short.
+
+Work through these steps in order. Each one links to a page with the details.
 
 ## Sign in
 
@@ -21,18 +23,24 @@ On a new server, the panel opens **Set up this server** right after you sign in.
 
 1. Choose a **Web server**: **Nginx** (recommended), **Apache** for websites that need `.htaccess` files, **OpenLiteSpeed**, or **None** for a server without websites, such as one that only runs Docker apps.
 2. Tick one or more **PHP versions**. The web server always comes with your distribution's PHP version as well. Other versions come from the `packages.sury.org/php` repository, on Ubuntu and Debian, which the panel adds to the server. Old versions past their end of life are not offered here: install them from the **Software** page if an old website needs one.
-3. Choose the **Database server**: **MariaDB** (recommended), **MySQL** where the Software page offers it, or **None**.
+3. Choose the **Database server**: **MariaDB** (recommended), **MySQL** where the Software page offers it, or **None**. Under **MariaDB** you can choose its version: your distribution's (the default) or an LTS series from MariaDB's own repository, such as **11.4 LTS from MariaDB**, where it is newer than your distribution's. See [MariaDB versions](./databases#mariadb-versions).
 4. Tick the **Extras** you want: Redis, Node.js, Python, Docker, Adminer and the web firewall. ClamAV is offered on servers with 2 GB of RAM or more, and PostgreSQL and Memcached where the Software page offers them.
 5. Check the summary at the bottom. It shows the server's CPUs, RAM and free disk, and roughly how much RAM and disk your choice adds. If the choice may not fit, a warning says so, but you can still install.
 6. Click **Install**.
 
 The page starts with a choice that suits the server's RAM: Nginx, the newest PHP version and MariaDB, plus Redis from about 1.5 GB of RAM. Docker and the other extras are never ticked for you.
 
+The disk figure counts what the packages take once installed, the copies of the downloaded packages that apt keeps in `/var/cache/apt/archives` (**Downloaded packages** under **Cleanup** on the **System** page deletes them), the first data files of the database server, and ClamAV's virus databases. On a server whose package lists were never downloaded, it also counts those lists, and the summary says how much of the figure they are: about 450 MB on Ubuntu 22.04, 300 MB on 24.04, 250 MB on 26.04, 155 MB on Debian 12 and 175 MB on Debian 13.
+
 The log shows each part as it installs, and the whole setup is one task. If a part fails, the setup stops there and tells you what is installed already. Fix the problem, then click **Install** again: the parts that are installed are skipped.
 
 To set the server up yourself instead, click **Skip for now**. You can run the setup again at any time from **Software** → **Run the setup again**, or with [`nefo setup`](./cli#nefo-setup) on the server. You can also [set the server up while installing Nefo](./install#set-the-server-up-in-the-same-run).
 
 The panel stops opening the setup after sign-in once it has finished or was skipped, and on a server that already has a web server or a website.
+
+### A VPS that is a container
+
+Some VPS are containers (LXC, OpenVZ), and their `/proc/meminfo` may show the memory of the whole host instead of yours. Nefo then reads the container's own limit (the memory cgroup) and counts that everywhere: the dashboard, the history charts and alerts, this setup's RAM figures, the App store's memory checks, and the settings it picks for MariaDB, MySQL, PostgreSQL, Redis and Memcached. The dashboard shows "container limit" next to the RAM when it does. ClamAV is offered from 2 GB of that limit.
 
 ## Change the password
 
@@ -80,7 +88,7 @@ With its own domain, the panel gets a free Let's Encrypt certificate, and the br
 
 1. At your DNS provider, create an A record for a name such as `panel.example.com`, pointing to the server's IP address. It must point straight to the server, without a proxy or CDN in front (with Cloudflare, use "DNS only").
 2. Make sure port 80 is open, also in your provider's cloud firewall.
-3. In the panel, open **Settings → Certificate**.
+3. In the panel, open **Settings** → **Certificate**.
 4. In **Domain of the panel**, enter `panel.example.com`, and click **Get certificate**.
 
 The panel first checks that the domain reaches this server, then asks Let's Encrypt for the certificate. It uses the new certificate within a minute, and shows the new address, such as `https://panel.example.com:28443/k3x9p2qa7m1z/`. Use that address from now on: the panel keeps the same port and secret path. With the IP address, the browser warns again, because the certificate is for the domain.
@@ -94,7 +102,7 @@ If the request fails, see [Troubleshooting](./troubleshooting#a-certificate-requ
 1. Point the domain's A record, such as `example.com`, to the server's IP address.
 2. Open **Websites** and click **Add website**.
 3. Enter the **Domain** without `http://` or `www.`. Keep **Also answer on www.example.com** ticked if you want both names.
-4. Choose the **Type**: a PHP version, **Static (HTML only)**, or an app (Node.js or Python).
+4. Choose the **Type**: a PHP version, **Static (HTML only)**, an app (Node.js, Python or Java), or a reverse proxy to another address.
 5. Click **Create website**.
 6. Click **Turn on HTTPS** next to the website to get a free certificate.
 
@@ -107,7 +115,7 @@ Upload your files to `/var/www/example.com/public`, with the **Files** page or o
 3. Choose what to back up (a website, a database or a folder), how often, and the **Number of backups to keep**.
 4. Click **Save schedule**.
 
-A website backup contains its files and the databases linked to it. Backups are kept on the server in `/var/backups/panel`. Add **Remote storage** (S3-compatible or SFTP) so a copy survives if the server is lost. See [Backups](./backups).
+A website backup contains its files and the databases linked to it. Backups are kept on the server in `/var/backups/panel`. Add **Remote storage** (S3-compatible, SFTP or Google Drive, encrypted if you like) so a copy survives if the server is lost. See [Backups](./backups).
 
 ## Turn on the firewall
 
@@ -117,3 +125,11 @@ If the dashboard says "The firewall is off", every port that a program opens is 
 2. Click **Turn on the firewall**.
 
 The panel keeps SSH and the panel's own port open. If the page says that ufw is not installed, install it first with `apt install ufw`. See [Security](./security).
+
+## Run the security check
+
+1. Open **Security check**, in the **Security** group of the left menu.
+2. Click **Run the check**.
+3. Fix what it lists under **To fix**, starting with **Critical**: each finding has a button to the page that fixes it.
+
+The check runs once a day by itself afterwards, and the dashboard shows what it found. See [Security check](./security-check).

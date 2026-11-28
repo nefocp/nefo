@@ -1,19 +1,28 @@
 ---
 title: Bảo mật
-description: Cách Nefo bảo vệ việc đăng nhập vào chính nó, và cách dùng tường lửa, fail2ban, cài đặt SSH, tường lửa ứng dụng web và trình quét mã độc.
+description: Cách Nefo bảo vệ việc đăng nhập vào chính nó, và cách dùng kiểm tra bảo mật, tường lửa, fail2ban, cài đặt SSH, tường lửa ứng dụng web, chặn quốc gia, khóa file và trình quét mã độc.
 ---
 
 # Bảo mật
 
-Nefo có quyền root trên máy chủ của bạn, nên trước hết nó tự bảo vệ việc đăng nhập vào panel. Ngoài ra, Nefo có sẵn các công cụ để bạn bảo vệ máy chủ và website. Trang này gồm:
+Nefo chạy với quyền root, nên trước hết nó tự bảo vệ việc đăng nhập vào panel: địa chỉ bí mật trên một cổng ngẫu nhiên, HTTPS ngay từ lần chạy đầu, xác thực hai lớp, giới hạn đăng nhập và nhật ký hoạt động. Nefo cũng quản lý tường lửa (ufw), fail2ban và cài đặt SSH của máy chủ, có chốt chặn để bạn không tự khóa mình ở ngoài, và bảo vệ website bằng tường lửa ứng dụng web, giới hạn tốc độ, chặn địa chỉ IP và trình quét mã độc.
+
+Trang này gồm:
 
 - lớp bảo vệ của chính panel: địa chỉ ẩn, HTTPS, giới hạn đăng nhập, xác thực hai lớp, phiên đăng nhập và nhật ký hoạt động;
+- [kiểm tra bảo mật](./security-check), liệt kê các cài đặt khiến máy chủ bị hở và chỗ sửa từng cái;
 - tường lửa (ufw), fail2ban và cài đặt SSH của máy chủ, ở trang **Tường lửa & SSH**;
-- bảo mật website: tường lửa ứng dụng web, giới hạn tốc độ, chặn địa chỉ IP và quét mã độc.
+- bảo mật website: tường lửa ứng dụng web, giới hạn tốc độ, chặn địa chỉ IP, chặn quốc gia, khóa file và quét mã độc.
 
-## Lớp bảo vệ của chính panel
+Nefo đang ở giai đoạn beta và chưa được bên ngoài kiểm toán bảo mật. Xem [chính sách bảo mật](../security-policy).
 
-### Đường dẫn bí mật
+## Kiểm tra bảo mật {#security-check}
+
+**Kiểm tra bảo mật**, trong nhóm **Bảo mật** ở menu bên trái, chạy 22 bước kiểm tra nhanh trên máy chủ, như đăng nhập SSH bằng mật khẩu, tường lửa, bản cập nhật bảo mật đang chờ, cơ sở dữ liệu mở ra Internet, cổng Docker, file mà website lỡ để lộ ra ngoài và chứng chỉ. Mỗi phát hiện có liên kết tới trang để sửa nó. Việc kiểm tra chạy khi bạn yêu cầu và mỗi ngày một lần. Xem [Kiểm tra bảo mật](./security-check).
+
+## Lớp bảo vệ của chính panel {#the-panel-s-own-protection}
+
+### Đường dẫn bí mật {#hidden-entrance-path}
 
 Trình cài đặt chọn ngẫu nhiên một cổng từ 20000 đến 49999 và một đường dẫn bí mật gồm 12 chữ thường và chữ số. Panel chỉ trả lời dưới đường dẫn đó, ví dụ `https://203.0.113.10:28443/k3x9p2qa7m1z/`. Mọi URL khác trên cổng này đều trả về `404`, nên công cụ dò quét không biết có panel đang chạy.
 
@@ -54,22 +63,22 @@ Mật khẩu được lưu dưới dạng mã băm bcrypt, không bao giờ ở 
 Nếu tự khóa mình, hãy chờ 15 phút. Bộ đếm nằm trong bộ nhớ, nên khởi động lại panel trên máy chủ (`systemctl restart nefo`) cũng xóa được nó.
 :::
 
-### Phiên đăng nhập và đăng xuất
+### Phiên đăng nhập và đăng xuất {#sessions-and-signing-out}
 
 - Mỗi lần đăng nhập có hiệu lực 12 giờ. Hết thời gian đó bạn phải đăng nhập lại, kể cả khi đang dùng.
 - Để đăng xuất, mở menu tài khoản ở góc trên bên phải và chọn **Đăng xuất**.
 - Đổi mật khẩu sẽ đăng xuất bạn trên mọi thiết bị. Lệnh `nefo reset-password` trên máy chủ cũng vậy.
 - Cookie phiên không đọc được bằng script, chỉ gửi qua HTTPS và chỉ gửi tới đường dẫn của panel.
 
-### Header bảo mật
+### Header bảo mật {#security-headers}
 
 Mọi trang đều kèm Content Security Policy chặt, chỉ cho phép script từ chính panel. Panel cũng gửi `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: no-referrer` (để đường dẫn bí mật không lọt vào log của website khác) và `Permissions-Policy` tắt camera, micro và vị trí. Mọi thao tác thay đổi đều cần một header mà website khác không gửi được, nhờ vậy chặn được tấn công giả mạo request (CSRF).
 
-## Xác thực hai lớp
+## Xác thực hai lớp {#two-factor-authentication}
 
 Xác thực hai lớp (2FA) yêu cầu mã 6 số từ ứng dụng xác thực mỗi lần đăng nhập, nên lộ mật khẩu thôi là chưa đủ để vào panel. Ứng dụng nào hỗ trợ mã theo thời gian chuẩn cũng dùng được, như Google Authenticator, Authy hoặc 2FAS. Khi 2FA còn tắt, panel coi "Chưa bật xác thực hai lớp" là vấn đề nghiêm trọng.
 
-### Bật 2FA
+### Bật 2FA {#turn-on-2fa}
 
 1. Vào **Tài khoản** ở menu bên trái. Bạn cũng có thể mở menu tài khoản và chọn **Mật khẩu và 2FA**.
 2. Ở mục **Xác thực hai lớp**, chọn **Thiết lập**.
@@ -80,11 +89,11 @@ Từ đó, trang đăng nhập sẽ hỏi **Mã xác thực hai lớp** sau khi 
 
 Mã đổi sau mỗi 30 giây. Panel chấp nhận cả mã ngay trước và ngay sau, phòng khi đồng hồ hai bên lệch nhau một chút. Mỗi mã chỉ dùng được một lần: nếu mã bị từ chối, hãy chờ mã tiếp theo.
 
-### Tắt 2FA
+### Tắt 2FA {#turn-off-2fa}
 
 Ở trang **Tài khoản**, mục **Xác thực hai lớp**, nhập **Mật khẩu** và một **Mã** hiện tại, rồi chọn **Tắt**.
 
-### Khi mất điện thoại
+### Khi mất điện thoại {#if-you-lose-your-phone}
 
 Nefo không có mã dự phòng. Bạn lấy lại quyền vào panel qua máy chủ: đăng nhập SSH bằng root và chạy:
 
@@ -92,13 +101,13 @@ Nefo không có mã dự phòng. Bạn lấy lại quyền vào panel qua máy c
 nefo reset-password --disable-2fa
 ```
 
-Lệnh này đặt mật khẩu ngẫu nhiên mới cho tài khoản `admin`, tắt 2FA, đăng xuất mọi phiên và in ra mật khẩu mới. Hãy đăng nhập bằng mật khẩu đó, đổi mật khẩu và thiết lập lại 2FA. Với tài khoản khác, thêm `--user` và tên tài khoản. Xem trang [Dòng lệnh](./cli).
+Lệnh này đặt mật khẩu ngẫu nhiên mới cho tài khoản `admin`, tắt 2FA, đăng xuất mọi phiên và in ra mật khẩu mới. Hãy đăng nhập bằng mật khẩu đó, đổi mật khẩu và thiết lập lại 2FA. Xem trang [Dòng lệnh](./cli).
 
 ::: warning
 Khi không còn điện thoại, quyền root trên máy chủ là cách duy nhất để vào lại panel. Hãy giữ cẩn thận SSH key hoặc mật khẩu root, hoặc quyền vào web console của nhà cung cấp VPS.
 :::
 
-## Đổi mật khẩu panel
+## Đổi mật khẩu panel {#change-the-panel-password}
 
 1. Vào **Tài khoản** → **Đổi mật khẩu**.
 2. Nhập **Mật khẩu hiện tại**, rồi nhập **Mật khẩu mới** hai lần (**Nhập lại mật khẩu mới**). Mật khẩu phải dài từ 12 đến 72 ký tự.
@@ -106,7 +115,7 @@ Khi không còn điện thoại, quyền root trên máy chủ là cách duy nh�
 
 Bạn sẽ bị đăng xuất trên mọi thiết bị. Hãy đăng nhập lại bằng mật khẩu mới.
 
-## Nhật ký hoạt động
+## Nhật ký hoạt động {#activity-log}
 
 **Tài khoản** → **Hoạt động gần đây** hiện 100 mục mới nhất, gồm thời gian, hành động, người dùng, địa chỉ IP và chi tiết. Chọn **Tất cả** hoặc chỉ **Lỗi**, và gõ vào ô lọc để tìm. Đầu trang hiện lần đăng nhập gần nhất và số lần đăng nhập lỗi có trong nhật ký.
 
@@ -130,18 +139,18 @@ Nếu trang báo máy chủ chưa cài ufw, hãy cài trên máy chủ. Panel kh
 apt install ufw
 ```
 
-### Bật tường lửa
+### Bật tường lửa {#turn-on-the-firewall}
 
 1. Chọn **Bật tường lửa** và xác nhận.
-2. Panel mở cổng SSH (ghi chú `SSH`) và cổng của panel (ghi chú `Nefo`) trước. Nếu đã cài web server, panel mở thêm cổng 80 và 443 cho website (ghi chú `Websites`), và cổng 443/UDP khi OpenLiteSpeed trả lời HTTP/3. Sau đó panel mới bật ufw. Panel vẫn thêm các luật này kể cả khi bạn đã thêm luật cho một trong các cổng đó lúc tường lửa còn tắt, ví dụ luật chỉ cho địa chỉ của bạn, để việc bật tường lửa không bao giờ khóa bạn ở ngoài. Muốn chỉ giữ luật của bạn, hãy xóa luật cho mọi nơi sau khi bật (xem cuối mục [Những gì tường lửa từ chối](#nhung-gi-tuong-lua-tu-choi)).
+2. Panel mở cổng SSH (ghi chú `SSH`) và cổng của panel (ghi chú `Nefo`) trước. Nếu đã cài web server, panel mở thêm cổng 80 và 443 cho website (ghi chú `Websites`), và cổng 443/UDP khi OpenLiteSpeed trả lời HTTP/3. Sau đó panel mới bật ufw. Panel vẫn thêm các luật này kể cả khi bạn đã thêm luật cho một trong các cổng đó lúc tường lửa còn tắt, ví dụ luật chỉ cho địa chỉ của bạn, để việc bật tường lửa không bao giờ khóa bạn ở ngoài. Muốn chỉ giữ luật của bạn, hãy xóa luật cho mọi nơi sau khi bật (xem cuối mục [Những gì tường lửa từ chối](#what-the-firewall-refuses)).
 
-Bạn có thể [thêm luật](#them-luat) trước khi bật tường lửa, ví dụ cho một cổng mà chương trình khác trên máy chủ cần. Khi tường lửa còn tắt, trang hiện các luật này bên dưới nút **Bật tường lửa** dưới dạng lệnh ufw, như `ufw allow 8080/tcp`, ở cột **Luật (lệnh ufw)**, mỗi cặp luật IPv4 và IPv6 chỉ hiện một lần. Các luật có hiệu lực khi bạn bật tường lửa. ufw chỉ đánh số luật khi đang bật, nên muốn xóa một luật trong số đó, hãy bật tường lửa trước.
+Bạn có thể [thêm luật](#add-a-rule) trước khi bật tường lửa, ví dụ cho một cổng mà chương trình khác trên máy chủ cần. Khi tường lửa còn tắt, trang hiện các luật này bên dưới nút **Bật tường lửa** dưới dạng lệnh ufw, như `ufw allow 8080/tcp`, ở cột **Luật (lệnh ufw)**, mỗi cặp luật IPv4 và IPv6 chỉ hiện một lần. Các luật có hiệu lực khi bạn bật tường lửa. ufw chỉ đánh số luật khi đang bật, nên muốn xóa một luật trong số đó, hãy bật tường lửa trước.
 
 Mọi cổng vào khác đều bị đóng, trừ khi có luật cho phép. Nếu sau này bạn cài web server khi tường lửa đang bật, Nefo mở cổng 80 và 443 ngay lúc cài.
 
 Nếu nhà cung cấp VPS có tường lửa cloud (security group), hãy mở cùng các cổng đó ở đấy. Nefo không đổi được tường lửa cloud.
 
-### Thêm luật
+### Thêm luật {#add-a-rule}
 
 1. Chọn **Thêm luật**.
 2. Chọn **Cho phép** hoặc **Chặn**.
@@ -161,26 +170,26 @@ Muốn chặn một địa chỉ khỏi riêng một website, hãy dùng mục *
 
 Danh sách cũng hiện các luật bạn thêm bằng ufw trên dòng lệnh. **Giới hạn** cho phép cổng, nhưng tạm từ chối địa chỉ nào mở 6 kết nối trong 30 giây (`ufw limit`). **Từ chối** chặn như **Chặn**, nhưng báo ngay cho phía bên kia.
 
-### Xóa luật
+### Xóa luật {#delete-a-rule}
 
 Chọn biểu tượng thùng rác ở cuối dòng của luật và xác nhận. Nếu danh sách luật đã thay đổi kể từ lúc bạn mở trang, panel sẽ từ chối và yêu cầu tải lại trang, để không bao giờ xóa nhầm luật.
 
-### Những gì tường lửa từ chối
+### Những gì tường lửa từ chối {#what-the-firewall-refuses}
 
 Các chốt chặn sau giúp bạn không tự khóa mình ở ngoài:
 
 - Luật cho phép cổng SSH hoặc cổng của panel có nhãn **được bảo vệ** khi đó là đường vào cuối cùng từ địa chỉ bạn đang dùng (hiện phía trên danh sách), và không xóa được ở đây. Khi một luật khác cũng cho địa chỉ của bạn vào, luật đó xóa được.
 - Luật **Chặn** cổng SSH hoặc cổng của panel mà để trống ô **Từ** sẽ bị từ chối. Luật **Chặn** cho một địa chỉ hoặc một dải mạng thì được phép.
 
-Muốn chỉ địa chỉ của bạn vào được panel: thêm luật **Cho phép** cho cổng của panel với địa chỉ của bạn ở ô **Từ**, rồi xóa luật cho cổng đó từ mọi nơi (và bản IPv6 của nó). Nếu sau này địa chỉ của bạn đổi, hãy dùng console web của nhà cung cấp để chạy `ufw allow <cổng>/tcp`.
+Muốn chỉ địa chỉ của bạn vào được panel: thêm luật **Cho phép** cho cổng của panel với địa chỉ của bạn ở ô **Từ**, rồi xóa luật cho cổng đó từ mọi nơi (và bản IPv6 của nó). Nếu sau này địa chỉ của bạn đổi, hãy dùng console web của nhà cung cấp để chạy `ufw allow <port>/tcp`.
 
-Luật cho truy cập cơ sở dữ liệu từ xa (cổng 3306) được thêm và xóa từ trang **Cơ sở dữ liệu**. Hãy sửa chúng ở đó. Xem trang [Cơ sở dữ liệu](./databases).
+Luật cho truy cập cơ sở dữ liệu từ xa (cổng 3306 cho MariaDB và MySQL; với PostgreSQL là cổng của cluster, mặc định 5432) được thêm và xóa từ trang **Cơ sở dữ liệu**. Hãy sửa chúng ở đó. Xem [Cơ sở dữ liệu](./databases#allow-remote-access) và [PostgreSQL](./postgresql#postgresql-remote-access).
 
 ## Chống dò mật khẩu (fail2ban) {#brute-force-protection-fail2ban}
 
 fail2ban chặn các địa chỉ đăng nhập sai liên tục vào SSH và vào panel.
 
-### Cài fail2ban
+### Cài fail2ban {#install-fail2ban}
 
 1. Vào **Tường lửa & SSH** → **Chống dò mật khẩu (fail2ban)**.
 2. Chọn **Cài fail2ban**. Việc cài đặt chạy nền, có log trực tiếp.
@@ -196,7 +205,7 @@ Nefo tạo hai jail trong `/etc/fail2ban/jail.d/panel.conf`:
 
 Panel tự ghi lại file này và bộ lọc của nó trong `/etc/fail2ban/filter.d/panel.conf`, nên đừng sửa bằng tay. Khi bạn đổi cổng SSH, jail `sshd` cũng chuyển theo.
 
-### Xem và bỏ chặn địa chỉ
+### Xem và bỏ chặn địa chỉ {#see-and-unblock-addresses}
 
 Bảng liệt kê từng **Dịch vụ được bảo vệ**, số **Lần sai gần đây** và các địa chỉ **Đang bị chặn**, kèm tổng số lần đã chặn. Để bỏ chặn một địa chỉ, chọn **Bỏ chặn** bên cạnh nó.
 
@@ -206,7 +215,7 @@ Nếu fail2ban đã cài nhưng đang dừng, hãy bật nó ở trang **Dịch 
 Nếu bạn tự chặn mình khỏi SSH, hãy đăng nhập panel từ mạng hiện tại và chọn **Bỏ chặn**. Bạn cũng có thể chạy `fail2ban-client set sshd unbanip 203.0.113.10` trong **Terminal** của panel.
 :::
 
-## Cài đặt SSH
+## Cài đặt SSH {#ssh-settings}
 
 Vào **Tường lửa & SSH** → **SSH**.
 
@@ -222,13 +231,13 @@ Chọn **Lưu**. Panel ghi cài đặt vào `/etc/ssh/sshd_config.d/00-panel.con
 Sau khi lưu, hãy giữ phiên SSH hiện tại. Mở một kết nối mới và kiểm tra là đăng nhập được rồi mới đóng phiên cũ.
 :::
 
-### Những gì cài đặt SSH từ chối
+### Những gì cài đặt SSH từ chối {#what-the-ssh-settings-refuse}
 
 - Cài đặt khiến không ai đăng nhập SSH được nữa. Ví dụ: tắt đăng nhập bằng mật khẩu khi chưa tài khoản nào có SSH key; đặt đăng nhập root **Chỉ bằng SSH key** khi root chưa có key; hoặc root **Không cho phép** khi không tài khoản nào khác đăng nhập được.
 - Cổng đã có chủ: cổng của panel, 80, 443, hoặc bất kỳ cổng nào đang có chương trình khác dùng.
-
-Để quyết định, panel xét root và các tài khoản người dùng (UID từ 1000 trở lên) có shell đăng nhập: key trong `~/.ssh/authorized_keys` (hoặc các file đặt bằng `AuthorizedKeysFile`), mật khẩu, cùng `AllowUsers`, `DenyUsers`, `AllowGroups` và `DenyGroups`. Panel không đọc các khối `Match`. Trang liệt kê những ai đang đăng nhập được và bằng cách nào (key hoặc mật khẩu). Khi root chưa có key, trang cũng hiện cảnh báo kèm nút **Thêm key** (xem [SSH key](#ssh-keys)).
 - Đổi cổng khi SSH được khởi động bằng socket của systemd. Khi đó trang hiện nhãn **kích hoạt qua socket** và ô cổng bị khóa. Hãy đổi cổng bằng dòng lệnh.
+
+Để biết còn ai đăng nhập được hay không, panel xét root và các tài khoản người dùng (UID từ 1000 trở lên) có shell đăng nhập: key trong `~/.ssh/authorized_keys` (hoặc các file đặt bằng `AuthorizedKeysFile`), mật khẩu, cùng `AllowUsers`, `DenyUsers`, `AllowGroups` và `DenyGroups`. Panel không đọc các khối `Match`. Trang liệt kê những ai đang đăng nhập được và bằng cách nào (key hoặc mật khẩu). Khi root chưa có key, trang cũng hiện cảnh báo kèm nút **Thêm key** (xem [SSH key](#ssh-keys)).
 
 Không thể dừng SSH ở trang **Dịch vụ**, chỉ khởi động lại hoặc nạp lại được.
 
@@ -236,7 +245,7 @@ Không thể dừng SSH ở trang **Dịch vụ**, chỉ khởi động lại ho
 Nếu đặt đăng nhập root là **Không cho phép**, bạn cần một tài khoản khác dùng được `sudo`, nếu không bạn vào được SSH nhưng không quản trị được máy chủ. Nefo không tạo tài khoản đó, và không kiểm tra nó có dùng được `sudo` hay không.
 :::
 
-### Đổi cổng SSH
+### Đổi cổng SSH {#change-the-ssh-port}
 
 1. Nhập **Cổng** mới, chọn **Lưu** và xác nhận.
 2. Nếu tường lửa đang bật, panel mở cổng mới (ghi chú `SSH`) trước khi chuyển SSH sang đó. Nếu đã cài fail2ban, jail `sshd` cũng chuyển sang cổng mới.
@@ -281,26 +290,26 @@ Chọn biểu tượng thùng rác cạnh key và xác nhận. Hộp xác nhận
 
 Việc thêm và xóa key được ghi vào nhật ký hoạt động, kèm tài khoản và fingerprint của key.
 
-### Tắt đăng nhập bằng mật khẩu
+### Tắt đăng nhập bằng mật khẩu {#turn-off-password-sign-in}
 
 1. Ở mục [SSH key](#ssh-keys), thêm public key của bạn cho root, hoặc cho tài khoản bạn dùng để đăng nhập.
 2. Mở một terminal mới và đăng nhập bằng key. Nếu SSH hỏi mật khẩu thì key chưa được dùng: hãy kiểm tra là bạn đã thêm nó cho đúng tài khoản bạn đăng nhập.
-3. Tắt **Cho phép đăng nhập bằng mật khẩu** rồi chọn **Lưu**. Nếu chưa ai có key, panel sẽ từ chối (xem mục **Những gì cài đặt SSH từ chối** ở trên).
+3. Tắt **Cho phép đăng nhập bằng mật khẩu** rồi chọn **Lưu**. Nếu chưa ai có key, panel sẽ từ chối (xem [Những gì cài đặt SSH từ chối](#what-the-ssh-settings-refuse)).
 4. Giữ phiên hiện tại, và thử lại một kết nối mới trước khi đóng nó.
 
 Tài khoản SFTP của website vẫn giữ cách đăng nhập riêng (mật khẩu hoặc key), kể cả khi SSH đã tắt đăng nhập bằng mật khẩu.
 
 Khi root còn đăng nhập được bằng mật khẩu, panel coi "Root đăng nhập SSH bằng mật khẩu" là vấn đề nghiêm trọng.
 
-## Bảo mật website
+## Bảo mật website {#website-security}
 
 Mỗi website có cài đặt bảo mật riêng. Vào **Website**, mở website bằng cách chọn tên của nó hoặc nút **Cài đặt**, rồi dùng các mục trong nhóm **Bảo mật**.
 
-### Tường lửa ứng dụng web
+### Tường lửa ứng dụng web {#web-application-firewall}
 
 Tường lửa ứng dụng web (WAF) là ModSecurity với bộ luật OWASP Core Rule Set, cả hai đều miễn phí và mã nguồn mở. Nó kiểm tra mọi request và chặn SQL injection, XSS, chèn file, công cụ dò quét và các kiểu tấn công phổ biến khác. WAF dùng được với Nginx, Apache và OpenLiteSpeed.
 
-1. Cài một lần: **Phần mềm** → **Tường lửa web (ModSecurity)** → **Cài**. Các website vẫn tắt tường lửa cho đến khi bạn bật.
+1. Cài một lần: **Phần mềm** → **Tường lửa web (ModSecurity)** → **Cài**. Các website vẫn tắt tường lửa cho đến khi bạn bật. Nếu bản phân phối không có module ModSecurity cho web server, thẻ sẽ báo như vậy và không cho cài: Ubuntu 22.04 không có module cho Nginx, trong khi Apache và OpenLiteSpeed vẫn dùng được trên đó, còn Nginx dùng được từ Ubuntu 24.04 trở lên.
 2. Vào **Website** → (website) → **Tường lửa WAF**.
 3. Chọn chế độ:
    - **Tắt**
@@ -314,16 +323,16 @@ Nên dùng chế độ chỉ phát hiện vài ngày trước, xem các sự ki�
 
 Chỉ 13 MB đầu của mỗi request được kiểm tra, nên tải file lớn vẫn chạy bình thường. Nếu bạn gỡ WAF ở trang **Phần mềm**, mỗi website vẫn giữ chế độ đã chọn, và chế độ đó có tác dụng lại khi bạn cài lại.
 
-### Giới hạn tốc độ và chặn địa chỉ
+### Giới hạn tốc độ và chặn địa chỉ {#rate-limit-and-blocked-addresses}
 
 Vào **Website** → (website) → **Chặn truy cập**.
 
 - **Giới hạn tốc độ (số request mỗi giây mỗi khách, 0 = tắt)**: chỉ tính request PHP và ứng dụng, không tính ảnh, CSS hay script. Cho phép dồn tối đa gấp năm lần giới hạn; vượt quá thì khách nhận HTTP 429. Mức 10 hợp với đa số website, tối đa là 1000. Chỉ Nginx có cài đặt này: với Apache và OpenLiteSpeed, ô này không hiện.
 - **Địa chỉ IP bị chặn**: mỗi dòng một địa chỉ hoặc dải IPv4 hay IPv6, ví dụ `203.0.113.7` hoặc `198.51.100.0/24`, tối đa 200 cho mỗi website. Khách bị chặn nhận HTTP 403.
 
-Chọn **Lưu**. Hai cài đặt này hoạt động độc lập, không cần tường lửa ứng dụng web. Cùng mục này còn có **Bảo vệ bằng mật khẩu**, xem ở trang [Website](./websites).
+Chọn **Lưu**. Hai cài đặt này hoạt động độc lập, không cần tường lửa ứng dụng web, và dùng được với mọi loại website, kể cả website reverse proxy. Cùng mục này còn có **Bảo vệ bằng mật khẩu**, xem ở trang [Website](./websites#suspend-redirect-or-password-protect-a-website).
 
-### Quét mã độc
+### Quét mã độc {#malware-scan}
 
 Trình quét tìm web shell, backdoor, mã ẩn và script bị chèn trong file của website. Nó không thay đổi gì cho đến khi bạn cách ly một file.
 
@@ -353,7 +362,7 @@ Mỗi phát hiện hiện tên file, số dòng và một đoạn trích ngắn.
 
 Panel giữ kết quả quét gần nhất của mỗi website. Panel không quét theo lịch: bạn tự bắt đầu khi cần.
 
-### Cách ly và khôi phục
+### Cách ly và khôi phục {#quarantine-and-restore}
 
 Chọn **Cách ly** bên cạnh một phát hiện để chuyển file ra khỏi website, vào `/var/lib/panel-quarantine`, thư mục chỉ root đọc được. Panel ghi lại chủ sở hữu và quyền của file.
 
@@ -368,7 +377,7 @@ Khi bạn xóa một website, các file đã cách ly của nó cũng bị xóa.
 Cách ly một file mà website cần, ví dụ file của plugin, có thể làm website lỗi. Hãy xem đoạn trích trước, và khôi phục file nếu đó là báo nhầm.
 :::
 
-### Quét bằng ClamAV
+### Quét bằng ClamAV {#scan-with-clamav}
 
 ClamAV là bộ quét bổ sung, không bắt buộc.
 
@@ -377,6 +386,10 @@ ClamAV là bộ quét bổ sung, không bắt buộc.
 
 ClamAV cần khoảng 1,4 GB RAM trống trong lúc quét, nên hợp với máy chủ từ 2 GB trở lên. Nếu RAM trống ít hơn, panel bỏ qua ClamAV và ghi rõ trong kết quả. ClamAV chạy với mức ưu tiên CPU thấp nhất và bỏ qua file lớn hơn 25 MB. Phát hiện của ClamAV được xếp mức cao.
 
-## Lịch sử đăng nhập SSH
+### Chặn quốc gia và khóa file {#country-blocking-and-file-lock}
 
-Danh sách đăng nhập SSH và các lần thử thất bại nằm ở trang **Tiến trình**. Xem mục [Đăng nhập SSH](./system#ssh-sign-ins).
+Mỗi website còn có **Chặn quốc gia**, để từ chối khách từ các quốc gia bạn liệt kê hoặc chỉ cho khách từ các quốc gia đó vào, và **Khóa file**, khiến code của website thành chỉ đọc đối với PHP và tài khoản SFTP của chính website, trừ những thư mục mà website phải ghi vào. Xem [Chặn quốc gia và khóa file](./website-protection).
+
+## Lịch sử đăng nhập SSH {#ssh-sign-in-history}
+
+Danh sách đăng nhập SSH và các lần thử thất bại nằm ở trang **Tiến trình**. Xem mục [Đăng nhập SSH](./system#ssh-sign-ins). Muốn nhận tin nhắn khi có người đăng nhập SSH hoặc đăng nhập panel, hoặc khi đăng nhập SSH thất bại liên tục, xem [Cảnh báo đăng nhập](./mail-alerts#sign-in-alerts).

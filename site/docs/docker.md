@@ -5,7 +5,9 @@ description: Run containers and Compose projects, open a terminal in a container
 
 # Docker
 
-The **Docker** page shows and controls the containers, Compose projects and images on the server. This page covers each tab, the safety checks the panel runs on Compose projects, how the App store's Docker apps fit in, and how to make a container public through a website.
+Nefo installs Docker from your distribution and manages containers, Compose projects and images on the **Docker** page, with a terminal in each container. It publishes container ports on 127.0.0.1 only, so you reach them through a website, and refuses Compose projects that would weaken the server, such as privileged containers or ports open to the internet.
+
+This page covers each tab, the safety checks the panel runs on Compose projects, how the App store's Docker apps fit in, and how to make a container public through a website.
 
 ## Install Docker
 
@@ -147,11 +149,13 @@ A website can forward its visitors to a container's port on `127.0.0.1`. The web
 1. Publish the container's port on `127.0.0.1`, for example `127.0.0.1:8081:80` in `compose.yaml`, or **Port on this server** `8081` in **Run a container**.
 2. Go to **Websites** and select **Add website**.
 3. Enter the **Domain**, such as `app.example.com`.
-4. In **Type**, choose **App (Node.js, Python…) behind a proxy**.
+4. In **Type**, choose **App (Node.js, Python, Java…) behind a proxy**.
 5. In **Port the app listens on (127.0.0.1)**, enter the same port, `8081`.
 6. Leave **Start command (optional)** empty: Docker runs the app.
 7. Select **Create website**.
 
-The port must be between 1024 and 65535, and not the panel's port, 3306 (MariaDB) or 6379 (Redis). Two app websites can't use the same port.
+The port must be between 1024 and 65535, and not the panel's port, 3306 (MariaDB), 6379 (Redis) or 7809 (the Git webhook listener). Two app websites can't use the same port.
 
 Then get a certificate for the site, see [SSL certificates](./ssl). See [Websites](./websites) for the site's other settings.
+
+The **Reverse proxy to another address** type also works for a container: it forwards to any address, such as `http://127.0.0.1:8081`, with options for the Host header, WebSocket and a time limit. See [Reverse proxy websites](./websites#reverse-proxy-websites).

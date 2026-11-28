@@ -1,11 +1,13 @@
 ---
 title: Command line
-description: Every nefo command and its options, the configuration file, and how to manage the nefo service with systemctl and journalctl.
+description: Every nefo command and its options (info, reset-password, update, setup, unlock-files, decrypt-backup), the configuration file, and how to manage the nefo service with systemctl and journalctl.
 ---
 
 # Command line
 
-The `nefo` program at `/usr/local/bin/nefo` runs the panel, and it also has a few commands for the server's root user. This page lists them, then shows how to manage the `nefo` service and what is in the configuration file. Run every command as root.
+The `nefo` program at `/usr/local/bin/nefo` runs the panel and has commands for the server's root user: `nefo info` shows the panel's address, `nefo reset-password` sets a new password (and can turn off 2FA), `nefo update` installs the latest release, and `nefo setup` installs the software. Run every command as root.
+
+This page lists the commands, then shows how to manage the `nefo` service and what is in the configuration file.
 
 ## Commands
 
@@ -15,6 +17,8 @@ The `nefo` program at `/usr/local/bin/nefo` runs the panel, and it also has a fe
 | `nefo reset-password` | Set a new random password and sign out all sessions |
 | `nefo update` | Install the latest release and restart the panel |
 | `nefo setup` | Install a web server, PHP versions, a database server and extras |
+| `nefo unlock-files` | Give the locked websites their files back (before you remove the panel) |
+| `nefo decrypt-backup` | Decrypt a backup copy that remote storage encrypted |
 | `nefo version` | Show the version |
 | `nefo init` | Create the configuration file and the first admin account |
 | `nefo serve` | Run the panel (systemd does this for you) |
@@ -22,7 +26,7 @@ The `nefo` program at `/usr/local/bin/nefo` runs the panel, and it also has a fe
 
 Run `nefo <command> -h` to see the options of a command. Options work with one dash or two: `-port` and `--port` are the same.
 
-Every command except `version` and `help` reads the configuration file `/etc/nefo/config.json`. To use another file, add `--config /path/to/config.json`, or set the `NEFO_CONFIG` environment variable.
+Every command except `version`, `help` and `decrypt-backup` reads the configuration file `/etc/nefo/config.json`. To use another file, add `--config /path/to/config.json`, or set the `NEFO_CONFIG` environment variable.
 
 ## nefo info
 
@@ -77,10 +81,10 @@ Two-factor authentication is off. Turn it on again after signing in.
 | Option | What it does |
 |---|---|
 | `--disable-2fa` | Also turn off two-factor authentication |
-| `--user` | The account name (default `admin`) |
+| `--user` | The account name (default `admin`, the panel's only account) |
 | `--config` | The configuration file to read |
 
-The panel keeps running: you don't need to restart it. The reset is written to the audit log.
+The panel keeps running: you don't need to restart it. The reset is written to the activity log.
 
 ## nefo update
 
@@ -137,7 +141,7 @@ While the panel runs, `nefo setup` asks the panel to do the installs, as one of 
 |---|---|
 | `--web` | `nginx`, `apache`, `openlitespeed` or `none`. The web server comes with your distribution's PHP version |
 | `--php` | PHP versions separated by commas, such as `8.3,8.4`, or `none` |
-| `--db` | `mariadb`, `mysql` or `none`. `--mariadb` is the same as `--db mariadb` |
+| `--db` | `mariadb`, `mysql` or `none`; `mariadb-11.4`, `mariadb-11.8` or `mariadb-12.3` for an LTS series from MariaDB's repository, where the server offers it (see [MariaDB versions](./databases#mariadb-versions)). `--mariadb` is the same as `--db mariadb` |
 | `--redis`, `--node`, `--python`, `--docker` | Also install Redis, Node.js (the newest LTS release), Python for app websites, or Docker |
 | `--adminer`, `--waf` | Also install Adminer or the web firewall. Both need a web server |
 | `--clamav` | Also install ClamAV, on servers with 2 GB of RAM or more |
@@ -150,6 +154,50 @@ While the panel runs, `nefo setup` asks the panel to do the installs, as one of 
 | `--config` | The configuration file to read |
 
 The installer accepts the same options, to set the server up in the same run (see [Install](./install#set-the-server-up-in-the-same-run)).
+
+## nefo unlock-files
+
+Gives every website whose files are locked (**Websites** → (site) → **File lock**, see [Country blocking and file lock](./website-protection#lock-a-website-s-files)) its files back, with exactly the owner, group and permissions each had before the lock, and removes the websites' lock groups. Run it as root, with the panel stopped, before you remove Nefo (see [Uninstall](./uninstall#unlock-the-websites-files)).
+
+```sh
+systemctl stop nefo
+nefo unlock-files
+```
+
+```
+Unlocked the files of example.com
+Unlocked the files of blog.example.com
+```
+
+When no website is locked, it prints `No website's files are locked.`
+
+| Option | What it does |
+|---|---|
+| `--config` | The configuration file to read |
+
+## nefo decrypt-backup
+
+Decrypts a backup copy that a remote storage encrypted (a `.tar.gz.enc` file), for example one you downloaded from Google Drive. Only the passphrase is needed: it works on any server, also one where the panel is not set up, and it doesn't read the configuration file. See [Restore on a new server](./restore-new-server#decrypt-a-copy-by-hand).
+
+```sh
+nefo decrypt-backup example.com_20261126-030000.tar.gz.enc
+```
+
+```
+Passphrase:
+Decrypted to example.com_20261126-030000.tar.gz
+SHA-256: 3f1c…
+```
+
+The passphrase is never given on the command line, where other users could see it. In a terminal it is asked for without being shown; otherwise it is the first line of standard input or of `-passphrase-file`.
+
+| Option | What it does |
+|---|---|
+| `-o` | The output file. The default is the input's name without `.enc`. `-o -` writes to standard output, for example `nefo decrypt-backup -o - FILE.enc \| tar xz` |
+| `-passphrase-file` | Read the passphrase from the first line of this file |
+| `-force` | Replace the output file if it exists |
+
+The output is written to a temporary file and renamed only when the whole copy decrypted, so a wrong passphrase or a damaged file leaves nothing behind (except with `-o -`, where the end of the file is checked last). A file that isn't encrypted is copied as it is, with a note. The SHA-256 it prints is the one the panel recorded for the backup.
 
 ## nefo version
 
@@ -194,7 +242,7 @@ Runs the panel. The `nefo` service starts it with `nefo serve --config /etc/nefo
 | `journalctl -u nefo -n 100 --no-pager` | Show the last 100 lines |
 | `journalctl -u nefo --since "1 hour ago"` | Show the log of the last hour |
 
-Restarting the panel doesn't stop your websites, databases or other services. You can also restart it from **Settings → Panel → Restart the panel**.
+Restarting the panel doesn't stop your websites, databases or other services. You can also restart it from **Settings** → **Panel** → **Power** → **Restart the panel**.
 
 When the panel stops, it lets a running task, such as a software installation, finish first, for up to 75 seconds. If the panel stops because of an error, systemd starts it again after 3 seconds.
 

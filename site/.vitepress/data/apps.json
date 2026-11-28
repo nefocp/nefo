@@ -1,0 +1,635 @@
+{
+ "catalog_version": 2026112701,
+ "apps": [
+  {
+   "id": "open-webui",
+   "name": "Open WebUI",
+   "category": "ai",
+   "kind": "docker",
+   "description": {
+    "en": "A ChatGPT-style chat interface for models in Ollama or any OpenAI-compatible API.",
+    "vi": "Giao diện trò chuyện kiểu ChatGPT cho mô hình trong Ollama hoặc API tương thích OpenAI.",
+    "zh": "类似 ChatGPT 的聊天界面，可使用 Ollama 或任何兼容 OpenAI 的 API 中的模型。",
+    "es": "Una interfaz de chat al estilo de ChatGPT para modelos de Ollama o de cualquier API compatible con OpenAI.",
+    "pt": "Uma interface de chat no estilo do ChatGPT para modelos no Ollama ou em qualquer API compatível com a OpenAI.",
+    "ru": "Чат-интерфейс в стиле ChatGPT для моделей в Ollama или любом API, совместимом с OpenAI.",
+    "id": "Antarmuka chat ala ChatGPT untuk model di Ollama atau API apa pun yang kompatibel dengan OpenAI."
+   }
+  },
+  {
+   "id": "ollama",
+   "name": "Ollama",
+   "category": "ai",
+   "kind": "service",
+   "description": {
+    "en": "Runs open language models (Llama, Qwen, Gemma…) on this server's CPU, for Open WebUI and your own code.",
+    "vi": "Chạy các mô hình ngôn ngữ mở (Llama, Qwen, Gemma…) bằng CPU của máy chủ, cho Open WebUI và mã của bạn.",
+    "zh": "在这台服务器的 CPU 上运行开放的语言模型（Llama、Qwen、Gemma…），供 Open WebUI 和你自己的代码使用。",
+    "es": "Ejecuta modelos de lenguaje abiertos (Llama, Qwen, Gemma…) en la CPU de este servidor, para Open WebUI y tu propio código.",
+    "pt": "Roda modelos de linguagem abertos (Llama, Qwen, Gemma…) na CPU deste servidor, para o Open WebUI e o seu próprio código.",
+    "ru": "Запускает открытые языковые модели (Llama, Qwen, Gemma…) на CPU этого сервера, для Open WebUI и вашего собственного кода.",
+    "id": "Menjalankan model bahasa terbuka (Llama, Qwen, Gemma…) dengan CPU server ini, untuk Open WebUI dan kode Anda sendiri."
+   }
+  },
+  {
+   "id": "vaultwarden",
+   "name": "Vaultwarden",
+   "category": "security",
+   "kind": "docker",
+   "description": {
+    "en": "A light password manager server that works with the official Bitwarden apps and browser extensions.",
+    "vi": "Máy chủ quản lý mật khẩu nhẹ, dùng được với ứng dụng và tiện ích trình duyệt Bitwarden.",
+    "zh": "轻量的密码管理服务器，可配合官方 Bitwarden 应用和浏览器扩展使用。",
+    "es": "Un servidor ligero de gestión de contraseñas que funciona con las aplicaciones oficiales de Bitwarden y sus extensiones para el navegador.",
+    "pt": "Um servidor leve de gerenciador de senhas que funciona com os apps oficiais e as extensões de navegador do Bitwarden.",
+    "ru": "Лёгкий сервер менеджера паролей, который работает с официальными приложениями и расширениями браузера Bitwarden.",
+    "id": "Server pengelola kata sandi yang ringan, bekerja dengan aplikasi resmi Bitwarden dan ekstensi browser-nya."
+   }
+  },
+  {
+   "id": "rustfs",
+   "name": "RustFS",
+   "category": "storage",
+   "kind": "docker",
+   "description": {
+    "en": "S3-compatible object storage with a web console, in place of MinIO. Use it as a backup target or for app uploads.",
+    "vi": "Lưu trữ đối tượng tương thích S3 có giao diện web, thay cho MinIO. Dùng làm nơi sao lưu hoặc lưu tệp của ứng dụng.",
+    "zh": "带 Web 控制台的 S3 兼容对象存储，可替代 MinIO。可用作备份目标或存放应用上传的文件。",
+    "es": "Almacenamiento de objetos compatible con S3, con consola web, en lugar de MinIO. Úsalo como destino de copias de seguridad o para las subidas de tus aplicaciones.",
+    "pt": "Armazenamento de objetos compatível com S3, com um console web, no lugar do MinIO. Use-o como destino de backup ou para uploads de apps.",
+    "ru": "S3-совместимое объектное хранилище с веб-консолью, замена MinIO. Используйте его как хранилище резервных копий или для загрузок приложений.",
+    "id": "Penyimpanan objek yang kompatibel dengan S3, dengan konsol web, sebagai pengganti MinIO. Gunakan sebagai tujuan pencadangan atau untuk unggahan aplikasi."
+   }
+  },
+  {
+   "id": "filebrowser",
+   "name": "FileBrowser Quantum",
+   "category": "storage",
+   "kind": "docker",
+   "description": {
+    "en": "Upload, share, preview and edit files in a folder from the browser.",
+    "vi": "Tải lên, chia sẻ, xem và sửa tệp trong một thư mục ngay trên trình duyệt.",
+    "zh": "在浏览器中上传、分享、预览和编辑某个文件夹中的文件。",
+    "es": "Sube, comparte, previsualiza y edita archivos de una carpeta desde el navegador.",
+    "pt": "Envie, compartilhe, visualize e edite arquivos de uma pasta pelo navegador.",
+    "ru": "Загрузка, общий доступ, просмотр и редактирование файлов в папке прямо из браузера.",
+    "id": "Unggah, bagikan, pratinjau, dan edit file di sebuah folder dari browser."
+   }
+  },
+  {
+   "id": "postgresql",
+   "name": "PostgreSQL",
+   "category": "database",
+   "kind": "service",
+   "description": {
+    "en": "The PostgreSQL database server for your own sites and apps, on 127.0.0.1 only.",
+    "vi": "Máy chủ cơ sở dữ liệu PostgreSQL cho website và ứng dụng của bạn, chỉ trên 127.0.0.1.",
+    "zh": "PostgreSQL 数据库服务器，供你自己的网站和应用使用，只监听 127.0.0.1。",
+    "es": "El servidor de bases de datos PostgreSQL para tus propios sitios y aplicaciones, solo en 127.0.0.1.",
+    "pt": "O servidor de banco de dados PostgreSQL para os seus próprios sites e apps, só em 127.0.0.1.",
+    "ru": "Сервер баз данных PostgreSQL для ваших собственных сайтов и приложений, только на 127.0.0.1.",
+    "id": "Server basis data PostgreSQL untuk situs dan aplikasi Anda sendiri, hanya di 127.0.0.1."
+   }
+  },
+  {
+   "id": "mongodb",
+   "name": "MongoDB",
+   "category": "database",
+   "kind": "service",
+   "description": {
+    "en": "The MongoDB document database for your own apps, on 127.0.0.1 only.",
+    "vi": "Cơ sở dữ liệu tài liệu MongoDB cho ứng dụng của bạn, chỉ trên 127.0.0.1.",
+    "zh": "MongoDB 文档数据库，供你自己的应用使用，只监听 127.0.0.1。",
+    "es": "La base de datos de documentos MongoDB para tus propias aplicaciones, solo en 127.0.0.1.",
+    "pt": "O banco de dados de documentos MongoDB para os seus próprios apps, só em 127.0.0.1.",
+    "ru": "Документная база данных MongoDB для ваших собственных приложений, только на 127.0.0.1.",
+    "id": "Basis data dokumen MongoDB untuk aplikasi Anda sendiri, hanya di 127.0.0.1."
+   }
+  },
+  {
+   "id": "code-server",
+   "name": "code-server",
+   "category": "devtools",
+   "kind": "docker",
+   "description": {
+    "en": "VS Code in the browser, with a terminal, in its own container.",
+    "vi": "VS Code trên trình duyệt, có terminal, trong container riêng.",
+    "zh": "浏览器中的 VS Code，带终端，运行在独立的容器中。",
+    "es": "VS Code en el navegador, con una terminal, en su propio contenedor.",
+    "pt": "O VS Code no navegador, com um terminal, no próprio contêiner.",
+    "ru": "VS Code в браузере, с терминалом, в собственном контейнере.",
+    "id": "VS Code di browser, dengan terminal, di kontainernya sendiri."
+   }
+  },
+  {
+   "id": "stirling-pdf",
+   "name": "Stirling-PDF",
+   "category": "productivity",
+   "kind": "docker",
+   "description": {
+    "en": "Merge, split, compress, convert and sign PDF files on your own server.",
+    "vi": "Gộp, tách, nén, chuyển đổi và ký tệp PDF trên máy chủ của bạn.",
+    "zh": "在你自己的服务器上合并、拆分、压缩、转换和签署 PDF 文件。",
+    "es": "Combina, divide, comprime, convierte y firma archivos PDF en tu propio servidor.",
+    "pt": "Junte, divida, comprima, converta e assine arquivos PDF no seu próprio servidor.",
+    "ru": "Объединяйте, разделяйте, сжимайте, конвертируйте и подписывайте PDF-файлы на своём сервере.",
+    "id": "Gabungkan, pisahkan, kompres, konversi, dan tanda tangani file PDF di server Anda sendiri."
+   }
+  },
+  {
+   "id": "it-tools",
+   "name": "IT-Tools",
+   "category": "devtools",
+   "kind": "docker",
+   "description": {
+    "en": "Over 80 handy developer tools (hashes, encoders, converters, generators) that run in the browser.",
+    "vi": "Hơn 80 công cụ tiện dụng cho lập trình viên (hash, mã hoá, chuyển đổi, tạo dữ liệu) chạy trên trình duyệt.",
+    "zh": "80 多个实用的开发者工具（哈希、编码、转换、生成器），在浏览器中运行。",
+    "es": "Más de 80 herramientas prácticas para desarrolladores (hashes, codificadores, conversores, generadores) que se ejecutan en el navegador.",
+    "pt": "Mais de 80 ferramentas úteis para desenvolvedores (hashes, codificadores, conversores, geradores) que rodam no navegador.",
+    "ru": "Более 80 удобных инструментов разработчика (хеши, кодировщики, конвертеры, генераторы), которые работают в браузере.",
+    "id": "Lebih dari 80 alat praktis untuk pengembang (hash, encoder, konverter, generator) yang berjalan di browser."
+   }
+  },
+  {
+   "id": "directus",
+   "name": "Directus",
+   "category": "cms",
+   "kind": "docker",
+   "description": {
+    "en": "A headless CMS: build content models in the browser and get REST and GraphQL APIs.",
+    "vi": "Headless CMS: tạo mô hình nội dung trên trình duyệt và có ngay API REST và GraphQL.",
+    "zh": "无头 CMS：在浏览器中建立内容模型，获得 REST 和 GraphQL API。",
+    "es": "Un CMS headless: crea modelos de contenido en el navegador y obtén API REST y GraphQL.",
+    "pt": "Um CMS headless: monte modelos de conteúdo no navegador e receba APIs REST e GraphQL.",
+    "ru": "Headless CMS: создавайте модели контента в браузере и получайте REST и GraphQL API.",
+    "id": "CMS headless: buat model konten di browser dan dapatkan API REST dan GraphQL."
+   }
+  },
+  {
+   "id": "wikijs",
+   "name": "Wiki.js",
+   "category": "cms",
+   "kind": "docker",
+   "description": {
+    "en": "A modern wiki with visual and Markdown editors, search and page history.",
+    "vi": "Wiki hiện đại với trình soạn thảo trực quan và Markdown, tìm kiếm và lịch sử trang.",
+    "zh": "现代化的 Wiki，提供可视化和 Markdown 编辑器、搜索和页面历史。",
+    "es": "Una wiki moderna con editores visual y Markdown, búsqueda e historial de páginas.",
+    "pt": "Um wiki moderno com editores visual e Markdown, pesquisa e histórico de páginas.",
+    "ru": "Современная вики с визуальным редактором и редактором Markdown, поиском и историей страниц.",
+    "id": "Wiki modern dengan editor visual dan Markdown, pencarian, dan riwayat halaman."
+   }
+  },
+  {
+   "id": "umami",
+   "name": "Umami",
+   "category": "monitoring",
+   "kind": "docker",
+   "description": {
+    "en": "Simple, privacy-friendly website analytics without cookies, an alternative to Google Analytics.",
+    "vi": "Thống kê truy cập website đơn giản, tôn trọng quyền riêng tư, không dùng cookie; thay thế Google Analytics.",
+    "zh": "简单、注重隐私、不用 Cookie 的网站分析工具，可替代 Google Analytics。",
+    "es": "Analítica web sencilla y respetuosa con la privacidad, sin cookies, una alternativa a Google Analytics.",
+    "pt": "Análise de sites simples e respeitosa com a privacidade, sem cookies, uma alternativa ao Google Analytics.",
+    "ru": "Простая веб-аналитика без cookie, бережная к приватности, — альтернатива Google Analytics.",
+    "id": "Analitik situs web yang sederhana dan menjaga privasi, tanpa cookie, sebagai alternatif Google Analytics."
+   }
+  },
+  {
+   "id": "adguard-home",
+   "name": "AdGuard Home",
+   "category": "security",
+   "kind": "docker",
+   "description": {
+    "en": "Blocks ads and trackers for your devices through your own private DNS-over-HTTPS address.",
+    "vi": "Chặn quảng cáo và trình theo dõi cho thiết bị của bạn qua địa chỉ DNS-over-HTTPS riêng.",
+    "zh": "通过你自己的私有 DNS-over-HTTPS 地址，为你的设备拦截广告和跟踪器。",
+    "es": "Bloquea anuncios y rastreadores en tus dispositivos mediante tu propia dirección privada de DNS-over-HTTPS.",
+    "pt": "Bloqueia anúncios e rastreadores nos seus dispositivos por meio do seu próprio endereço privado de DNS-over-HTTPS.",
+    "ru": "Блокирует рекламу и трекеры на ваших устройствах через ваш собственный закрытый адрес DNS-over-HTTPS.",
+    "id": "Memblokir iklan dan pelacak untuk perangkat Anda lewat alamat DNS-over-HTTPS privat milik Anda sendiri."
+   }
+  },
+  {
+   "id": "odoo",
+   "name": "Odoo",
+   "category": "ecommerce",
+   "kind": "docker",
+   "description": {
+    "en": "Open-source ERP: CRM, sales, invoicing, inventory, website and more (Community edition).",
+    "vi": "ERP mã nguồn mở: CRM, bán hàng, hoá đơn, kho, website và nhiều hơn (bản Community).",
+    "zh": "开源 ERP：CRM、销售、开票、库存、网站等（社区版）。",
+    "es": "ERP de código abierto: CRM, ventas, facturación, inventario, sitio web y más (edición Community).",
+    "pt": "ERP de código aberto: CRM, vendas, faturamento, estoque, site e mais (edição Community).",
+    "ru": "ERP с открытым исходным кодом: CRM, продажи, выставление счетов, склад, сайт и многое другое (Community edition).",
+    "id": "ERP sumber terbuka: CRM, penjualan, faktur, inventaris, situs web, dan lainnya (edisi Community)."
+   }
+  },
+  {
+   "id": "ghost",
+   "name": "Ghost",
+   "category": "cms",
+   "kind": "docker",
+   "description": {
+    "en": "A fast publishing platform for blogs and newsletters.",
+    "vi": "Nền tảng xuất bản nhanh cho blog và bản tin.",
+    "zh": "快速的博客和电子报发布平台。",
+    "es": "Una plataforma de publicación rápida para blogs y boletines.",
+    "pt": "Uma plataforma de publicação rápida para blogs e newsletters.",
+    "ru": "Быстрая платформа для блогов и рассылок.",
+    "id": "Platform publikasi yang cepat untuk blog dan newsletter."
+   }
+  },
+  {
+   "id": "uptime-kuma",
+   "name": "Uptime Kuma",
+   "category": "monitoring",
+   "kind": "docker",
+   "description": {
+    "en": "Watches your websites and services and alerts you when they go down.",
+    "vi": "Theo dõi website và dịch vụ, báo cho bạn khi chúng ngừng hoạt động.",
+    "zh": "监视你的网站和服务，在它们宕机时向你发出告警。",
+    "es": "Vigila tus sitios web y servicios y te avisa cuando dejan de responder.",
+    "pt": "Vigia os seus sites e serviços e avisa você quando eles saem do ar.",
+    "ru": "Следит за вашими сайтами и сервисами и оповещает, когда они перестают работать.",
+    "id": "Memantau situs web dan layanan Anda, dan memberi peringatan saat mati."
+   }
+  },
+  {
+   "id": "n8n",
+   "name": "n8n",
+   "category": "devtools",
+   "kind": "docker",
+   "description": {
+    "en": "Workflow automation: connect apps and APIs with a visual editor.",
+    "vi": "Tự động hoá quy trình: kết nối ứng dụng và API bằng trình soạn thảo trực quan.",
+    "zh": "工作流自动化：用可视化编辑器连接应用和 API。",
+    "es": "Automatización de flujos de trabajo: conecta aplicaciones y API con un editor visual.",
+    "pt": "Automação de workflows: conecte apps e APIs com um editor visual.",
+    "ru": "Автоматизация рабочих процессов: связывайте приложения и API в визуальном редакторе.",
+    "id": "Otomatisasi alur kerja: hubungkan aplikasi dan API dengan editor visual."
+   }
+  },
+  {
+   "id": "gitea",
+   "name": "Gitea",
+   "category": "devtools",
+   "kind": "docker",
+   "description": {
+    "en": "Your own Git server with pull requests, issues and CI.",
+    "vi": "Máy chủ Git riêng có pull request, issue và CI.",
+    "zh": "你自己的 Git 服务器，支持拉取请求、议题和 CI。",
+    "es": "Tu propio servidor Git con pull requests, issues y CI.",
+    "pt": "O seu próprio servidor Git, com pull requests, issues e CI.",
+    "ru": "Ваш собственный Git-сервер с pull request, issue и CI.",
+    "id": "Server Git Anda sendiri dengan pull request, issue, dan CI."
+   }
+  },
+  {
+   "id": "grafana",
+   "name": "Grafana",
+   "category": "monitoring",
+   "kind": "docker",
+   "description": {
+    "en": "Dashboards and alerts for metrics, logs and databases such as Prometheus, Loki, MySQL and PostgreSQL.",
+    "vi": "Bảng biểu đồ và cảnh báo cho số liệu, log và cơ sở dữ liệu như Prometheus, Loki, MySQL, PostgreSQL.",
+    "zh": "为 Prometheus、Loki、MySQL 和 PostgreSQL 等的指标、日志和数据库提供仪表盘和告警。",
+    "es": "Paneles y alertas para métricas, registros y bases de datos como Prometheus, Loki, MySQL y PostgreSQL.",
+    "pt": "Dashboards e alertas para métricas, logs e bancos de dados como Prometheus, Loki, MySQL e PostgreSQL.",
+    "ru": "Панели мониторинга и оповещения для метрик, журналов и баз данных, таких как Prometheus, Loki, MySQL и PostgreSQL.",
+    "id": "Dasbor dan peringatan untuk metrik, log, dan basis data seperti Prometheus, Loki, MySQL, dan PostgreSQL."
+   }
+  },
+  {
+   "id": "ntfy",
+   "name": "ntfy",
+   "category": "communication",
+   "kind": "docker",
+   "description": {
+    "en": "Send push notifications to your phone or desktop from scripts, cron jobs and monitoring with a simple HTTP request.",
+    "vi": "Gửi thông báo đẩy tới điện thoại hoặc máy tính từ script, cron và công cụ giám sát chỉ bằng một lệnh HTTP.",
+    "zh": "通过简单的 HTTP 请求，从脚本、定时任务和监控向你的手机或电脑发送推送通知。",
+    "es": "Envía notificaciones push a tu teléfono o tu escritorio desde scripts, tareas cron y herramientas de monitoreo con una simple solicitud HTTP.",
+    "pt": "Envie notificações push para o seu celular ou computador a partir de scripts, tarefas cron e monitoramento, com uma simples requisição HTTP.",
+    "ru": "Отправляйте push-уведомления на телефон или компьютер из скриптов, заданий cron и мониторинга простым HTTP-запросом.",
+    "id": "Kirim notifikasi push ke ponsel atau desktop Anda dari skrip, tugas cron, dan pemantauan dengan permintaan HTTP sederhana."
+   }
+  },
+  {
+   "id": "gotify",
+   "name": "Gotify",
+   "category": "communication",
+   "kind": "docker",
+   "description": {
+    "en": "A small server for sending and receiving notifications, with a web interface and an Android app.",
+    "vi": "Máy chủ nhỏ gọn để gửi và nhận thông báo, có giao diện web và ứng dụng Android.",
+    "zh": "收发通知的小型服务器，带 Web 界面和 Android 应用。",
+    "es": "Un pequeño servidor para enviar y recibir notificaciones, con una interfaz web y una aplicación para Android.",
+    "pt": "Um pequeno servidor para enviar e receber notificações, com interface web e um app Android.",
+    "ru": "Небольшой сервер для отправки и получения уведомлений, с веб-интерфейсом и приложением для Android.",
+    "id": "Server kecil untuk mengirim dan menerima notifikasi, dengan antarmuka web dan aplikasi Android."
+   }
+  },
+  {
+   "id": "memos",
+   "name": "Memos",
+   "category": "productivity",
+   "kind": "docker",
+   "description": {
+    "en": "Quick notes and a personal timeline in Markdown, like a private Twitter for your thoughts and links.",
+    "vi": "Ghi chú nhanh bằng Markdown theo dòng thời gian, như một trang mạng xã hội riêng cho ý tưởng và đường link.",
+    "zh": "用 Markdown 记录速记和个人时间线，就像一个只属于你的 Twitter，存放想法和链接。",
+    "es": "Notas rápidas y una línea de tiempo personal en Markdown, como un Twitter privado para tus ideas y enlaces.",
+    "pt": "Notas rápidas e uma linha do tempo pessoal em Markdown, como um Twitter privado para as suas ideias e links.",
+    "ru": "Быстрые заметки и личная лента в Markdown, как закрытый Twitter для ваших мыслей и ссылок.",
+    "id": "Catatan cepat dan linimasa pribadi dalam Markdown, seperti Twitter privat untuk pikiran dan tautan Anda."
+   }
+  },
+  {
+   "id": "linkding",
+   "name": "linkding",
+   "category": "productivity",
+   "kind": "docker",
+   "description": {
+    "en": "A fast bookmark manager with tags, search, a browser extension and an archive of the pages you save.",
+    "vi": "Quản lý bookmark gọn nhẹ: gắn thẻ, tìm kiếm, tiện ích trình duyệt và lưu bản sao các trang đã đánh dấu.",
+    "zh": "快速的书签管理器，支持标签、搜索、浏览器扩展，并能存档你保存的页面。",
+    "es": "Un gestor de marcadores rápido con etiquetas, búsqueda, una extensión para el navegador y un archivo de las páginas que guardas.",
+    "pt": "Um gerenciador de favoritos rápido, com tags, pesquisa, uma extensão de navegador e um arquivo das páginas que você salva.",
+    "ru": "Быстрый менеджер закладок с тегами, поиском, расширением для браузера и архивом сохранённых страниц.",
+    "id": "Pengelola bookmark yang cepat dengan tag, pencarian, ekstensi browser, dan arsip halaman yang Anda simpan."
+   }
+  },
+  {
+   "id": "navidrome",
+   "name": "Navidrome",
+   "category": "media",
+   "kind": "docker",
+   "description": {
+    "en": "Stream your own music collection from the browser or any Subsonic app on your phone.",
+    "vi": "Nghe kho nhạc của riêng bạn trên trình duyệt hoặc ứng dụng Subsonic trên điện thoại.",
+    "zh": "在浏览器或手机上的任何 Subsonic 应用中播放你自己的音乐收藏。",
+    "es": "Escucha tu propia colección de música en streaming desde el navegador o desde cualquier aplicación Subsonic en tu teléfono.",
+    "pt": "Ouça a sua própria coleção de músicas pelo navegador ou por qualquer app Subsonic no celular.",
+    "ru": "Слушайте свою музыкальную коллекцию в браузере или в любом приложении Subsonic на телефоне.",
+    "id": "Streaming koleksi musik Anda sendiri dari browser atau aplikasi Subsonic apa pun di ponsel Anda."
+   }
+  },
+  {
+   "id": "vikunja",
+   "name": "Vikunja",
+   "category": "productivity",
+   "kind": "docker",
+   "description": {
+    "en": "To-do lists and projects with lists, Kanban boards, Gantt charts and shared tasks.",
+    "vi": "Quản lý việc cần làm và dự án: danh sách, bảng Kanban, biểu đồ Gantt và chia sẻ công việc.",
+    "zh": "待办清单和项目管理，支持列表、看板、甘特图和共享任务。",
+    "es": "Listas de tareas y proyectos con listas, tableros Kanban, diagramas de Gantt y tareas compartidas.",
+    "pt": "Listas de tarefas e projetos, com listas, quadros Kanban, gráficos de Gantt e tarefas compartilhadas.",
+    "ru": "Списки дел и проекты: списки, канбан-доски, диаграммы Ганта и общие задачи.",
+    "id": "Daftar tugas dan proyek dengan daftar, papan Kanban, diagram Gantt, dan tugas bersama."
+   }
+  },
+  {
+   "id": "actual",
+   "name": "Actual Budget",
+   "category": "productivity",
+   "kind": "docker",
+   "description": {
+    "en": "Personal budgeting with envelope budgets, accounts and reports, synced between your devices.",
+    "vi": "Quản lý chi tiêu cá nhân theo phương pháp phong bì, có tài khoản, báo cáo và đồng bộ giữa các thiết bị.",
+    "zh": "个人预算工具，支持信封预算、账户和报表，在你的设备之间同步。",
+    "es": "Presupuesto personal con el método de sobres, cuentas e informes, sincronizado entre tus dispositivos.",
+    "pt": "Orçamento pessoal com o método de envelopes, contas e relatórios, sincronizado entre os seus dispositivos.",
+    "ru": "Личный бюджет с конвертами, счетами и отчётами, синхронизируется между вашими устройствами.",
+    "id": "Penganggaran pribadi dengan anggaran amplop, rekening, dan laporan, disinkronkan antarperangkat Anda."
+   }
+  },
+  {
+   "id": "changedetection",
+   "name": "changedetection.io",
+   "category": "monitoring",
+   "kind": "docker",
+   "description": {
+    "en": "Watch web pages for changes, price drops and restocks, and get notified by e-mail, Telegram, ntfy and more.",
+    "vi": "Theo dõi thay đổi trên trang web, giá giảm hay hàng về, rồi báo qua e-mail, Telegram, ntfy và nhiều kênh khác.",
+    "zh": "监视网页的变化、降价和补货，并通过邮件、Telegram、ntfy 等发送通知。",
+    "es": "Vigila páginas web para detectar cambios, bajadas de precio y reposiciones, y recibe avisos por correo, Telegram, ntfy y más.",
+    "pt": "Vigie páginas web em busca de alterações, quedas de preço e reposições de estoque, e receba avisos por e-mail, Telegram, ntfy e mais.",
+    "ru": "Следите за изменениями веб-страниц, снижением цен и появлением товаров и получайте уведомления по электронной почте, в Telegram, ntfy и не только.",
+    "id": "Pantau halaman web untuk perubahan, penurunan harga, dan stok yang tersedia kembali, lalu dapatkan notifikasi lewat email, Telegram, ntfy, dan lainnya."
+   }
+  },
+  {
+   "id": "healthchecks",
+   "name": "Healthchecks",
+   "category": "monitoring",
+   "kind": "docker",
+   "description": {
+    "en": "Know when your cron jobs and backups stop running: each job pings a URL, and silence raises an alert.",
+    "vi": "Biết ngay khi cron hay tác vụ sao lưu ngừng chạy: mỗi tác vụ gọi một URL, quá hạn không gọi là có cảnh báo.",
+    "zh": "在定时任务和备份停止运行时通知你：每个任务定期请求一个 URL，一旦没有动静就发出告警。",
+    "es": "Entérate de cuándo tus tareas cron y tus copias de seguridad dejan de ejecutarse: cada tarea hace ping a una URL y el silencio genera una alerta.",
+    "pt": "Saiba quando as suas tarefas cron e os seus backups param de rodar: cada tarefa acessa uma URL, e o silêncio gera um alerta.",
+    "ru": "Узнайте, когда задания cron и резервное копирование перестают выполняться: каждое задание обращается к URL, а тишина вызывает оповещение.",
+    "id": "Ketahui saat tugas cron dan pencadangan Anda berhenti berjalan: setiap tugas melakukan ping ke URL, dan jika tidak ada ping, peringatan dikirim."
+   }
+  },
+  {
+   "id": "listmonk",
+   "name": "listmonk",
+   "category": "communication",
+   "kind": "docker",
+   "description": {
+    "en": "Newsletters and mailing lists: subscribers, templates, campaigns and statistics, sent through your SMTP service.",
+    "vi": "Gửi bản tin và quản lý danh sách e-mail: người đăng ký, mẫu thư, chiến dịch, thống kê, gửi qua dịch vụ SMTP của bạn.",
+    "zh": "电子报和邮件列表：订阅者、模板、营销活动和统计，通过你的 SMTP 服务发送。",
+    "es": "Boletines y listas de correo: suscriptores, plantillas, campañas y estadísticas, enviados a través de tu servicio SMTP.",
+    "pt": "Newsletters e listas de e-mail: assinantes, modelos, campanhas e estatísticas, enviados pelo seu serviço SMTP.",
+    "ru": "Рассылки и списки рассылки: подписчики, шаблоны, кампании и статистика, отправка через ваш SMTP-сервис.",
+    "id": "Newsletter dan milis: pelanggan, template, kampanye, dan statistik, dikirim lewat layanan SMTP Anda."
+   }
+  },
+  {
+   "id": "kanboard",
+   "name": "Kanboard",
+   "category": "productivity",
+   "kind": "docker",
+   "description": {
+    "en": "A simple Kanban board for projects: tasks, swimlanes, due dates and time tracking.",
+    "vi": "Bảng Kanban đơn giản cho dự án: công việc, làn, hạn chót và theo dõi thời gian.",
+    "zh": "简单的项目看板：任务、泳道、截止日期和时间跟踪。",
+    "es": "Un tablero Kanban sencillo para proyectos: tareas, carriles, fechas de vencimiento y control del tiempo.",
+    "pt": "Um quadro Kanban simples para projetos: tarefas, raias, prazos e controle de tempo.",
+    "ru": "Простая канбан-доска для проектов: задачи, дорожки, сроки и учёт времени.",
+    "id": "Papan Kanban sederhana untuk proyek: tugas, swimlane, tenggat, dan pelacakan waktu."
+   }
+  },
+  {
+   "id": "freshrss",
+   "name": "FreshRSS",
+   "category": "productivity",
+   "kind": "docker",
+   "description": {
+    "en": "Read all your news sites and blogs in one place; works with mobile RSS apps through its API.",
+    "vi": "Đọc tin từ mọi trang báo và blog ở một nơi; dùng được với ứng dụng RSS trên điện thoại qua API.",
+    "zh": "在一个地方阅读你关注的所有新闻网站和博客；通过它的 API 可配合手机 RSS 应用使用。",
+    "es": "Lee todos tus sitios de noticias y blogs en un solo lugar; funciona con aplicaciones RSS móviles a través de su API.",
+    "pt": "Leia todos os seus sites de notícias e blogs em um só lugar; funciona com apps de RSS para celular pela API dele.",
+    "ru": "Читайте все свои новостные сайты и блоги в одном месте; работает с мобильными RSS-приложениями через свой API.",
+    "id": "Baca semua situs berita dan blog Anda di satu tempat; bekerja dengan aplikasi RSS seluler lewat API-nya."
+   }
+  },
+  {
+   "id": "jellyfin",
+   "name": "Jellyfin",
+   "category": "media",
+   "kind": "docker",
+   "description": {
+    "en": "Your own Netflix: films, series and music from your server, on the web, phones and TVs.",
+    "vi": "Netflix của riêng bạn: phim, phim bộ và nhạc từ máy chủ, xem trên web, điện thoại và TV.",
+    "zh": "你自己的 Netflix：在网页、手机和电视上观看服务器中的电影、剧集和音乐。",
+    "es": "Tu propio Netflix: películas, series y música desde tu servidor, en la web, teléfonos y televisores.",
+    "pt": "O seu próprio Netflix: filmes, séries e músicas do seu servidor, na web, em celulares e TVs.",
+    "ru": "Свой Netflix: фильмы, сериалы и музыка с вашего сервера — в браузере, на телефонах и телевизорах.",
+    "id": "Netflix Anda sendiri: film, serial, dan musik dari server Anda, di web, ponsel, dan TV."
+   }
+  },
+  {
+   "id": "mealie",
+   "name": "Mealie",
+   "category": "productivity",
+   "kind": "docker",
+   "description": {
+    "en": "Save recipes from any website, plan meals for the week and build the shopping list from them.",
+    "vi": "Lưu công thức nấu ăn từ bất kỳ trang web nào, lên thực đơn cả tuần và tự tạo danh sách đi chợ.",
+    "zh": "从任何网站保存菜谱，规划一周的餐食，并据此生成购物清单。",
+    "es": "Guarda recetas de cualquier sitio web, planifica las comidas de la semana y arma la lista de compras a partir de ellas.",
+    "pt": "Salve receitas de qualquer site, planeje as refeições da semana e monte a lista de compras a partir delas.",
+    "ru": "Сохраняйте рецепты с любых сайтов, планируйте меню на неделю и составляйте по нему список покупок.",
+    "id": "Simpan resep dari situs web mana pun, rencanakan menu untuk seminggu, dan buat daftar belanja dari resep itu."
+   }
+  },
+  {
+   "id": "wordpress",
+   "name": "WordPress",
+   "category": "cms",
+   "kind": "php",
+   "description": {
+    "en": "The most popular website and blog builder.",
+    "vi": "Công cụ tạo website và blog phổ biến nhất.",
+    "zh": "最流行的网站和博客搭建工具。",
+    "es": "El creador de sitios web y blogs más popular.",
+    "pt": "O criador de sites e blogs mais popular.",
+    "ru": "Самый популярный конструктор сайтов и блогов.",
+    "id": "Pembuat situs web dan blog paling populer."
+   }
+  },
+  {
+   "id": "woocommerce",
+   "name": "WooCommerce",
+   "category": "ecommerce",
+   "kind": "php",
+   "description": {
+    "en": "WordPress with WooCommerce installed and activated: a ready online shop.",
+    "vi": "WordPress kèm WooCommerce đã cài và kích hoạt: cửa hàng trực tuyến sẵn sàng.",
+    "zh": "已安装并启用 WooCommerce 的 WordPress：现成的网上商店。",
+    "es": "WordPress con WooCommerce instalado y activado: una tienda en línea lista para usar.",
+    "pt": "WordPress com o WooCommerce instalado e ativado: uma loja virtual pronta.",
+    "ru": "WordPress с установленным и активированным WooCommerce: готовый интернет-магазин.",
+    "id": "WordPress dengan WooCommerce terinstal dan aktif: toko online yang siap pakai."
+   }
+  },
+  {
+   "id": "joomla",
+   "name": "Joomla",
+   "category": "cms",
+   "kind": "php",
+   "description": {
+    "en": "A flexible CMS for websites and portals.",
+    "vi": "CMS linh hoạt cho website và cổng thông tin.",
+    "zh": "灵活的 CMS，适用于网站和门户。",
+    "es": "Un CMS flexible para sitios web y portales.",
+    "pt": "Um CMS flexível para sites e portais.",
+    "ru": "Гибкая CMS для сайтов и порталов.",
+    "id": "CMS fleksibel untuk situs web dan portal."
+   }
+  },
+  {
+   "id": "nextcloud",
+   "name": "Nextcloud",
+   "category": "storage",
+   "kind": "php",
+   "description": {
+    "en": "Your own cloud for files, calendars and contacts.",
+    "vi": "Đám mây riêng cho tệp, lịch và danh bạ.",
+    "zh": "你自己的云，存放文件、日历和联系人。",
+    "es": "Tu propia nube para archivos, calendarios y contactos.",
+    "pt": "A sua própria nuvem para arquivos, agendas e contatos.",
+    "ru": "Ваше собственное облако для файлов, календарей и контактов.",
+    "id": "Cloud Anda sendiri untuk file, kalender, dan kontak."
+   }
+  },
+  {
+   "id": "drupal",
+   "name": "Drupal",
+   "category": "cms",
+   "kind": "php",
+   "description": {
+    "en": "A powerful CMS for structured content, built with Composer.",
+    "vi": "CMS mạnh cho nội dung có cấu trúc, dựng bằng Composer.",
+    "zh": "强大的结构化内容 CMS，使用 Composer 构建。",
+    "es": "Un CMS potente para contenido estructurado, creado con Composer.",
+    "pt": "Um CMS poderoso para conteúdo estruturado, montado com o Composer.",
+    "ru": "Мощная CMS для структурированного контента, собирается через Composer.",
+    "id": "CMS andal untuk konten terstruktur, dibangun dengan Composer."
+   }
+  },
+  {
+   "id": "laravel",
+   "name": "Laravel",
+   "category": "devtools",
+   "kind": "php",
+   "description": {
+    "en": "A fresh Laravel project with its database, ready for your code.",
+    "vi": "Dự án Laravel mới kèm cơ sở dữ liệu, sẵn sàng cho mã của bạn.",
+    "zh": "全新的 Laravel 项目，带数据库，等你写代码。",
+    "es": "Un proyecto de Laravel nuevo con su base de datos, listo para tu código.",
+    "pt": "Um projeto Laravel novo com o banco de dados dele, pronto para o seu código.",
+    "ru": "Новый проект Laravel с базой данных, готовый для вашего кода.",
+    "id": "Proyek Laravel baru dengan basis datanya, siap untuk kode Anda."
+   }
+  },
+  {
+   "id": "opencart",
+   "name": "OpenCart",
+   "category": "ecommerce",
+   "kind": "php",
+   "description": {
+    "en": "A free, light open-source shopping cart with many extensions.",
+    "vi": "Giỏ hàng mã nguồn mở miễn phí, nhẹ, nhiều tiện ích mở rộng.",
+    "zh": "免费、轻量的开源购物车，扩展丰富。",
+    "es": "Un carrito de compras gratuito, ligero y de código abierto con muchas extensiones.",
+    "pt": "Um carrinho de compras gratuito, leve e de código aberto, com muitas extensões.",
+    "ru": "Бесплатная лёгкая корзина покупок с открытым исходным кодом и множеством расширений.",
+    "id": "Keranjang belanja sumber terbuka yang gratis dan ringan, dengan banyak ekstensi."
+   }
+  },
+  {
+   "id": "moodle",
+   "name": "Moodle",
+   "category": "education",
+   "kind": "php",
+   "description": {
+    "en": "The open-source learning platform for courses, quizzes and grades.",
+    "vi": "Nền tảng học tập mã nguồn mở cho khoá học, bài kiểm tra và điểm số.",
+    "zh": "开源学习平台，提供课程、测验和成绩管理。",
+    "es": "La plataforma de aprendizaje de código abierto para cursos, cuestionarios y calificaciones.",
+    "pt": "A plataforma de aprendizado de código aberto para cursos, questionários e notas.",
+    "ru": "Платформа обучения с открытым исходным кодом для курсов, тестов и оценок.",
+    "id": "Platform pembelajaran sumber terbuka untuk kursus, kuis, dan nilai."
+   }
+  }
+ ]
+}

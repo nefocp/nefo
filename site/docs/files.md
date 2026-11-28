@@ -5,7 +5,9 @@ description: Browse, edit, upload, download, search, compress and extract files 
 
 # Files
 
-The **Files** page is a file manager in your browser. It covers browsing, the editor, uploads and downloads, downloading from a URL, search, archives, permissions and the trash. The panel runs as root, so this page explains where you can go and what it refuses to change.
+Nefo's **Files** page is a file manager in the browser: browse, edit text files of up to 2 MB, upload up to 4 GB at a time, download, fetch a file from a URL, search by name or content, compress and extract, and restore deleted items from a 30-day trash. Inside a website's folder it works as the website's user and can't leave the folder.
+
+This page covers each of these. The panel runs as root, so it also explains where you can go and what it refuses to change.
 
 ## Find your way
 
@@ -25,6 +27,7 @@ Inside a website's folder, `/var/www/example.com`, every operation is confined t
 - Paths can't climb out with `..`, and symbolic links can't point outside the folder. A hacked site that plants a link to `/etc` can't trick the panel into touching system files.
 - New files and folders belong to the website's user, so its PHP can use them.
 - Moving, compressing or extracting between a website's folder and any other folder is refused. Download the file and upload it where you need it instead.
+- While the website's [files are locked](./website-protection#lock-a-website-s-files), you can change only its writable folders and its `tmp` and `logs` folders. Elsewhere in the website's folder, the file manager refuses with a message that the files are locked.
 
 These folders can't be deleted, renamed or have their permissions changed:
 

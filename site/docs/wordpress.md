@@ -5,7 +5,7 @@ description: Check and update your WordPress sites with a database backup first,
 
 # WordPress toolkit
 
-The WordPress toolkit shows the version and pending updates of each WordPress site, updates them in one click after a database backup, and switches maintenance mode, debug mode and automatic updates. It also resets administrator passwords, makes staging copies and pushes them back to the live site.
+Nefo's WordPress toolkit shows the version and pending updates of each WordPress site, and updates WordPress, plugins and themes in one click after a database backup. It also switches maintenance mode, debug mode and automatic updates, resets administrator passwords, and makes a staging copy that you can push back to the live site.
 
 It works for the WordPress sites that Nefo installed: from the [App store](./apps), with the **Install WordPress** button of an empty PHP website, or as a staging copy. A WordPress that you uploaded yourself doesn't appear. The **WordPress** item of the left menu shows up once the server has a WordPress site.
 
@@ -18,7 +18,7 @@ Two ways:
 - **App store**: install WordPress or WooCommerce into an empty PHP website. See [App store](./apps).
 - **From an empty PHP website**: open the website's **Overview** tab and click **Install WordPress**. Fill in **Site title**, **Admin user name** (avoid `admin`: it is the first name attackers try), **Admin e-mail** and **Admin password**, or leave the password empty to get a strong one. A password you type needs 12 to 128 characters, as in the app store. Click **Install WordPress**.
 
-WordPress needs MariaDB: install it on the **Databases** page first (see [Databases](./databases)). Turn on HTTPS before you install, so WordPress starts with its `https://` address; if you turn it on later, Nefo switches WordPress over for you. Save the login details when they appear: the password is not shown again.
+WordPress needs MariaDB or MySQL: install it on the **Databases** page first (see [Databases](./databases)). Turn on HTTPS before you install, so WordPress starts with its `https://` address; if you turn it on later, Nefo switches WordPress over for you. Save the login details when they appear: the password is not shown again.
 
 ## The site list
 
@@ -46,7 +46,7 @@ The update runs in the background with a log:
 2. It updates WordPress and its database, then every plugin and every theme.
 3. A site that was in maintenance mode stays in it.
 
-If some plugins or themes can't be updated, the log says why and names the database backup. To go back, download the backup from **Files** and import it on the **Databases** page: see [Databases](./databases). For a full copy of the files too, use [Backups](./backups).
+If some plugins or themes can't be updated, the log says why and names the database backup. On a website whose [files are locked](./website-protection#lock-a-website-s-files), the toolkit unlocks them for the update, maintenance mode, debug mode and automatic updates, and locks them again afterwards. WordPress itself can't update anything while the files are locked: update it here. To go back, download the backup from **Files** and import it on the **Databases** page: see [Databases](./databases). For a full copy of the files too, use [Backups](./backups).
 
 ## Maintenance mode
 
@@ -145,4 +145,6 @@ Settings in `wp-config.php` are never pushed: change them on the live site yours
 
 ## Delete a staging copy
 
-To delete the staging copy, delete its website and leave **Also delete the databases linked to this website** ticked: see [Websites](./websites).
+To delete the staging copy, delete its website and tick **Also delete its databases**: see [Delete a website](./websites#delete-a-website). Deleting a staging copy doesn't change its live site.
+
+Deleting the live site keeps its staging copy, but the copy can no longer be pushed: the delete dialog says "This is the live site of the staging copy …".

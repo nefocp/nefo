@@ -1,11 +1,13 @@
 ---
 title: Mail and alerts
-description: Let your websites send e-mail through an SMTP provider, and get alerts by Telegram, e-mail, Discord, Slack or a webhook when the server needs attention.
+description: Let your websites send e-mail through an SMTP provider, and get alerts by Telegram, e-mail, Discord, Slack or a webhook when the server needs attention or someone signs in.
 ---
 
 # Mail and alerts
 
-This page covers two things: how your websites send e-mail through an SMTP provider, and how Nefo alerts you by Telegram, e-mail, Discord, Slack or a webhook when something on the server needs attention.
+Nefo has no mail server. Websites send e-mail through Postfix as a send-only relay to your SMTP provider (Gmail, SendGrid, Amazon SES and others). Alerts reach you by Telegram, e-mail, Discord, Slack or a signed webhook when the CPU, memory or disk is high, a service stops, a backup fails, a website is down, or someone signs in.
+
+This page covers both: sending e-mail from websites, and alerts. To set up the DNS records of a mail provider (MX, SPF, DMARC), see [DNS (Cloudflare)](./dns#set-up-email-records).
 
 ## No mail server, by design
 
@@ -77,7 +79,7 @@ Select **Remove** and confirm. The panel uninstalls Postfix and forgets the sett
 
 Alerts send you a message by Telegram, e-mail, Discord, Slack or your own webhook, when the server needs attention. Go to **Settings** → **Alerts**. Every channel is optional: set up as many as you like, and each alert goes to all of them at once. A channel that fails doesn't stop the others.
 
-The panel checks the server every minute. Each problem is reported once, again every 6 hours while it lasts, and once more when it is solved. Each message starts with the server's name in brackets. E-mail alerts have the subject "Server alert:" followed by the server's name.
+The panel checks the server every minute. Each problem is reported once, again every 6 hours while it lasts, and once more when it is solved. Each message starts with the server's name in square brackets. E-mail alerts have the subject "Server alert:" followed by the server's name.
 
 ### What sends an alert
 
@@ -88,12 +90,51 @@ The panel checks the server every minute. Each problem is reported once, again e
 | **Disk above (%)** | the disk (`/`) is that full | 90 |
 | **A service stops (Nginx, PHP, MariaDB…)** | a service that starts at boot is not running | on |
 | **A backup, restore or certificate renewal fails** | a backup, a restore, a website certificate renewal or the panel certificate renewal fails | on |
-| **Website monitoring** (each website's **Monitoring** tab) | a monitored website is down (2 failed checks in a row), is up again, or serves a certificate that ends in less than 14 days | off |
+| Website monitoring (each website's **Monitoring** tab) | a monitored website is down (2 failed checks in a row), is up again, or serves a certificate that ends in less than 14 days | off |
+| **SSH sign-ins** | someone signs in over SSH: every time, or only from a new address | **No alert** |
+| **Failed SSH attempts in 10 minutes** | that many SSH sign-ins failed within 10 minutes | 0 (off) |
+| **Panel sign-ins** | someone signs in to the panel: every time, or only from a new address | **No alert** |
+| **Alert me when the daily check finds a new problem** (on the **Security check** page) | the daily [security check](./security-check) finds a new critical problem or warning | off |
+| **Alert me when PHP files change** (a website's **File lock** tab) | the daily check of a locked website finds PHP files changed, added or removed (see [File lock](./website-protection#alerts-when-php-files-change)) | off |
 
 - Set a limit to 0 to turn it off. Other limits must be between 10 and 100.
-- The services watched are the web server (Nginx, Apache or OpenLiteSpeed), PHP-FPM, MariaDB, Redis and fail2ban, when installed.
+- The services watched are the web server (Nginx, Apache or OpenLiteSpeed), PHP-FPM, MariaDB or MySQL, PostgreSQL, Redis, Memcached and fail2ban, when installed.
 - Nothing is checked until at least one channel is set up.
 - Website monitoring is turned on for each website, and its checks run even without a channel: the **Monitoring** tab shows the results. Down alerts repeat every 6 hours, like the others. See [Websites](./websites#monitoring).
+
+### Sign-in alerts
+
+Get a message when someone signs in to the server over SSH or to the panel, so a sign-in you didn't make doesn't go unnoticed.
+
+1. Go to **Settings** → **Alerts** and set up at least one channel.
+2. Under **Sign-ins**, choose for **SSH sign-ins** and **Panel sign-ins**:
+   - **No alert**;
+   - **Every sign-in**;
+   - **Only from a new address**: a sign-in from an address the account has not signed in from in the last 180 days.
+3. Optional: in **Failed SSH attempts in 10 minutes**, enter how many failed attempts send an alert, from 3 to 100000. 0 turns it off.
+4. Click **Save**.
+
+An SSH alert names the account, the address, how the account signed in and the time, for example:
+
+```
+[server1] 🔑 SSH sign-in: admin from 203.0.113.10 (new address) with a key, 2026-11-27 10:31:05 +07
+```
+
+Several sign-ins in the same minute come in one message. A burst of failed attempts names the addresses that tried the most:
+
+```
+[server1] ⚠️ 57 failed SSH sign-in attempts in the last 10 minutes, from 198.51.100.7 (40), 203.0.113.5 (17).
+```
+
+How it works:
+
+- Nothing watches the SSH log all the time. Once a minute, the panel reads what the SSH service (`ssh.service` or `sshd.service`) wrote to the system journal since the last read, and remembers where it stopped. The SSH alerts cost nothing while they are off.
+- When you turn the SSH alerts on, they start from that moment: earlier sign-ins are never reported. The addresses of the SSH sign-ins of the last 30 days count as known.
+- For the panel, the addresses of the sign-ins in the activity log count as known.
+- For IPv6, every address in the same /64 counts as one address, as most providers give one /64 to one customer. Up to 500 addresses are remembered for SSH and 500 for the panel.
+- If the panel was stopped for more than an hour, it reads only the last hour of the SSH log when it starts again.
+- Failed attempts are wrong passwords and unknown account names. With password sign-in off, refused keys are not counted. At most one burst alert is sent per hour.
+- To block the addresses that keep trying, install fail2ban on the **Firewall & SSH** page. See [Brute-force protection](./security#brute-force-protection-fail2ban).
 
 ### Get alerts by Telegram
 
@@ -187,7 +228,7 @@ The Discord, Slack and webhook URLs contain their token, so after you save they'
 For Discord, Slack and the webhook, the error is one of these:
 
 - **Cannot reach the webhook** followed by the reason, for example `no such host` or `connection refused`.
-- **The webhook refused the message (HTTP 404…)**: the receiver answered with something other than a 2xx status. Discord and Slack add their reason, such as `Unknown Webhook` or `invalid_token`. A redirect (3xx) counts as a refusal too.
+- **The webhook refused the message (HTTP 404…). Check its URL.**: the receiver answered with something other than a 2xx status. Discord and Slack add their reason, such as `Unknown Webhook` or `invalid_token`. A redirect (3xx) counts as a refusal too.
 - **The webhook did not answer within 10 seconds.**
 - **… is a loopback, link-local or cloud metadata address**: see [Addresses a webhook can't use](#webhook-addresses).
 

@@ -1,40 +1,37 @@
 ---
 title: Databases
-description: Install MariaDB or MySQL, create databases, import and export SQL, allow remote access, read the slow query log, use Adminer, phpMyAdmin and the Redis key browser, and manage PostgreSQL databases.
+description: Install MariaDB or MySQL, choose a MariaDB version, upgrade MariaDB, switch between MariaDB and MySQL, create databases, import and export SQL, allow remote access, read the slow query log, and use Adminer, phpMyAdmin and the Redis key browser.
 ---
 
 # Databases
 
-The **Databases** page manages the database server for WordPress and most PHP applications: MariaDB, or MySQL 8.4 if you choose it. This page covers:
+Nefo runs one MySQL-compatible database server per server: MariaDB (your distribution's, or 11.4, 11.8 or 12.3 LTS from MariaDB) or MySQL 8.4 LTS, tuned for a small VPS and reachable from the server only. The **Databases** page creates databases and users, imports and exports SQL, opens one database to chosen addresses, and shows slow queries. PostgreSQL can run next to it.
 
-- choosing MariaDB or MySQL, installing it and how Nefo tunes it for a small server;
+This page covers:
+
+- choosing MariaDB or MySQL and a MariaDB version, installing it, how Nefo tunes it for a small server, upgrading MariaDB, and switching from one to the other;
 - creating databases, showing their logins and changing passwords;
 - SQL import and export;
 - remote access for one database at a time;
 - the slow query log;
 - Adminer and phpMyAdmin, database UIs in your browser;
-- the Redis key browser, on the **Redis** tab of the same page;
-- PostgreSQL, on its own **PostgreSQL** tab, and Memcached's status.
+- the Redis key browser, on the **Redis** tab of the same page, and Memcached's status.
 
-PostgreSQL can run next to MariaDB, installed from your distribution (see [PostgreSQL](#postgresql)). MongoDB, and PostgreSQL as a container, are available in the [App store](./apps) as Docker apps that listen on 127.0.0.1 only. Those Docker apps don't appear on the **Databases** page.
+PostgreSQL has its own **PostgreSQL** tab on this page and its own docs page: see [PostgreSQL](./postgresql). MongoDB, and PostgreSQL as a container, are available in the [App store](./apps) as Docker apps that listen on 127.0.0.1 only. Those Docker apps don't appear on the **Databases** page.
 
 ## Choose MariaDB or MySQL
 
-A server runs one MySQL-compatible database server: MariaDB or MySQL 8.4 LTS. You choose when you install it, on the **Databases** page or on the **Software** page's **Database server** card. While one is installed, the panel refuses to install the other.
+A server runs one MySQL-compatible database server: MariaDB or MySQL 8.4 LTS. You choose when you install it, on the **Databases** page, on the **Software** page's **Database server** card, or in the setup (**Set up this server**). While one is installed, the panel refuses to install the other; you can [switch](#switch-between-mariadb-and-mysql) from one to the other later, with your databases.
 
 | | MariaDB (recommended) | MySQL 8.4 LTS |
 |---|---|---|
-| Comes from | Your distribution's packages | Oracle's repository, `repo.mysql.com` (the `mysql-8.4-lts` track) |
-| Memory, roughly | Its buffer pool plus about 100 MB | Its buffer pool plus about 150 MB; plus about 300 MB from about 4 GB of RAM, where the performance schema is on |
-| Support | As long as your distribution supports it | Oracle supports 8.4 LTS until 2032 |
+| Comes from | Your distribution's packages, or an LTS series from MariaDB's own repository (see [MariaDB versions](#mariadb-versions)) | Oracle's repository, `repo.mysql.com` (the `mysql-8.4-lts` track) |
+| Memory, roughly | Its buffer pool plus about 100 MB | Its buffer pool plus about 150 MB, or plus about 300 MB with the performance schema on, which the panel turns on from about 3.5 GB of RAM (so on 4 GB servers) |
+| Support | As long as your distribution supports it; a series from MariaDB's repository until MariaDB's end date for it | Oracle supports 8.4 LTS until 2032 |
 | Systems | Every system Nefo supports | Ubuntu 22.04, 24.04 and 26.04 and Debian 12 and 13, on amd64 (x86-64) only |
 | Good for | WordPress and most PHP applications | Applications that need MySQL itself, or a team used to it |
 
 Both work with everything on this page, with backups, website copies, WordPress staging and the app store's PHP applications. Adminer and phpMyAdmin open both. On an arm64 server, or a system Oracle has no packages for, the **Software** page offers MariaDB only and says why.
-
-::: warning Switching later
-The panel doesn't switch a server from one to the other. To switch, export every database (or make a backup), delete the databases, uninstall the current server, install the other one, then create the databases again and import the dumps. The two can't read each other's data directory: the panel refuses to install one over the other's data kept in `/var/lib/mysql`, so move or delete it first. A dump moves between the two as long as it uses nothing the other lacks; MariaDB 11's `utf8mb4_uca1400_ai_ci` collation, for example, doesn't exist in MySQL.
-:::
 
 ## Install MariaDB
 
@@ -43,6 +40,8 @@ The panel doesn't switch a server from one to the other. To switch, export every
 3. Wait one to two minutes. The progress log shows each step.
 
 Nefo installs the `mariadb-server` and `mariadb-client` packages from your distribution. It then writes its settings, starts MariaDB, and removes the anonymous users and the `test` database that some versions ship with.
+
+To install a newer series from MariaDB's own repository instead, see [MariaDB versions](#mariadb-versions).
 
 ### How MariaDB is tuned
 
@@ -71,6 +70,74 @@ MariaDB then uses about the size of its buffer pool plus 100 MB. The **Software*
 ::: warning
 Don't edit `90-panel.cnf`. The panel rewrites it.
 :::
+
+## Which MariaDB versions can I install? {#mariadb-versions}
+
+MariaDB comes from your distribution by default. Its security fixes then arrive with the system's updates and no other repository is added. You can instead install a long-term support (LTS) series from MariaDB's own repository, `dlm.mariadb.com`, when you need a newer MariaDB than your distribution has:
+
+| Series | MariaDB supports it until | Offered on |
+|---|---|---|
+| 11.4 LTS | 29 May 2029 | Ubuntu 22.04 and 24.04, Debian 12 |
+| 11.8 LTS | 4 June 2028 | Ubuntu 22.04 and 24.04, Debian 12 |
+| 12.3 LTS | 12 June 2029 | Ubuntu 22.04, 24.04 and 26.04, Debian 12 and 13 |
+
+A series is offered only where it is newer than the distribution's own MariaDB:
+
+| System | The distribution's MariaDB | Series offered |
+|---|---|---|
+| Ubuntu 22.04 | 10.6 | 11.4, 11.8, 12.3 |
+| Ubuntu 24.04 | 10.11 | 11.4, 11.8, 12.3 |
+| Debian 12 | 10.11 | 11.4, 11.8, 12.3 |
+| Ubuntu 26.04 | 11.8 | 12.3 |
+| Debian 13 | 11.8 | 12.3 |
+
+MariaDB 12.3 doesn't install Galera (MariaDB's cluster software, which a single server doesn't use); 11.4 and 11.8 bring it along as their packages require.
+
+To install a series:
+
+1. Go to **Software**. On the **Database server** card, keep **MariaDB** selected.
+2. Under it, choose the version, such as **11.4 LTS from MariaDB**. Your distribution's version, such as "10.11, the distribution's", stays the default.
+3. Select **Install MariaDB 11.4**.
+
+The setup (**Set up this server**) offers the same versions under **MariaDB**, and so does `nefo setup --db mariadb-11.4` (see [Command line](./cli#nefo-setup)).
+
+What the panel does for a series from MariaDB's repository:
+
+- It downloads MariaDB's signing key from `https://supplychain.mariadb.com/MariaDB-Server-GPG-KEY` (or `keyserver.ubuntu.com`) and accepts it only if its fingerprint is exactly `177F 4010 FE56 CA33 3630 0305 F165 6F24 C74C D1D8`, the "MariaDB Signing Key" that MariaDB's documentation lists. It saves it as `/etc/apt/keyrings/panel-mariadb.gpg`, trusted for this repository only.
+- It writes `/etc/apt/sources.list.d/panel-mariadb.list` with one line for that series only, such as `https://dlm.mariadb.com/repo/mariadb-server/11.4/repo/ubuntu noble main`. Your server then gets 11.4's point releases with your system updates, never a newer series by itself.
+- It checks that apt will really install MariaDB's packages of that series, then installs `mariadb-server` and `mariadb-client`, tuned like the distribution's MariaDB.
+
+Uninstalling MariaDB also removes the repository file and the key.
+
+The panel refuses:
+
+- to install a series while another MariaDB is installed: use **Upgrade** instead (see below);
+- to install a MariaDB older than the one whose data is in `/var/lib/mysql`, kept from an earlier install, because it couldn't read it. Install that version or a newer one, or move the data directory away first.
+
+## Upgrade MariaDB
+
+You can upgrade the installed MariaDB to a newer LTS series from MariaDB's repository, such as the distribution's 10.11 to 11.4, or Debian 13's 11.8 to 12.3, with your databases in place.
+
+1. Go to **Software**. On the **Database server** card, select **Upgrade**.
+2. Choose the series. The dialog shows what will happen, and how much free disk space it needs.
+3. Select **Upgrade to MariaDB 11.4** and follow the log.
+
+The upgrade runs in this order:
+
+1. Every database is exported, one gzipped SQL file each, into a new folder of `/var/backups/panel/db-server/`. The panel keeps these dumps until you delete them.
+2. The packages of the new series are downloaded, and those of the installed one are kept, so going back works without the network.
+3. MariaDB becomes read-only, the panel counts the rows of every table, and MariaDB stops. Its data directory is copied to `/var/lib/mysql.before-11.4-<date>-<time>` and `/etc/mysql` into the dumps' folder. From here, websites can't use their databases until the upgrade ends, usually a few minutes.
+4. The new packages replace the old ones and start MariaDB on the same data, still read-only. `mariadb-upgrade` then updates its system tables.
+5. The panel checks that MariaDB reports the new version, that every database has the same tables with the same number of rows, views, routines, triggers and events, and that each database user of the panel can sign in with its password.
+6. MariaDB accepts writes again, and the copy of the data directory is deleted.
+
+If any step from 4 on fails, the panel puts the old MariaDB back: it removes the new packages, restores `/etc/mysql` and the copied data directory, installs the old packages again and starts MariaDB. The log ends with the reason. Your databases are then as they were before the upgrade.
+
+::: warning No way back to an older series
+After an upgrade, MariaDB has upgraded its data files and system tables, which an older MariaDB can't read. The panel refuses a downgrade, such as 11.8 to 11.4, and says why. To go back, export the databases, uninstall MariaDB with its data, install the older version and import them.
+:::
+
+The panel needs free disk space for the dumps, the copy of the data directory and the packages: roughly one and a half times the data directory plus 400 MB. It refuses to start without it. It also refuses while MariaDB is stopped, or when the server's configuration moves the data directory away from `/var/lib/mysql`.
 
 ## Install MySQL
 
@@ -103,7 +170,7 @@ The other settings:
 | `bind-address` | `127.0.0.1` | MySQL only accepts connections from this server, until a database allows remote access |
 | `mysqlx` | `OFF` | No X Protocol listener on port 33060: PHP and the panel use the classic protocol |
 | `disable_log_bin` | on | No binary logs filling the disk: the server has no replicas |
-| `performance_schema` | `OFF` below about 3.5 GB of RAM, `ON` above | It takes 100 to 200 MB by itself |
+| `performance_schema` | `OFF` below about 3.5 GB of RAM, `ON` from there (so on 4 GB servers) | It takes 100 to 200 MB by itself |
 | `skip-name-resolve`, `host_cache_size` | on, `0` | No DNS lookup for each connection |
 | `innodb_log_buffer_size` | `16M` | MySQL 8.4's default is 64M |
 | `character-set-server`, `collation-server` | `utf8mb4`, `utf8mb4_unicode_ci` | The same as MariaDB, so dumps move between the two |
@@ -117,6 +184,72 @@ On MySQL the panel runs SQL with the `mysql` command instead of `mariadb`, expor
 ::: warning
 Don't edit `90-panel.cnf`. The panel rewrites it.
 :::
+
+## Can I switch between MariaDB and MySQL? {#switch-between-mariadb-and-mysql}
+
+Yes, from v0.24.0. A server runs one database server, but you can replace MariaDB with MySQL 8.4 LTS, or MySQL with MariaDB, with your databases, their users and their privileges.
+
+1. Go to **Software**. On the **Database server** card, under **MySQL 8.4 LTS instead** (or **MariaDB instead**), select **Switch to MySQL 8.4 LTS** (or **Switch to MariaDB**).
+2. Read the dialog. It lists the databases and the accounts that go over, and how each account signs in afterwards.
+3. Type `mysql` (or `mariadb`) to confirm, and select the switch button.
+
+Switching back to MariaDB installs your distribution's MariaDB. Without any database, the same task only replaces one server with the other.
+
+### What the switch does
+
+1. The panel downloads the new server's packages, and keeps the old server's for going back. Nothing changes for your websites yet.
+2. The old server becomes read-only: websites can still read their databases, but not write. The panel reads its accounts and privileges, counts the rows of every table and exports every database into a new folder of `/var/backups/panel/db-server/`.
+3. The old server stops. Its data directory is moved to `/var/lib/mysql.mariadb-<date>-<time>` (or `.mysql-…`) and `/etc/mysql` is copied into the dumps' folder. Its packages are removed. From here, websites can't use their databases until the switch ends.
+4. The new server is installed as the **Software** page installs it, and stays read-only. Remote access and the slow query log are set up again as they were.
+5. The accounts are created, every database is imported, and the privileges are granted again. Dumps from MySQL 8 are adapted for MariaDB as the website import adapts them: its `utf8mb4_0900_*` collations become MariaDB's (`utf8mb4_unicode_520_ci`, a language's own collation, or `utf8mb4_bin`) and MySQL-only settings are left out. Dumps from MariaDB 11 going into MySQL get MySQL's collations for MariaDB's `uca1400` ones (`utf8mb4_uca1400_ai_ci` becomes `utf8mb4_0900_ai_ci`).
+6. The panel checks that every database has the same tables with the same number of rows, views, routines, triggers and events, and that each database user of the panel signs in with its password. Then the server accepts writes again and the old data directory is deleted.
+
+If any step from 3 on fails, the panel removes the new server, restores the old one's configuration and data directory, installs its packages again and starts it: you are back where you were. The dumps stay in either case.
+
+How long it takes depends on the size of your databases: the export, the import and the row count each read all the data once.
+
+### Accounts and passwords
+
+MariaDB and MySQL store passwords differently, so not every password can go over:
+
+| Account | After the switch |
+|---|---|
+| The user of a database on the **Databases** page | Its password, which the panel knows, on `localhost` and on each address allowed for remote access |
+| An account you made yourself with a `mysql_native_password` password, going to MariaDB | Its password, from its hash |
+| An account that signs in through the socket (`unix_socket` on MariaDB, `auth_socket` on MySQL) | Signs in through the socket again |
+| Any other account you made yourself, such as a MariaDB account going to MySQL (MySQL 8.4 keeps `mysql_native_password` off) or a MySQL account going to MariaDB (MariaDB can't read `caching_sha2_password`) | Created with a new random password and locked. The log lists each one. Set a password as root on the server: `ALTER USER 'name'@'localhost' IDENTIFIED BY '…' ACCOUNT UNLOCK;` |
+
+Their privileges are granted again from the old server's `SHOW GRANTS`. A privilege the other server doesn't have is left out and listed in the log, as are role and proxy grants, which the panel doesn't carry.
+
+### What keeps working
+
+- Websites keep their settings: they connect to `localhost`, through the same socket on both servers.
+- phpMyAdmin and Adminer open the new server.
+- Backups: new backups use the new server's export program, and a backup made before the switch can be restored after it.
+- Remote access stays open for the same addresses.
+
+### When the panel refuses
+
+The dialog lists what must be fixed first, under **Fix these first:**, and the switch button stays disabled:
+
+| Reason | What to do |
+|---|---|
+| The panel doesn't know the password of a database's user (a database brought over with only its password hash) | Set a new password for that database on the **Databases** page, and put it in the website's settings |
+| Going to MySQL: tables that use one of MariaDB's own storage engines (Aria and others), sequences or system-versioned tables | Convert them, for example with `ALTER TABLE … ENGINE=InnoDB`, or drop them |
+| Going to MySQL: `INET4`, `INET6` or `UUID` columns | Change them, for example to `VARCHAR` |
+| Going to MySQL: views, triggers or routines whose definer's user name is longer than 32 characters | Create them again with another definer |
+| A database name that starts with a dash | Rename the database |
+| Not enough free disk space: the dumps and the imported data next to the old data directory need roughly twice your databases' size plus 700 MB | Free some space; delete old dumps |
+
+The switch is also refused while the server is stopped, when the server's configuration moves the data directory away from `/var/lib/mysql`, and, for MySQL, where MySQL isn't offered (arm64, or a system Oracle has no packages for).
+
+Some differences only show when the data is imported, such as an index MariaDB marks `IGNORED`, which MySQL doesn't know. The import then fails and the panel goes back to the old server, with the error in the log.
+
+## Dumps from upgrades and switches
+
+The **Database server** card on the **Software** page lists the folders under **Dumps kept**: when, what (such as "MariaDB 10.11.14 → MariaDB 11.4"), whether it was **Done**, **Went back** or **Failed**, how many databases, their size and the folder. Each database is one file, `001.sql.gz`, `002.sql.gz` and so on, with `manifest.json` naming the database of each file, because database names can hold characters a file name can't. The folder is readable by root only.
+
+To bring one database back, unzip its file and import it on the **Databases** page. To delete a folder, select **Delete these dumps** (the bin next to it). The panel refuses while an upgrade or a switch runs.
 
 ## Create a database
 
@@ -172,12 +305,14 @@ The dump is made with `mariadb-dump --single-transaction` (`mysqldump` on MySQL,
 
 One import can be up to 4 GB.
 
+A dump made by the other server, such as a backup from before a [switch](#switch-between-mariadb-and-mysql), imports too: the panel rewrites the collation names that this server doesn't know while the file streams in (MySQL 8's `utf8mb4_0900_*` on MariaDB, MariaDB 11's `uca1400` ones on MySQL). On MySQL it also drops `NO_AUTO_CREATE_USER`, which MariaDB writes into the SQL mode of each trigger and routine and MySQL 8 refuses. Nothing else in the file changes; a dump that uses another database is still refused. Restoring a database backup works the same way.
+
 The import runs as a temporary MariaDB user, `nefo-import-` followed by the database name, with all privileges on this database and none on others. It may also set the definer of triggers, views and stored routines, so dumps that contain them, such as the panel's own exports and backups, import as before. The panel deletes this user when the import ends, also when it fails. Only when the file created triggers, views, routines or events without a `DEFINER` clause, which then run as this user, does the panel keep it: locked, so nobody can log in with it, and with privileges on this database only. Deleting the database deletes it too.
 
 On MySQL, user names stop at 32 characters, so for a long database name the user's name is shortened and a short hash added. The definers are allowed there with `SET_ANY_DEFINER` and `ALLOW_NONEXISTENT_DEFINER` instead of MariaDB's `SET USER`; without `SYSTEM_USER`, the user still can't make an object run as root. The first line of dumps from newer MariaDB versions, `/*M!999999\- enable the sandbox mode */`, which MySQL's client refuses, is skipped on MySQL.
 
 ::: warning
-If the file uses another database, for example with `USE other_db`, `CREATE DATABASE other_db` or `INSERT INTO other_db.posts`, MariaDB refuses that statement and the import stops with "The SQL file uses another database, other_db." What the file did before that line stays in the database. Remove the `CREATE DATABASE` and `USE` lines from the file, or export the database again without `--databases`, then import it again with **Empty the database first (delete all of its tables)** ticked. `CREATE DATABASE` and `USE` lines that name this same database are fine.
+If the file uses another database, for example with `USE other_db`, `CREATE DATABASE other_db` or `INSERT INTO other_db.posts`, MariaDB refuses that statement and the import stops with a message that begins "The SQL file uses another database, other_db." What the file did before that line stays in the database. Remove the `CREATE DATABASE` and `USE` lines from the file, or export the database again without `--databases`, then import it again with **Empty the database first (delete all of its tables)** ticked. `CREATE DATABASE` and `USE` lines that name this same database are fine.
 :::
 
 ## Allow remote access
@@ -210,7 +345,7 @@ Connect with the database's user and password to the server's public IP address,
 
 MySQL works the same way: the file is `/etc/mysql/mysql.conf.d/99-panel-remote.cnf`, the rules' comment is `MySQL name`, and a remote user is dropped and created again when it changes, as MySQL has no `CREATE OR REPLACE USER`. The messages below then say MySQL.
 
-MariaDB restarts the first time remote access is turned on, and again when it is turned off for the last database. Websites lose their database for a few seconds. If another task is running at that moment, the dialog says **MariaDB has to restart before it accepts remote connections.** Select **Restart MariaDB** when the task has finished.
+MariaDB restarts the first time remote access is turned on, and again when it is turned off for the last database. Websites lose their database for a few seconds. If another task is running at that moment, the dialog says "MariaDB has to restart before it accepts remote connections." Select **Restart MariaDB** when the task has finished.
 
 If MariaDB doesn't start with the remote access file, the panel removes the file and starts MariaDB without it, so your websites keep working.
 
@@ -230,7 +365,9 @@ MariaDB can log every query that takes longer than a threshold. This helps you f
 2. Set **Slower than** to a number of seconds, from 0.1 to 60.
 3. Turn on the **Log slow queries** switch and select **Apply**.
 
-MariaDB must be running to change these settings. The change applies at once, to connections opened after it, and stays after a restart: the panel keeps it in `/etc/mysql/mariadb.conf.d/99-panel-slowlog.cnf`. The log is written to `/var/log/mysql/mariadb-slow.log`, which the MariaDB package's log rotation covers. On MySQL, the settings are in `/etc/mysql/mysql.conf.d/99-panel-slowlog.cnf` and the log is `/var/log/mysql/mysql-slow.log`; empty it with **Clear log** when it grows.
+MariaDB must be running to change these settings. The change applies at once, to connections opened after it, and stays after a restart: the panel keeps it in `/etc/mysql/mariadb.conf.d/99-panel-slowlog.cnf`, and the log is written to `/var/log/mysql/mariadb-slow.log`. On MySQL, the settings are in `/etc/mysql/mysql.conf.d/99-panel-slowlog.cnf` and the log is `/var/log/mysql/mysql-slow.log`.
+
+The panel rotates the log so that it can't fill the disk, on MariaDB and on MySQL. Once an hour it looks at it, and when the log is larger than 50 MB, or its oldest entry is 7 days old, the panel renames it, has the server open a new one (`FLUSH SLOW LOGS`, without a restart) and compresses the old one next to it, as `mariadb-slow.log-YYYYMMDD-HHMMSS.gz` (`mysql-slow.log-…` on MySQL). It keeps the 4 newest of those and deletes older ones. The tab shows how many it keeps now. The table only reads the current log.
 
 The table shows the 200 newest entries, newest first, read from the last 4 MB of the log:
 
@@ -243,7 +380,7 @@ The table shows the 200 newest entries, newest first, read from the last 4 MB of
 | **Rows examined** | How many rows MariaDB read |
 | **Query** | The query. Select it to see all of it, up to 2,000 characters. Longer queries are marked **Shortened** |
 
-Select **Refresh** to read the log again, and **Clear log** to empty it.
+Select **Refresh** to read the log again, and **Clear log** to empty it. **Clear log** empties the current log only; the compressed old logs stay until the rotation deletes them.
 
 ::: tip
 Logging adds a little work for the server. Turn the switch off and select **Apply** when you are done.
@@ -258,7 +395,7 @@ Adminer lets you browse and edit your databases in the browser, like phpMyAdmin.
 1. Install a web server first, on the **Software** page. Adminer runs on it with PHP.
 2. Go to **Software** → **Adminer (database UI)** and select **Install**.
 
-The panel downloads Adminer 6.3.1 (the build with all of Adminer's drivers) and checks it against a pinned SHA-256 checksum before installing it. It opens MariaDB or MySQL databases, and PostgreSQL databases once PostgreSQL is installed (see [PostgreSQL in Adminer](#postgresql-in-adminer)). Its SQLite driver refuses every sign-in, because SQLite has no password.
+The panel downloads Adminer 6.3.1 (the build with all of Adminer's drivers) and checks it against a pinned SHA-256 checksum before installing it. It opens MariaDB or MySQL databases, and PostgreSQL databases once PostgreSQL is installed (see [PostgreSQL in Adminer](./postgresql#postgresql-in-adminer)). Its SQLite driver refuses every sign-in, because SQLite has no password.
 
 ### Open Adminer
 
@@ -354,111 +491,21 @@ If Redis has a password (`requirepass` in `/etc/redis/redis.conf`), the panel re
 This deletes the database, all of its tables and its user. It can't be undone. Its remote users, firewall rules and automatic backup schedules go with it. Backups already made are kept on the **Backups** page.
 :::
 
+When you delete a website, its databases are kept unless you tick **Also delete its databases**: they stay here, linked to no website. Restoring the website's backup links them again.
+
 ## Uninstall MariaDB
 
 Uninstall MariaDB on the **Software** page. The panel refuses while MariaDB holds any database other than its own system databases, including databases created outside the panel. See [Software](./software) for what an uninstall keeps.
 
+A MariaDB from MariaDB's repository goes with its repository file and key.
+
 MySQL is uninstalled the same way, on its card, with the same check. The panel also removes Oracle's repository and its key. The data directory `/var/lib/mysql` stays unless you tick the box and type `mysql`.
+
+To replace one with the other while keeping your databases, [switch](#switch-between-mariadb-and-mysql) instead.
 
 ## PostgreSQL
 
-Nefo can also run PostgreSQL, the database server many Laravel, Django, Node.js and Odoo applications prefer. It is installed from your distribution and managed on the **PostgreSQL** tab of the **Databases** page. MariaDB and PostgreSQL can run side by side.
-
-### Install PostgreSQL
-
-1. Go to **Software** → **PostgreSQL** and select **Install**.
-2. Wait a minute or two. The progress log shows each step.
-
-Nefo installs the distribution's `postgresql` package, so you get the version your system ships: 14 on Ubuntu 22.04, 16 on Ubuntu 24.04, 15 on Debian 12 and 17 on Debian 13. Newer versions from the PostgreSQL project's own repository (PGDG) aren't offered yet.
-
-apt runs in the C locale, so the cluster the package creates stores text as `SQL_ASCII`. Nefo then creates that new, still empty cluster again with UTF-8 (`C.UTF-8`). A cluster that existed before the install is never recreated.
-
-### How PostgreSQL is tuned
-
-Nefo writes its settings to `/etc/postgresql/<version>/main/conf.d/90-nefo.conf`. The memory settings depend on the server's RAM:
-
-| Server RAM | `shared_buffers` | `effective_cache_size` | `work_mem` | `maintenance_work_mem` | `max_connections` |
-|---|---|---|---|---|---|
-| Less than 768 MB | 64MB | 256MB | 2MB | 16MB | 30 |
-| 768 MB or more | 128MB | 512MB | 4MB | 32MB | 40 |
-| 1.5 GB or more | 256MB | 1024MB | 4MB | 64MB | 50 |
-| 3 GB or more | 512MB | 2048MB | 8MB | 128MB | 75 |
-| 7 GB or more | 1024MB | 4096MB | 16MB | 256MB | 100 |
-
-`effective_cache_size` is about half the RAM, because the same server also runs the web server, PHP and maybe MariaDB. On every server Nefo also sets `listen_addresses = 'localhost'`, `password_encryption = 'scram-sha-256'`, `random_page_cost = 1.1` (for SSD storage) and `jit = off`.
-
-Idle and empty, PostgreSQL needs roughly 30 to 40 MB for its handful of background processes. As its cache fills, it grows towards `shared_buffers` plus about 40 MB, and each open connection adds a few MB. The **Software** page shows `shared_buffers` plus 40 MB.
-
-::: warning
-Don't edit `90-nefo.conf` or `pg_hba.conf`. Installing PostgreSQL again rewrites them.
-:::
-
-### Who can connect
-
-Nefo writes `/etc/postgresql/<version>/main/pg_hba.conf`:
-
-```
-local   all  postgres                peer
-local   all  all                     scram-sha-256
-host    all  all       127.0.0.1/32  scram-sha-256
-host    all  all       ::1/128       scram-sha-256
-```
-
-- Only the `postgres` system user signs in without a password, on the local socket. The panel manages the server that way.
-- Everyone else needs a password, on the socket or over TCP from this server. Unlike the distribution's default, other Linux users get no password-less ("peer") sign-in, so a website's Linux user can't open a database role of the same name without its password.
-- Other machines can't connect: PostgreSQL listens on localhost only. Remote access per database, as MariaDB has it, isn't available for PostgreSQL yet.
-
-### Create a PostgreSQL database
-
-1. Go to **Databases** → **PostgreSQL** and select **Add database**.
-2. Enter a name in **Database**. A role with the same name owns the database.
-3. Leave **Password** empty to get a strong random password, or type your own.
-4. Optional: choose a site in **Website**. A backup of that website then includes this database, and deleting the website with its databases deletes it too.
-5. Select **Create database**.
-
-The connection details card shows **Database**, **User**, **Password**, **Host** (`localhost`) and **Port** (`5432`). For a Laravel app, for example, set `DB_CONNECTION=pgsql`, `DB_HOST=127.0.0.1`, `DB_PORT=5432` and the database, user and password from the card.
-
-The rules:
-
-- Names and passwords follow the [MariaDB rules](#create-a-database). PostgreSQL's own names are refused too: `postgres`, `template0`, `template1`, `public`, `all` and anything starting with `pg_`.
-- One name can't be used by both servers: if a MariaDB database or user is called `shop`, a PostgreSQL database can't be, and the other way round. The panel also refuses a name PostgreSQL already uses for a database or a role.
-- The role can sign in, isn't a superuser, and can't create databases or roles. No other role may connect to the database, because the panel revokes `CONNECT` from everyone else.
-- New databases use UTF-8 with the `C.UTF-8` locale.
-
-The password never reaches PostgreSQL in clear text: the panel sends only its SCRAM-SHA-256 verifier, so it can't show up in PostgreSQL's log either.
-
-**Show login**, **New password** and **Delete** work as for MariaDB. Deleting also closes the database's open connections. A database removed outside the panel is marked **Not found in PostgreSQL**.
-
-### Export and import a PostgreSQL database
-
-**Export (.sql.gz)** downloads a gzipped plain SQL dump made with `pg_dump` as the database's own role, with `--no-owner --no-privileges`, so it imports into any database.
-
-**Import** takes a `.sql` or `.sql.gz` file of up to 4 GB:
-
-- `psql` runs as the database's own role, never as `postgres`, with its password in a temporary file only root can read.
-- The file runs in a single transaction with `ON_ERROR_STOP`: when a statement fails, nothing is imported and the error names the line.
-- psql's own commands, the lines that start with a backslash (such as `\connect`, `\!` or `\copy`), are refused: psql runs as root, and those commands could run programs or write files on the server. The panel starts psql in restricted mode (`\restrict` with a random key) and takes out the `\restrict` and `\unrestrict` lines newer `pg_dump` versions write. A psql without restricted mode (older than 17.6, 16.10, 15.14 or 14.19) refuses every import: install the system updates first.
-- Statements that create or change roles, give objects to other roles or need a superuser fail. Export such a dump again with `pg_dump --no-owner --no-privileges`.
-- `SET transaction_timeout`, which `pg_dump` 17 and later write, is skipped on older servers.
-- Afterwards the panel sets the role's password again, in case the file changed it.
-
-With **Empty the database first (delete everything in it)** ticked, the database is dropped and created again before the import, owned by the same role.
-
-### PostgreSQL in Adminer
-
-Adminer needs PHP's `pgsql` extension for PostgreSQL. The panel installs it for the PHP version that runs Adminer, and only together with PostgreSQL: when you install PostgreSQL while Adminer is there, or Adminer while PostgreSQL is there. An Adminer that an earlier panel version installed, the MySQL-only build, is replaced at the same time.
-
-**Open in Adminer** on a database's row opens Adminer's PostgreSQL sign-in with the server `localhost`, the user and the database filled in. Type the password from **Show login**.
-
-### PostgreSQL in backups
-
-Website backups include the website's PostgreSQL databases, and a database backup can hold one PostgreSQL database, on demand or on a schedule. The dump is plain `pg_dump` output, made as the database's role, stored as `postgres/<name>.sql` in the archive next to the MariaDB dumps.
-
-Restoring empties each database (it is dropped and created again, owned by the same role) and imports the dump as that role. A database deleted since the backup is created again, with a new password.
-
-### Uninstall PostgreSQL
-
-Uninstall PostgreSQL on the **Software** page. The panel refuses while PostgreSQL holds any database other than `postgres`, `template0` and `template1`, including databases created outside the panel. It also refuses while PostgreSQL is stopped, because it can't check then. The data in `/var/lib/postgresql` and the settings in `/etc/postgresql` stay unless you tick the box and type `postgresql`. See [Software](./software#postgresql).
+PostgreSQL runs next to MariaDB or MySQL, on its own **PostgreSQL** tab of this page: your distribution's version or 15 to 19 from the PostgreSQL project, with databases and owners, import and export, remote access over TLS, backups and major upgrades. See [PostgreSQL](./postgresql).
 
 ## Memcached
 

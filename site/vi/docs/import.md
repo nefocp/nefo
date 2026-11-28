@@ -5,7 +5,9 @@ description: Chuyển website từ cPanel, aaPanel, HestiaCP, CyberPanel hoặc 
 
 # Nhập website {#import-websites}
 
-Nefo nhập website từ server khác theo hai cách:
+Nefo nhập website từ bản sao lưu đầy đủ của cPanel, kèm database và user của chúng, chứng chỉ và cron job, hoặc từ file nén website và bản dump SQL do aaPanel, HestiaCP, CyberPanel hay bất kỳ server nào khác tạo ra. Nefo cho xem kế hoạch nhập trước, không thay đổi gì trên server này cho tới khi bạn xác nhận, và xóa những gì nó đã tạo nếu việc nhập lỗi.
+
+Có hai cách nhập:
 
 - **Bản sao lưu đầy đủ của cPanel**: mọi website của một tài khoản cPanel, kèm database và user của chúng, chứng chỉ và cron job.
 - **File nén website và bản dump SQL**: file của một website dạng `.tar.gz`, `.tgz` hoặc `.zip`, kèm các bản dump `.sql` hoặc `.sql.gz` nếu có. Dùng cách này cho aaPanel, HestiaCP, CyberPanel hay bất kỳ server nào khác.
@@ -34,9 +36,9 @@ File nén website có thư mục của website ở cấp trên cùng; Nefo nhậ
 Bản sao lưu riêng của các panel này gói mỗi website trong file nén riêng (HestiaCP nén bằng zstd), nên hãy tạo một file nén thường qua SSH trên server cũ:
 
 ```bash
-# File của website: thư mục chứa index.php hoặc index.html
+# The website's files: the folder that holds index.php or index.html
 tar czf /root/site.tar.gz -C /home/USER/web/example.com public_html
-# Từng database
+# Each database
 mysqldump --single-transaction --routines --triggers DBNAME | gzip > /root/DBNAME.sql.gz
 ```
 
@@ -46,7 +48,7 @@ Trên HestiaCP thư mục là `/home/USER/web/DOMAIN/public_html`, trên CyberPa
 
 Một trong các cách sau:
 
-- **SFTP hoặc scp** vào một thư mục của root, ví dụ `scp backup.tar.gz root@SERVER-MOI:/root/`.
+- **SFTP hoặc scp** vào một thư mục của root, ví dụ `scp backup.tar.gz root@NEW-SERVER:/root/`.
 - **Tệp tin**: tải file lên, hoặc dùng **Tải từ URL** (xem [Tệp tin](./files)).
 - **Một địa chỉ web**: nhập địa chỉ `http` hoặc `https` khi nhập website. Nefo tải file về `/var/tmp/nefo-import` trên ổ đĩa của server này và xóa nó sau khi nhập xong. Địa chỉ thuộc mạng nội bộ của server này bị từ chối.
 
@@ -62,7 +64,7 @@ Nefo đọc file nén ở bất kỳ đâu, trừ thư mục hệ thống (`/etc
 6. Theo dõi nhật ký. Các website mới tạm đóng (lỗi 503) cho tới khi nhập xong. **Dừng nhập** sẽ xóa những gì đã tạo tới lúc đó.
 7. Khi xong, trang liệt kê các website mới với **Mở website** và **Quản lý**, các database, và những điều nên kiểm tra.
 
-Nếu bạn rời trang, việc nhập vẫn tiếp tục; mở lại **Website → Nhập** để xem. File nén đã phân tích được ghi nhớ trong sáu giờ.
+Nếu bạn rời trang, việc nhập vẫn tiếp tục; mở lại **Website** → **Nhập** để xem. File nén đã phân tích được ghi nhớ trong sáu giờ.
 
 ## Những gì được nhập từ cPanel {#what-is-imported-from-cpanel}
 
@@ -72,7 +74,7 @@ Nếu bạn rời trang, việc nhập vẫn tiếp tục; mở lại **Website 
 | Tên miền parked (alias) | Tên miền phụ của website tên miền chính, kèm `www.` nếu server cũ có. |
 | Từng thư mục gốc (`public_html`, `public_html/blog`, `addon.com`…) | Thư mục `public` của website. Thư mục của tên miền khác được nhập nằm bên trong chỉ đi vào website của tên miền đó. |
 | Phiên bản PHP (`ea-php81`) | Cùng phiên bản nếu nó được cài ở đây, nếu không thì phiên bản mặc định của server này. Website không có file PHP thành website tĩnh. |
-| `mysql/DB.sql` | Database cùng tên nếu tên đó còn trống ở đây, nếu không thì `TEN_2`, gắn với website dùng nó. |
+| `mysql/DB.sql` | Database cùng tên nếu tên đó còn trống ở đây, nếu không thì `NAME_2`, gắn với website dùng nó. |
 | User database và mật khẩu (`mysql.sql`) | Mỗi database có một user: user mà `wp-config.php` của WordPress ghi, nếu không thì một user có quyền với nó. User giữ mật khẩu cũ: MariaDB nhận nguyên mã băm mật khẩu cũ, hoặc Nefo dùng mật khẩu trong `wp-config.php`. Nếu không được, user có mật khẩu mới. |
 | WordPress | Nhận ra qua `wp-config.php`. Nefo đánh dấu website là WordPress, áp dụng quy tắc rewrite của WordPress, trỏ `wp-config.php` tới tên database, user hoặc mật khẩu mới nếu có thay đổi, và thay thư mục cũ (`/home/USER/public_html`) bằng thư mục mới trong database. |
 | Chứng chỉ (`apache_tls/`, `sslcerts/`, `ssl/`) | Được cài làm chứng chỉ riêng khi bạn chọn: chỉ khi khóa của nó có trong bản sao lưu, nó còn hạn hôm nay và bao gồm mọi tên của website. Nếu không, hãy lấy chứng chỉ Let's Encrypt sau khi nhập. |
@@ -91,7 +93,7 @@ Kế hoạch nhập cho biết vì sao một tên miền không nhập được,
 ## File nén website {#website-archives}
 
 - Một thư mục duy nhất ở cấp trên cùng của file nén (như bản sao lưu của aaPanel) không được giữ lại: những gì bên trong nó thành website. Thư mục home có `public_html` bên trong cũng được.
-- Website có thể là website mới (bạn nhập tên miền, `www.` và phiên bản PHP) hoặc một website trống có sẵn: website PHP hoặc website tĩnh mà thư mục `public` chỉ có trang giữ chỗ.
+- Website có thể là website mới (bạn nhập tên miền, `www.` và phiên bản PHP) hoặc một website trống có sẵn: website PHP hoặc website tĩnh mà thư mục `public` chỉ có trang chào, và file của nó không bị [khóa](./website-protection#lock-a-website-s-files).
 - Mỗi bản dump SQL thành một database mới với user cùng tên và mật khẩu mới. `wp-config.php` của WordPress được trỏ tới bản dump mà nó ghi (hoặc bản dump duy nhất). Với ứng dụng khác, hãy sửa cấu hình của nó theo database, user và mật khẩu mới (**Xem đăng nhập** ở trang **Cơ sở dữ liệu**).
 
 ## Bản dump từ MySQL 8 {#dumps-from-mysql-8}

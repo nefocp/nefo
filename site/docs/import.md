@@ -5,7 +5,9 @@ description: Bring websites over from cPanel, aaPanel, HestiaCP, CyberPanel or a
 
 # Import websites
 
-Nefo imports websites from another server in two ways:
+Nefo imports websites from a cPanel full backup, with their databases and users, certificates and cron jobs, or from a website archive and SQL dumps made by aaPanel, HestiaCP, CyberPanel or any other server. It shows a plan first, changes nothing on this server until you confirm, and removes what it created if the import fails.
+
+There are two ways to import:
 
 - **cPanel full backup**: every website of a cPanel account, with its databases and their users, certificates and cron jobs.
 - **Website archive and SQL dumps**: the files of one website as a `.tar.gz`, `.tgz` or `.zip` archive, with optional `.sql` or `.sql.gz` dumps. Use it for aaPanel, HestiaCP, CyberPanel or any other server.
@@ -60,9 +62,9 @@ Nefo reads archives from anywhere except system folders (`/etc`, `/proc`, `/sys`
 4. Click **Analyse**. Nefo reads the whole archive once, without unpacking it; large backups take a few minutes. **Stop** stops it.
 5. Look through the plan and tick what to bring over (see below). Click **Import**.
 6. Follow the log. The new websites stay closed (error 503) until the import is done. **Stop the import** removes what was created so far.
-7. When it is done, the page lists the new websites with **Open website** and **Manage**, the databases, and what is worth a look.
+7. When it is done, the page lists the new websites with **Open the website** and **Manage**, the databases, and what is worth a look.
 
-If you leave the page, the import goes on; open **Websites → Import** again to see it. An analysed archive is remembered for six hours.
+If you leave the page, the import goes on; open **Websites** → **Import** again to see it. An analysed archive is remembered for six hours.
 
 ## What is imported from cPanel
 
@@ -91,7 +93,7 @@ The plan says why a domain can't be imported, for example when a website here al
 ## Website archives
 
 - One folder at the top of the archive (as in aaPanel's backups) is not kept: what is inside it becomes the website. A home folder with `public_html` in it works as well.
-- The website can be a new one (its domain, `www.` and PHP version are asked) or an existing empty one: a PHP or static website whose `public` folder holds nothing but its placeholder page.
+- The website can be a new one (its domain, `www.` and PHP version are asked) or an existing empty one: a PHP or static website whose `public` folder holds nothing but its welcome page, and whose files are not [locked](./website-protection#lock-a-website-s-files).
 - Each SQL dump becomes a new database with a user of the same name and a new password. A WordPress `wp-config.php` is pointed at the dump it names (or at the only one). For other applications, change their configuration to the new database, user and password (**Show login** on the **Databases** page).
 
 ## Dumps from MySQL 8

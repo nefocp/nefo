@@ -5,7 +5,9 @@ description: Cài bản cập nhật hệ điều hành, bật tự động cậ
 
 # Hệ thống
 
-Trang **Hệ thống**, trong nhóm **Máy chủ** ở menu bên trái, chăm lo cho chính máy chủ. Trang có năm thẻ: **Cập nhật**, **Bộ nhớ swap**, **Thời gian & tên máy**, **Mạng** và **Dọn dẹp**. Mọi thay đổi trên trang này đều được ghi vào nhật ký hoạt động (**Tài khoản** → **Hoạt động gần đây**).
+Trang **Hệ thống** cài bản cập nhật hệ điều hành, được kiểm tra vài giờ một lần và có đánh dấu bản cập nhật bảo mật, bật tự động cập nhật bảo mật, tạo file swap, đặt múi giờ, đồng bộ đồng hồ và tên máy, bật TCP BBR, và giải phóng dung lượng ổ đĩa. Mọi thay đổi trên trang này đều được ghi vào nhật ký hoạt động.
+
+Trang nằm trong nhóm **Máy chủ** ở menu bên trái. Trang có năm thẻ: **Cập nhật**, **Bộ nhớ swap**, **Thời gian & tên máy**, **Mạng** và **Dọn dẹp**. Nhật ký hoạt động nằm ở **Tài khoản** → **Hoạt động gần đây**.
 
 Các thay đổi mất thời gian, như cài bản cập nhật hay tạo file swap, chạy dưới dạng tác vụ nền: trang hiện tiến trình của chúng, và mỗi lúc chỉ chạy một tác vụ.
 
@@ -15,7 +17,7 @@ Thẻ **Cập nhật** liệt kê các bản cập nhật đang chờ của hệ
 
 ### Panel kiểm tra cập nhật thế nào {#how-the-panel-checks-for-updates}
 
-- Panel tự kiểm tra: mỗi giờ nó xem lần kiểm tra gần nhất, và khi lần đó đã quá 6 giờ, nó chạy `apt-get update` rồi hỏi apt xem một lần nâng cấp sẽ cài những gì. Panel bỏ qua lượt kiểm tra khi đang có tác vụ khác chạy.
+- Panel tự kiểm tra: mỗi giờ nó xem lần kiểm tra gần nhất, và khi lần đó đã quá 6 giờ, nó chạy `apt-get update` rồi hỏi apt xem một lần nâng cấp sẽ cài những gì. Panel bỏ qua lượt kiểm tra khi đang có tác vụ khác chạy, và trong 30 phút đầu sau khi panel khởi động.
 - Mở trang không bao giờ chạy apt: trang hiện kết quả của lần kiểm tra gần nhất, kèm thời điểm.
 - **Kiểm tra ngay** kiểm tra ngay lập tức, dưới dạng một tác vụ.
 - **Tạm giữ lại** liệt kê những bản cập nhật apt chưa cài: các gói apt giữ lại vì cần thay đổi thêm, và bản cập nhật theo đợt (phased update) của Ubuntu, được đưa dần tới các máy chủ trong vài ngày.
@@ -104,7 +106,7 @@ Panel sẽ:
 2. trỏ dòng `127.0.1.1` trong `/etc/hosts` về tên này (tên đầy đủ và phần đầu của nó), hoặc thêm dòng đó;
 3. trên máy chủ có cloud-init, ghi `/etc/cloud/cloud.cfg.d/99-panel-hostname.cfg` với `preserve_hostname: true`, để cloud-init không đặt lại tên của nhà cung cấp ở lần khởi động sau.
 
-Tên máy không làm đổi địa chỉ của panel hay chứng chỉ nào. Khi khởi động lại máy chủ từ **Cài đặt**, hãy gõ tên mới.
+Tên máy không làm đổi địa chỉ của panel hay chứng chỉ nào. Khi khởi động lại máy chủ từ **Cài đặt** → **Panel** → **Nguồn**, bạn xác nhận bằng cách gõ tên máy chủ: sau khi đổi tên, hãy gõ tên mới.
 
 ## Mạng: TCP BBR {#network-tcp-bbr}
 

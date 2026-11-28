@@ -1,8 +1,12 @@
 ---
 layout: home
-title: Nefo, the free control panel for Linux servers
-titleTemplate: false
+pageClass: nf-home-page
 markdownStyles: false
 ---
+
+<script setup>
+// The text of this page is in .vitepress/locales/en.json under "home".
+import HomePage from './.vitepress/theme/components/HomePage.vue'
+</script>
 
 <HomePage />

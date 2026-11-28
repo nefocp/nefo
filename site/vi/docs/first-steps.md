@@ -1,13 +1,15 @@
 ---
 title: Những việc đầu tiên
-description: Những việc nên làm sau khi cài Nefo, từ bảo vệ tài khoản tới website đầu tiên và sao lưu.
+description: Những việc nên làm sau khi cài Nefo, từ trang thiết lập và bảo vệ tài khoản tới website đầu tiên, sao lưu và kiểm tra bảo mật.
 ---
 
 # Những việc đầu tiên
 
-Sau khi [cài Nefo](./install), hãy làm lần lượt các bước dưới đây. Mỗi bước đều ngắn và có liên kết tới trang hướng dẫn chi tiết.
+Sau khi [cài Nefo](./install), hãy đăng nhập bằng địa chỉ và mật khẩu mà trình cài đặt đã in ra, chọn phần mềm ở trang thiết lập, đổi mật khẩu, bật xác thực hai lớp, đặt tên miền riêng cho panel, rồi tạo website đầu tiên, thiết lập sao lưu và chạy kiểm tra bảo mật. Mỗi bước đều ngắn.
 
-## Đăng nhập
+Hãy làm lần lượt các bước dưới đây. Mỗi bước có liên kết tới trang hướng dẫn chi tiết.
+
+## Đăng nhập {#sign-in}
 
 1. Mở URL mà trình cài đặt đã in ra, ví dụ `https://203.0.113.10:28443/k3x9p2qa7m1z/`.
 2. Chấp nhận cảnh báo chứng chỉ của trình duyệt. Cảnh báo sẽ hết khi panel có chứng chỉ riêng (xem [bên dưới](#give-the-panel-its-own-domain)).
@@ -20,13 +22,15 @@ Nếu bạn làm mất URL hoặc mật khẩu, hãy chạy `nefo info` hoặc `
 Trên máy chủ mới, ngay sau khi bạn đăng nhập, panel mở trang **Thiết lập máy chủ**. Trên một trang duy nhất, bạn chọn những gì máy chủ cần, và panel cài tất cả trong một lượt, lần lượt từng phần.
 
 1. Chọn **Web server**: **Nginx** (khuyên dùng), **Apache** cho website cần tệp `.htaccess`, **OpenLiteSpeed**, hoặc **Không cài** cho máy chủ không chạy website, ví dụ chỉ chạy ứng dụng Docker.
-2. Đánh dấu một hoặc nhiều **phiên bản PHP**. Web server luôn đi kèm phiên bản PHP của hệ điều hành. Các phiên bản khác được lấy từ kho `packages.sury.org/php`, trên cả Ubuntu và Debian, và panel sẽ thêm kho đó vào máy chủ. Các phiên bản cũ đã hết hỗ trợ không có ở đây: nếu một website cũ cần, hãy cài chúng từ trang **Phần mềm**.
-3. Chọn **Máy chủ cơ sở dữ liệu**: **MariaDB** (khuyên dùng), **MySQL** nếu trang Phần mềm có, hoặc **Không cài**.
+2. Đánh dấu một hoặc nhiều phiên bản ở **Các phiên bản PHP**. Web server luôn đi kèm phiên bản PHP của hệ điều hành. Các phiên bản khác được lấy từ kho `packages.sury.org/php`, trên cả Ubuntu và Debian, và panel sẽ thêm kho đó vào máy chủ. Các phiên bản cũ đã hết hỗ trợ không có ở đây: nếu một website cũ cần, hãy cài chúng từ trang **Phần mềm**.
+3. Chọn **Máy chủ cơ sở dữ liệu**: **MariaDB** (khuyên dùng), **MySQL** nếu trang Phần mềm có, hoặc **Không cài**. Dưới **MariaDB**, bạn chọn được phiên bản: bản của hệ điều hành (mặc định) hoặc một dòng LTS từ kho riêng của MariaDB, ví dụ **11.4 LTS từ MariaDB**, khi dòng đó mới hơn bản của hệ điều hành. Xem [Các phiên bản MariaDB](./databases#mariadb-versions).
 4. Đánh dấu các **Thành phần thêm** bạn cần: Redis, Node.js, Python, Docker, Adminer và tường lửa web. ClamAV chỉ hiện trên máy chủ có từ 2 GB RAM, còn PostgreSQL và Memcached hiện khi trang Phần mềm có chúng.
 5. Xem phần tóm tắt ở cuối trang. Phần này cho biết số CPU, RAM và dung lượng ổ đĩa còn trống của máy chủ, cùng lượng RAM và ổ đĩa ước tính mà lựa chọn của bạn tốn thêm. Nếu có thể không đủ, trang sẽ cảnh báo, nhưng bạn vẫn cài được.
 6. Bấm **Cài đặt**.
 
 Trang chọn sẵn một bộ hợp với RAM của máy chủ: Nginx, phiên bản PHP mới nhất và MariaDB, thêm Redis nếu máy có từ khoảng 1,5 GB RAM. Docker và các thành phần thêm khác không bao giờ được chọn sẵn.
+
+Con số ổ đĩa tính dung lượng các gói chiếm sau khi cài, các bản sao của gói đã tải về mà apt giữ trong `/var/cache/apt/archives` (**Gói đã tải về** trong **Dọn dẹp** ở trang **Hệ thống** sẽ xóa chúng), các file dữ liệu đầu tiên của máy chủ cơ sở dữ liệu, và cơ sở dữ liệu virus của ClamAV. Trên máy chủ chưa từng tải danh sách gói, con số này tính cả các danh sách đó, và phần tóm tắt cho biết chúng chiếm bao nhiêu: khoảng 450 MB trên Ubuntu 22.04, 300 MB trên 24.04, 250 MB trên 26.04, 155 MB trên Debian 12 và 175 MB trên Debian 13.
 
 Nhật ký hiện từng phần khi đang cài, và toàn bộ việc thiết lập là một tác vụ. Nếu một phần bị lỗi, quá trình dừng ở đó và cho biết những gì đã cài xong. Hãy khắc phục lỗi, rồi bấm **Cài đặt** lần nữa: các phần đã cài sẽ được bỏ qua.
 
@@ -34,7 +38,11 @@ Nếu muốn tự thiết lập máy chủ, bấm **Để sau**. Bạn có thể
 
 Panel thôi mở trang thiết lập sau khi đăng nhập khi việc thiết lập đã xong hoặc đã được bỏ qua, và trên máy chủ đã có web server hoặc website.
 
-## Đổi mật khẩu
+### VPS là một container {#a-vps-that-is-a-container}
+
+Một số VPS là container (LXC, OpenVZ), và `/proc/meminfo` của chúng có thể hiện bộ nhớ của cả máy chủ vật lý thay vì của bạn. Khi đó Nefo đọc giới hạn riêng của container (memory cgroup) và dùng con số đó ở mọi nơi: trang chủ, biểu đồ lịch sử và cảnh báo, các con số RAM của trang thiết lập này, phần kiểm tra bộ nhớ của Kho ứng dụng, và các cài đặt nó chọn cho MariaDB, MySQL, PostgreSQL, Redis và Memcached. Khi đó trang chủ hiện "giới hạn của container" cạnh RAM. ClamAV hiện khi giới hạn đó từ 2 GB.
+
+## Đổi mật khẩu {#change-the-password}
 
 Hãy thay mật khẩu do trình cài đặt tạo bằng một mật khẩu bạn lưu trong trình quản lý mật khẩu.
 
@@ -44,7 +52,7 @@ Hãy thay mật khẩu do trình cài đặt tạo bằng một mật khẩu b�
 
 Panel sẽ đăng xuất bạn trên mọi thiết bị. Hãy đăng nhập lại bằng mật khẩu mới.
 
-## Bật xác thực hai lớp
+## Bật xác thực hai lớp {#turn-on-two-factor-authentication}
 
 Khi bật xác thực hai lớp, mỗi lần đăng nhập cần mật khẩu và một mã 6 số từ ứng dụng xác thực như Google Authenticator, Authy hoặc 2FAS. Khi chưa bật, trang chủ và menu thông báo sẽ hiện "Chưa bật xác thực hai lớp".
 
@@ -59,7 +67,7 @@ Từ giờ, sau khi nhập mật khẩu, trang đăng nhập sẽ hỏi thêm **
 Nếu mất điện thoại, bạn chỉ tắt được xác thực hai lớp từ máy chủ, bằng `nefo reset-password --disable-2fa` (xem [Xử lý sự cố](./troubleshooting#lost-your-2fa-phone)). Hãy giữ quyền truy cập SSH, hoặc cất khóa thiết lập ở nơi an toàn.
 :::
 
-## Cài web server và PHP
+## Cài web server và PHP {#install-a-web-server-and-php}
 
 Website cần có web server. Nefo chạy một web server cho mỗi máy chủ. Nếu bước [thiết lập máy chủ](#set-up-the-server) đã cài web server, hãy bỏ qua phần này.
 
@@ -80,7 +88,7 @@ Khi có tên miền riêng, panel được cấp chứng chỉ Let's Encrypt mi�
 
 1. Ở nhà cung cấp DNS, tạo bản ghi A cho một tên như `panel.example.com`, trỏ về địa chỉ IP của máy chủ. Bản ghi phải trỏ thẳng về máy chủ, không qua proxy hay CDN (với Cloudflare, chọn "DNS only").
 2. Đảm bảo cổng 80 đang mở, kể cả trên tường lửa cloud của nhà cung cấp.
-3. Trong panel, mở **Cài đặt → Chứng chỉ**.
+3. Trong panel, mở **Cài đặt** → **Chứng chỉ**.
 4. Ở ô **Tên miền của panel**, nhập `panel.example.com` rồi bấm **Xin chứng chỉ**.
 
 Panel kiểm tra tên miền có trỏ về máy chủ này không, rồi mới xin chứng chỉ từ Let's Encrypt. Trong vòng một phút, panel dùng chứng chỉ mới và hiện địa chỉ mới, ví dụ `https://panel.example.com:28443/k3x9p2qa7m1z/`. Từ giờ hãy dùng địa chỉ đó: cổng và đường dẫn bí mật vẫn giữ nguyên. Nếu vào bằng địa chỉ IP, trình duyệt sẽ lại cảnh báo, vì chứng chỉ được cấp cho tên miền.
@@ -89,27 +97,27 @@ Chứng chỉ tự động gia hạn. Muốn quay lại dùng chứng chỉ tự
 
 Nếu không xin được chứng chỉ, xem [Xử lý sự cố](./troubleshooting#a-certificate-request-fails).
 
-## Tạo website đầu tiên
+## Tạo website đầu tiên {#create-your-first-website}
 
 1. Trỏ bản ghi A của tên miền, ví dụ `example.com`, về địa chỉ IP của máy chủ.
 2. Mở **Website** rồi bấm **Thêm website**.
 3. Nhập **Tên miền**, không gõ `http://` hay `www.`. Giữ dấu chọn ở **Nhận cả www.example.com** nếu bạn muốn dùng cả hai tên.
-4. Chọn **Loại**: một phiên bản PHP, **Tĩnh (chỉ HTML)**, hoặc ứng dụng (Node.js hay Python).
+4. Chọn **Loại**: một phiên bản PHP, **Tĩnh (chỉ HTML)**, một ứng dụng (Node.js, Python hoặc Java), hoặc reverse proxy tới một địa chỉ khác.
 5. Bấm **Tạo website**.
 6. Bấm **Bật HTTPS** bên cạnh website để nhận chứng chỉ miễn phí.
 
 Tải tệp của bạn lên `/var/www/example.com/public`, bằng trang **Tệp tin** hoặc qua SFTP. Muốn cài WordPress hay ứng dụng khác, hãy dùng **Kho ứng dụng**. Xem [Website](./websites), [Chứng chỉ SSL](./ssl) và [Kho ứng dụng](./apps).
 
-## Thiết lập sao lưu
+## Thiết lập sao lưu {#set-up-backups}
 
 1. Mở **Sao lưu**.
 2. Trong phần **Sao lưu tự động**, bấm **Thêm lịch**.
 3. Chọn thứ cần sao lưu (website, database hoặc thư mục), tần suất, và **Số bản sao lưu giữ lại**.
 4. Bấm **Lưu lịch**.
 
-Bản sao lưu website gồm toàn bộ tệp và các database gắn với website đó. Bản sao lưu được giữ trên máy chủ, trong `/var/backups/panel`. Hãy thêm **Kho lưu trữ từ xa** (tương thích S3 hoặc SFTP) để vẫn còn một bản nếu máy chủ gặp sự cố. Xem [Sao lưu](./backups).
+Bản sao lưu website gồm toàn bộ tệp và các database gắn với website đó. Bản sao lưu được giữ trên máy chủ, trong `/var/backups/panel`. Hãy thêm **Kho lưu trữ từ xa** (tương thích S3, SFTP hoặc Google Drive, có mã hóa nếu bạn muốn) để vẫn còn một bản nếu máy chủ gặp sự cố. Xem [Sao lưu](./backups).
 
-## Bật tường lửa
+## Bật tường lửa {#turn-on-the-firewall}
 
 Nếu trang chủ báo "Tường lửa đang tắt", mọi cổng do chương trình mở ra đều truy cập được từ Internet.
 
@@ -117,3 +125,11 @@ Nếu trang chủ báo "Tường lửa đang tắt", mọi cổng do chương tr
 2. Bấm **Bật tường lửa**.
 
 Panel vẫn giữ mở SSH và cổng của chính panel. Nếu trang báo máy chủ chưa cài ufw, hãy cài trước bằng `apt install ufw`. Xem [Bảo mật](./security).
+
+## Chạy kiểm tra bảo mật {#run-the-security-check}
+
+1. Mở **Kiểm tra bảo mật**, trong nhóm **Bảo mật** ở menu bên trái.
+2. Bấm **Chạy kiểm tra**.
+3. Sửa những gì được liệt kê ở **Cần sửa**, bắt đầu từ **Nghiêm trọng**: mỗi phát hiện có một nút dẫn tới trang để sửa nó.
+
+Sau đó, việc kiểm tra tự chạy mỗi ngày một lần, và trang chủ hiện những gì nó tìm thấy. Xem [Kiểm tra bảo mật](./security-check).

@@ -5,7 +5,9 @@ description: Script the panel with API keys, for CI deploys, backups and monitor
 
 # API keys
 
-An API key lets a script use the panel without a browser: deploy a website from CI, start a backup from a cron job on another server, or read the state of the websites from a monitoring tool. The script sends the key with each request, to the same address and secret path as the panel.
+An API key lets a script use the Nefo panel without a browser, for example to deploy a website from CI, start a backup from a cron job on another server, or read the state of the websites from a monitoring tool. A key is read-only or has full access, can be limited to the addresses you list, and can expire.
+
+The script sends the key with each request, as a Bearer token, to the same address and secret path as the panel.
 
 Keys are on **Settings** → **API keys**.
 
@@ -34,7 +36,7 @@ A full key is as powerful as you are: it can write files, add cron jobs that run
 1. Go to **Settings** → **API keys** and select **New key**.
 2. Enter a **Name**, such as `deploy-bot`: up to 32 letters, digits, spaces, dots, hyphens and underscores. The name shows in the activity log.
 3. Choose **Read only** or **Full access**.
-4. Optional: under **Allowed addresses**, enter the IP addresses or networks the key may be used from, such as `203.0.113.7` or `198.51.100.0/24`, IPv4 or IPv6, separated by spaces or new lines. Leave it empty to allow any address.
+4. Optional: under **Allowed addresses (optional)**, enter the IP addresses or networks the key may be used from, such as `203.0.113.7` or `198.51.100.0/24`, IPv4 or IPv6, separated by spaces or new lines. Leave it empty to allow any address.
 5. Choose when it **Expires**: after 30, 90 or 365 days, or **Never**.
 6. Select **New key**.
 
@@ -141,7 +143,7 @@ Errors are JSON, such as `{"error": "invalid_api_key"}`, some with a `detail`.
 | Status | `error` | Meaning |
 |---|---|---|
 | 401 | `invalid_api_key` | The key is unknown, revoked or expired, or used from an address it doesn't allow. The answer doesn't say which; the activity log does. |
-| 403 | `api_key_read_only` | A read-only key sent something else than `GET` or `HEAD`, or asked for a password, a file, an export or a backup download. |
+| 403 | `api_key_read_only` | A read-only key sent a request other than `GET` or `HEAD`, or asked for a password, a file, an export or a backup download. |
 | 403 | `api_key_forbidden` | Only a signed-in session can do this (see [What a key can do](#what-a-key-can-do)). |
 | 429 | `too_many_attempts` | Too many failed attempts from this address. Wait `retry_after` seconds, also in the `Retry-After` header. |
 | 400 | such as `bad_request` | The request is wrong; `detail` may say what. |

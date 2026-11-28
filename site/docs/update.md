@@ -5,11 +5,13 @@ description: Update Nefo from the panel or with nefo update, and learn how relea
 
 # Update
 
+To update Nefo, click **Check for updates** on **Settings** → **Panel**, or run `nefo update` as root. The panel downloads the latest release, checks its Ed25519 signature and SHA-256 checksum, replaces `/usr/local/bin/nefo` in one step and restarts. Websites keep running. Nefo never updates itself.
+
 This page shows how to update Nefo, how each release is checked before it is installed, and what to do if an update fails. Until version 1.0, only the latest release receives security fixes, so keep Nefo up to date.
 
 ## Update from the panel
 
-1. Open **Settings → Panel**. The current version is shown next to the name Nefo.
+1. Open **Settings** → **Panel**. The current version is shown next to the name Nefo.
 2. Click **Check for updates**. If you already have the latest release, the panel says "This is the latest version."
 3. If a newer release exists, the panel says "Version v0.2.0 is available." Click **Install update** and confirm.
 
@@ -47,14 +49,14 @@ When the new version starts, it updates the panel's database to its new format. 
 
 ## How releases are verified
 
-Each release on GitHub contains the programs for amd64 and arm64, `install.sh`, a `VERSION` file, `checksums.txt` with the SHA-256 checksums of the files, and `checksums.txt.sig`, an Ed25519 signature of `checksums.txt`.
+Each release on GitHub contains the programs for amd64 and arm64, `install.sh`, a `VERSION` file, `checksums.txt` with the SHA-256 checksums of the two programs and the installer, and `checksums.txt.sig`, an Ed25519 signature of `checksums.txt`.
 
 Both the installer and the updater refuse a `checksums.txt` that isn't signed with the project's key, and a download whose checksum doesn't match. During an update, the errors read:
 
 - "checksums.txt has no valid signature from the project: the update was not installed";
 - "the download does not match checksums.txt: not installed".
 
-So someone who could change files on GitHub, or along the way to your server, still can't get their own program installed.
+So someone who could change the release files on GitHub, or along the way to your server, can't get their own program installed by an update: the update is checked with the key built into the Nefo you already run. A first install is different: the installer you download carries its own copy of the key. And the signing key is kept as a secret of the GitHub repository, where GitHub Actions signs each release, so someone who took over the repository could sign a release. See [What the signature does and doesn't prove](../security-policy#what-the-signature-does-and-doesn-t-prove).
 
 A development build, made without the project's key, can't check signatures. It checks only the checksum, and its log says "Development build: the release signature is not checked".
 
@@ -63,7 +65,7 @@ A development build, made without the project's key, can't check signatures. It 
 An update replaces only the program, `/usr/local/bin/nefo`. Everything else stays:
 
 - the configuration file `/etc/nefo/config.json`, including the port and the secret path;
-- the data folder `/var/lib/nefo`: your account and two-factor authentication, settings, websites, schedules, certificates and the audit log;
+- the data folder `/var/lib/nefo`: your account and two-factor authentication, settings, websites, schedules, certificates and the activity log;
 - your websites, databases, files and backups, and the services that run them.
 
 Only the panel restarts. Websites, databases and other services keep running.
@@ -98,7 +100,7 @@ If the newer version already changed the panel's database, an older version refu
 
 ## Automatic updates
 
-Nefo doesn't update itself, and it doesn't check for updates on its own. It checks only when you click **Check for updates** or run `nefo update`. To hear about new releases, watch the releases of the [GitHub repository](https://github.com/nefocp/nefo/releases).
+Nefo doesn't update itself, and it doesn't check for updates on its own. It checks only when you click **Check for updates** or run `nefo update`. To hear about new releases, watch the releases of the [GitHub repository](https://github.com/nefocp/nefo/releases). The [changelog](../changelog) lists what changed in each one.
 
 This is only about the panel itself. The operating system's packages are a separate matter: the panel checks for them every few hours, shows them on **System** → **Updates**, and can install security updates automatically. See [System](./os#updates).
 

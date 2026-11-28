@@ -1,0 +1,477 @@
+{
+  "langLabel": "Tiếng Việt",
+  "description": "Bảng điều khiển máy chủ Linux miễn phí, mã nguồn mở. Website, cơ sở dữ liệu, ứng dụng, sao lưu và bảo mật trong một chương trình nhẹ.",
+  "nav": {
+    "docs": "Tài liệu",
+    "install": "Cài đặt",
+    "releases": "Phiên bản",
+    "compare": "So sánh",
+    "changelog": "Nhật ký thay đổi",
+    "roadmap": "Lộ trình",
+    "securityPolicy": "Chính sách bảo mật",
+    "about": "Giới thiệu",
+    "more": "Thêm"
+  },
+  "groups": {
+    "Getting started": "Bắt đầu",
+    "Websites": "Website",
+    "Data": "Dữ liệu",
+    "Server": "Máy chủ",
+    "Help": "Trợ giúp"
+  },
+  "pages": {
+    "": "Nefo là gì?",
+    "requirements": "Yêu cầu hệ thống",
+    "install": "Cài đặt",
+    "first-steps": "Những việc đầu tiên",
+    "cli": "Dòng lệnh",
+    "update": "Cập nhật",
+    "uninstall": "Gỡ cài đặt",
+    "websites": "Website",
+    "import": "Nhập website",
+    "ssl": "Chứng chỉ SSL",
+    "dns": "DNS (Cloudflare)",
+    "git-deploy": "Triển khai từ Git",
+    "wordpress": "Công cụ WordPress",
+    "apps": "Kho ứng dụng",
+    "databases": "Cơ sở dữ liệu",
+    "postgresql": "PostgreSQL",
+    "files": "Tệp tin",
+    "backups": "Sao lưu",
+    "restore-new-server": "Khôi phục sang máy chủ mới",
+    "software": "Phần mềm",
+    "docker": "Docker",
+    "security": "Bảo mật",
+    "security-check": "Kiểm tra bảo mật",
+    "website-protection": "Chặn quốc gia và khoá file",
+    "api": "Khóa API",
+    "os": "Hệ thống",
+    "system": "Công cụ hệ thống",
+    "mail-alerts": "Thư và cảnh báo",
+    "troubleshooting": "Xử lý sự cố",
+    "faq": "Câu hỏi thường gặp"
+  },
+  "editLink": "Sửa trang này trên GitHub",
+  "footer": {
+    "message": "Phần mềm tự do theo giấy phép GNU AGPLv3.",
+    "copyright": "© 2026 những người đóng góp cho Nefo",
+    "about": "Panel miễn phí, mã nguồn mở, quản lý một máy chủ Linux.",
+    "product": "Sản phẩm",
+    "docs": "Tài liệu",
+    "project": "Dự án",
+    "languages": "Ngôn ngữ",
+    "features": "Tính năng",
+    "screens": "Giao diện",
+    "apps": "Kho ứng dụng",
+    "issues": "Báo lỗi",
+    "beta": "Nefo đang là bản beta: nhớ giữ bản sao lưu."
+  },
+  "outline": "Trong trang này",
+  "docFooter": {
+    "prev": "Trang trước",
+    "next": "Trang sau"
+  },
+  "darkModeSwitchLabel": "Giao diện",
+  "lightModeSwitchTitle": "Chuyển sang sáng",
+  "darkModeSwitchTitle": "Chuyển sang tối",
+  "sidebarMenuLabel": "Danh mục",
+  "returnToTopLabel": "Lên đầu trang",
+  "langMenuLabel": "Đổi ngôn ngữ",
+  "skipToContentLabel": "Chuyển tới nội dung",
+  "notFound": {
+    "title": "KHÔNG TÌM THẤY TRANG",
+    "quote": "Trang này không tồn tại hoặc đã được chuyển đi.",
+    "linkLabel": "về trang chủ",
+    "linkText": "Về trang chủ",
+    "docsText": "Đọc tài liệu"
+  },
+  "search": {
+    "buttonText": "Tìm kiếm",
+    "buttonAriaLabel": "Tìm kiếm",
+    "noResultsText": "Không có kết quả cho",
+    "resetButtonTitle": "Xóa",
+    "displayDetails": "Hiện chi tiết",
+    "footer": {
+      "selectText": "chọn",
+      "navigateText": "di chuyển",
+      "closeText": "đóng"
+    }
+  },
+  "lastUpdated": "Cập nhật lần cuối",
+  "docMeta": {
+    "updated": "Cập nhật",
+    "readTime": "{n} phút đọc",
+    "release": "Bản hiện tại",
+    "notes": "Ghi chú phát hành",
+    "released": "phát hành {date}"
+  },
+  "llms": {
+    "summary": "Nefo là panel quản lý một máy chủ Linux, miễn phí và mã nguồn mở (AGPLv3): website, SSL, cơ sở dữ liệu, ứng dụng cài một cú bấm, sao lưu và kiểm tra bảo mật trong một giao diện web. Nefo chỉ là một chương trình, tốn khoảng {ram} RAM, và không gửi dữ liệu đi đâu.",
+    "facts": [
+      "Phiên bản hiện tại: {version} ({status}), phát hành {date}.",
+      "Chạy trên Ubuntu 22.04, 24.04, 26.04 và Debian 12, 13, đã thử trên x86-64; làm ra cho VPS 1 GB RAM.",
+      "Cài bằng root trên máy chủ mới: `curl -fsSL https://github.com/nefocp/nefo/releases/latest/download/install.sh | sudo bash`",
+      "Chính panel tốn khoảng {ram} RAM, đo trên máy chủ thật.",
+      "Kho có {apps} ứng dụng; giao diện có {languages} ngôn ngữ.",
+      "Phần mềm tự do theo GNU AGPLv3. Không cần tài khoản, không thu thập dữ liệu, mọi tính năng đều miễn phí.",
+      "Không kèm, có chủ ý: mail server, DNS server, quản lý nhiều máy chủ trong một panel."
+    ]
+  },
+  "home": {
+    "title": "Nefo: panel quản lý VPS Linux miễn phí, mã nguồn mở",
+    "metaDesc": "Website, SSL, cơ sở dữ liệu, {apps} ứng dụng cài một cú bấm, sao lưu và kiểm tra bảo mật cho máy chủ Linux. Mã nguồn mở (AGPLv3), chỉ khoảng {ram} RAM, không gửi dữ liệu đi đâu.",
+    "ogAlt": "Nefo, panel quản lý máy chủ Linux miễn phí, mã nguồn mở, cùng trang tổng quan",
+    "releaseBar": {
+      "text": "Đã có Nefo {version}: giao diện {languages} ngôn ngữ, sao lưu lên Google Drive, khôi phục sang máy chủ mới, kiểm tra bảo mật.",
+      "short": "Đã có Nefo {version}.",
+      "link": "Xem thay đổi"
+    },
+    "badges": {
+      "license": "Mã nguồn mở · AGPLv3",
+      "version": "v{version} · bản beta"
+    },
+    "h1": "Panel quản lý <em>VPS Linux</em> miễn phí, mã nguồn mở",
+    "lead": "Website, SSL, cơ sở dữ liệu, {apps} ứng dụng cài một cú bấm, sao lưu và kiểm tra bảo mật, tất cả trong một giao diện web. Nefo chỉ là một chương trình, tốn khoảng {ram} RAM. Mọi tính năng đều miễn phí và không gửi dữ liệu đi đâu.",
+    "ctaInstall": "Cài Nefo",
+    "ctaDocs": "Đọc tài liệu",
+    "cmdTitle": "chạy bằng root trên máy chủ mới",
+    "copy": "Chép",
+    "copied": "Đã chép",
+    "languages": "{languages} ngôn ngữ",
+    "shotAlt": "Trang tổng quan của Nefo: tải máy chủ, CPU, bộ nhớ và ổ đĩa, số website, cơ sở dữ liệu và bản sao lưu, lịch sử tài nguyên và những việc cần xử lý",
+    "phoneAlt": "Trang tổng quan của Nefo trên điện thoại",
+    "stackLabel": "Cài và quản lý",
+    "tour": {
+      "eyebrow": "Giao diện",
+      "h2": "Ảnh chụp từ Nefo {version}",
+      "lead": "Chụp trên một máy chủ thử có tám website và hai ứng dụng Docker; số liệu tải và lượt truy cập của tuần qua là dữ liệu mẫu. Chọn trang muốn xem, và đổi cửa sổ giữa nền sáng và nền tối.",
+      "light": "Sáng",
+      "dark": "Tối",
+      "docs": "Xem tài liệu",
+      "tabs": {
+        "websites": {
+          "label": "Website",
+          "caption": "Mọi website kèm <b>loại, phiên bản PHP, chứng chỉ SSL, lượt truy cập và sao lưu</b>: PHP, web tĩnh, WordPress, Node.js, ứng dụng Docker và reverse proxy trong cùng một danh sách.",
+          "alt": "Trang Website: tám website kèm loại, phiên bản PHP, chứng chỉ, lượt truy cập và sao lưu"
+        },
+        "site": {
+          "label": "Cài đặt website",
+          "caption": "Mỗi website một ngăn cài đặt: <b>tên miền, PHP, SSL, quyền truy cập, Git, sao lưu, nhật ký và bảo mật</b>, không phải rời danh sách.",
+          "alt": "Ngăn cài đặt của một website, với các thẻ tên miền, PHP, SSL, quyền truy cập, Git, sao lưu, nhật ký và bảo mật"
+        },
+        "apps": {
+          "label": "Kho ứng dụng",
+          "caption": "<b>{apps} ứng dụng</b> chia theo nhóm. Ứng dụng PHP cài vào một website kèm cơ sở dữ liệu riêng; ứng dụng Docker có website riêng.",
+          "alt": "Trang Kho ứng dụng: ứng dụng chia theo nhóm, mỗi ứng dụng có nút cài một cú bấm"
+        },
+        "databases": {
+          "label": "Cơ sở dữ liệu",
+          "caption": "<b>MariaDB, PostgreSQL và Redis trên cùng một trang</b>, mỗi cơ sở dữ liệu gắn với website của nó, kèm dung lượng, quyền truy cập, nhập và xuất.",
+          "alt": "Trang Cơ sở dữ liệu: cơ sở dữ liệu MariaDB và PostgreSQL kèm website, dung lượng, quyền truy cập, và Redis"
+        },
+        "backups": {
+          "label": "Sao lưu",
+          "caption": "Bản sao trên máy chủ này và trên <b>SFTP, S3 hoặc Google Drive</b>, lịch sao lưu có giới hạn số bản giữ lại, khôi phục sau khi kiểm tra checksum.",
+          "alt": "Trang Sao lưu: bản sao lưu website, cơ sở dữ liệu, thư mục và ứng dụng, lưu trên máy chủ này và trên SFTP"
+        },
+        "security": {
+          "label": "Kiểm tra bảo mật",
+          "caption": "<b>22 mục kiểm tra máy chủ</b>, mục nào cũng ghi rõ phát hiện gì và có liên kết tới chỗ sửa.",
+          "alt": "Trang Kiểm tra bảo mật: 22 mục kiểm tra máy chủ, mỗi mục kèm kết quả và liên kết tới chỗ sửa"
+        },
+        "software": {
+          "label": "Phần mềm",
+          "caption": "Những gì đã cài, <b>mỗi phần tốn bao nhiêu RAM và ổ đĩa</b>, và những gì có thể thêm hoặc gỡ.",
+          "alt": "Trang Phần mềm: web server và các phiên bản PHP, kèm lượng RAM mỗi thứ cần"
+        }
+      }
+    },
+    "features": {
+      "eyebrow": "Tính năng",
+      "h2": "Nefo làm được gì",
+      "lead": "Chỉ cài những gì bạn dùng. Menu ẩn những phần chưa cài, và phần nào cũng gỡ ra được.",
+      "more": "Đọc thêm",
+      "rows": {
+        "web": {
+          "kicker": "Website",
+          "h3": "Website PHP, Node.js, Python, Java hoặc reverse proxy tới bất kỳ địa chỉ nào",
+          "p": "Mỗi website có user Linux riêng, cài đặt PHP riêng và chứng chỉ SSL miễn phí, chạy trên Nginx, Apache hoặc OpenLiteSpeed.",
+          "ticks": [
+            "PHP 5.6 đến 8.6 chạy song song, mỗi website chọn một phiên bản",
+            "Chứng chỉ Let's Encrypt tự gia hạn, wildcard qua DNS Cloudflare, hoặc chứng chỉ của bạn",
+            "SFTP chỉ vào được thư mục của website, đăng nhập bằng mật khẩu hoặc khoá SSH",
+            "Nhân bản website, tạo bản staging cho WordPress, tự triển khai từ Git mỗi lần push",
+            "Chuyển website từ bản sao lưu đầy đủ của cPanel, hoặc từ file nén mã nguồn kèm file SQL"
+          ],
+          "alt": "Ngăn cài đặt của một website trong Nefo",
+          "more": "Xem tài liệu về website"
+        },
+        "db": {
+          "kicker": "Cơ sở dữ liệu",
+          "h3": "MariaDB hoặc MySQL, PostgreSQL và Redis",
+          "p": "Cơ sở dữ liệu gắn với website, nên sao lưu website là có luôn dữ liệu. Khi nâng cấp, panel dump dữ liệu trước và tự quay lại bản cũ nếu có lỗi.",
+          "ticks": [
+            "MariaDB 11.4, 11.8 hoặc 12.3 LTS, hoặc MySQL 8.4, chuyển qua lại giữa hai loại mà vẫn giữ dữ liệu",
+            "PostgreSQL 15 đến 19, truy cập từ xa theo từng cơ sở dữ liệu qua TLS",
+            "Truy cập từ xa riêng cho từng cơ sở dữ liệu, chỉ từ những IP bạn cho phép",
+            "Adminer và phpMyAdmin, chỉ vào được sau khi đăng nhập panel",
+            "Trình xem key Redis, và Memcached"
+          ],
+          "alt": "Danh sách cơ sở dữ liệu trong Nefo, mỗi cơ sở dữ liệu gắn với website của nó",
+          "more": "Xem tài liệu về cơ sở dữ liệu"
+        },
+        "bak": {
+          "kicker": "Sao lưu",
+          "h3": "Sao lưu lên S3, SFTP hoặc Google Drive, mã hoá nếu bạn muốn",
+          "p": "Website, cơ sở dữ liệu, thư mục và ứng dụng Docker, sao lưu tay hoặc tự động mỗi ngày, mỗi tuần, kèm số bản muốn giữ lại.",
+          "ticks": [
+            "Kho lưu trữ chuẩn S3: AWS S3, Cloudflare R2, Backblaze B2, Wasabi, MinIO",
+            "SFTP có ghim khoá máy chủ; Google Drive chỉ được đụng tới những file do Nefo tạo",
+            "Mã hoá bằng cụm mật khẩu của bạn (scrypt và AES-256-GCM) trước khi bản sao rời máy chủ",
+            "Khôi phục sau khi kiểm tra SHA-256; máy chủ mới tự tìm bản sao lưu trên kho và tạo lại website"
+          ],
+          "alt": "Danh sách bản sao lưu trong Nefo, kèm nơi lưu từng bản",
+          "more": "Xem tài liệu về sao lưu"
+        },
+        "sec": {
+          "kicker": "Bảo mật",
+          "h3": "Kiểm tra bảo mật cho cả máy chủ",
+          "p": "22 mục kiểm tra nhanh, chạy khi bạn bấm hoặc mỗi ngày một lần, mục nào cũng ghi rõ phát hiện gì và chỉ chỗ sửa. Giữa hai lần kiểm tra không có gì chạy nền.",
+          "ticks": [
+            "SSH, tường lửa, bản cập nhật đang chờ, cơ sở dữ liệu hay Redis mở ra internet, cổng Docker đi vòng qua ufw",
+            "File truy cập được qua HTTP, chứng chỉ SSL, cấu hình PHP",
+            "Tường lửa ứng dụng web (ModSecurity với bộ luật OWASP), giới hạn truy cập, chặn IP, chặn theo quốc gia",
+            "Khoá file để PHP không sửa được mã nguồn website; quét mã độc và cách ly file nghi ngờ",
+            "Cảnh báo khi có người đăng nhập SSH, hoặc đăng nhập sai dồn dập"
+          ],
+          "alt": "Kết quả kiểm tra bảo mật trong Nefo",
+          "more": "Xem tài liệu về bảo mật"
+        },
+        "sw": {
+          "kicker": "Phần mềm",
+          "h3": "Cài và gỡ phần mềm trên cùng một trang",
+          "p": "Phần nào cũng ghi rõ tốn bao nhiêu RAM và ổ đĩa trước khi cài. Panel không cho gỡ khi website hay cơ sở dữ liệu còn dùng, và giữ lại dữ liệu trừ khi bạn xác nhận xoá.",
+          "ticks": [
+            "Web server, PHP 5.6 đến 8.6 kèm ionCube Loader, MariaDB hoặc MySQL, PostgreSQL",
+            "Redis, Memcached, Node.js, Python, Java (OpenJDK 17, 21, 25), Composer, WP-CLI",
+            "Docker và dự án Compose, có kiểm tra để chặn container đặc quyền và cổng mở ra ngoài",
+            "Tường lửa ứng dụng web và ClamAV, chỉ khi bạn cần"
+          ],
+          "alt": "Trang Phần mềm của Nefo, kèm lượng RAM mỗi phần cần",
+          "more": "Xem tài liệu về phần mềm"
+        }
+      },
+      "alsoTitle": "Còn có trong panel",
+      "also": {
+        "files": {
+          "title": "Quản lý file",
+          "text": "Trình soạn thảo, tìm kiếm, tải file từ URL, thùng rác giữ 30 ngày."
+        },
+        "terminal": {
+          "title": "Terminal",
+          "text": "Shell root ngay trong trình duyệt."
+        },
+        "cron": {
+          "title": "Cron và chương trình chạy nền",
+          "text": "systemd giữ cho chương trình luôn chạy, dưới user của website."
+        },
+        "monitoring": {
+          "title": "Theo dõi máy chủ",
+          "text": "Tải theo thời gian thực, lịch sử 7 ngày, theo dõi uptime từng website."
+        },
+        "alerts": {
+          "title": "Cảnh báo",
+          "text": "Qua Telegram, e-mail, Discord, Slack hoặc webhook có chữ ký."
+        },
+        "dns": {
+          "title": "DNS Cloudflare",
+          "text": "Bản ghi DNS, xoá cache, và MX, SPF, DMARC cho nhà cung cấp e-mail của bạn."
+        },
+        "wordpress": {
+          "title": "Công cụ WordPress",
+          "text": "Cập nhật kèm sao lưu cơ sở dữ liệu trước, bản staging, chế độ bảo trì."
+        },
+        "docker": {
+          "title": "Docker",
+          "text": "Container, image và dự án Compose."
+        },
+        "api": {
+          "title": "API key",
+          "text": "Chỉ đọc hoặc toàn quyền, giới hạn IP và ngày hết hạn."
+        }
+      }
+    },
+    "apps": {
+      "eyebrow": "Kho ứng dụng",
+      "h2": "{apps} ứng dụng, cài bằng một cú bấm",
+      "lead": "Ứng dụng PHP cài vào một website kèm cơ sở dữ liệu riêng. Ứng dụng Docker chạy sau một website riêng, và website đó chỉ mở ra sau khi tài khoản mặc định của ứng dụng đã được thay.",
+      "all": "Tất cả",
+      "showAll": "Xem đủ {apps} ứng dụng",
+      "showLess": "Thu gọn",
+      "docs": "Xem tài liệu kho ứng dụng",
+      "kinds": {
+        "php": "Ứng dụng PHP",
+        "docker": "Ứng dụng Docker",
+        "service": "Dịch vụ"
+      },
+      "cats": {
+        "cms": "Website & nội dung",
+        "ecommerce": "Bán hàng & doanh nghiệp",
+        "education": "Giáo dục",
+        "productivity": "Công việc & tiện ích",
+        "storage": "File & lưu trữ",
+        "ai": "AI",
+        "devtools": "Lập trình & tự động hóa",
+        "database": "Cơ sở dữ liệu",
+        "monitoring": "Giám sát & thống kê",
+        "security": "Bảo mật & mạng",
+        "media": "Phim & nhạc",
+        "communication": "Thông báo & cộng đồng"
+      }
+    },
+    "install": {
+      "eyebrow": "Cài đặt",
+      "h2": "Một lệnh trên máy chủ mới",
+      "lead": "Trình cài đặt chỉ cài một chương trình và một dịch vụ systemd. Phần mềm còn lại bạn chọn sau, trên trang thiết lập.",
+      "steps": [
+        {
+          "title": "Chuẩn bị một máy chủ mới",
+          "text": "Ubuntu 22.04, 24.04 hoặc 26.04, hoặc Debian 12 hay 13, chip x86-64. VPS 1 GB RAM là đủ chạy."
+        },
+        {
+          "title": "Chạy trình cài đặt bằng root",
+          "text": "Trình cài đặt kiểm tra chữ ký Ed25519 và checksum của bản phát hành, cài <code>/usr/local/bin/nefo</code> cùng một dịch vụ systemd, rồi chọn ngẫu nhiên cổng và đường dẫn bí mật."
+        },
+        {
+          "title": "Đăng nhập và chọn phần mềm",
+          "text": "Mở địa chỉ được in ra, đăng nhập bằng mật khẩu dùng một lần. Trên trang thiết lập, chọn web server, các phiên bản PHP và cơ sở dữ liệu, có ghi sẵn RAM và dung lượng mỗi thứ cần."
+        }
+      ],
+      "guide": "Hướng dẫn cài đặt"
+    },
+    "compare": {
+      "eyebrow": "So sánh",
+      "h2": "Nefo và các panel khác",
+      "lead": "Khác nhau ở đâu, nói ngắn gọn. Mỗi panel một khác; cột bên phải là những gì thường gặp.",
+      "us": "Nefo",
+      "them": "Panel khác, thường thì",
+      "rows": [
+        {
+          "label": "RAM cho chính panel",
+          "us": "Khoảng {ram}",
+          "them": "Thường vài trăm MB",
+          "mark": "yes"
+        },
+        {
+          "label": "Phải có tài khoản mới dùng được",
+          "us": "Không",
+          "them": "Nhiều panel bắt buộc",
+          "mark": "yes"
+        },
+        {
+          "label": "Thu thập dữ liệu sử dụng",
+          "us": "Không có",
+          "them": "Tuỳ panel",
+          "mark": "yes"
+        },
+        {
+          "label": "Trang đăng nhập",
+          "us": "Chỉ ở một đường dẫn bí mật; mọi địa chỉ khác trả về 404",
+          "them": "Ở cổng và đường dẫn ai cũng biết",
+          "mark": "yes"
+        },
+        {
+          "label": "Bản cập nhật",
+          "us": "Có chữ ký Ed25519, kiểm tra trước khi cài",
+          "them": "Tuỳ panel",
+          "mark": "yes"
+        },
+        {
+          "label": "Chống tự khoá mình khi sửa tường lửa và SSH",
+          "us": "Có",
+          "them": "Hiếm",
+          "mark": "yes"
+        },
+        {
+          "label": "Mã nguồn",
+          "us": "Mở toàn bộ, AGPLv3",
+          "them": "Đóng, mở một phần hoặc mở",
+          "mark": "yes"
+        },
+        {
+          "label": "Mail server và DNS server",
+          "us": "Không kèm, có chủ ý",
+          "them": "Thường có kèm",
+          "mark": "na"
+        },
+        {
+          "label": "Quản lý nhiều máy chủ trong một panel",
+          "us": "Không, mỗi máy chủ một panel",
+          "them": "Một số panel có",
+          "mark": "na"
+        }
+      ],
+      "note": "RAM đo trên máy chủ thật đang chạy Nefo {version}.",
+      "more": "Xem bảng so sánh đầy đủ"
+    },
+    "faq": {
+      "eyebrow": "Hỏi đáp",
+      "h2": "Những câu hay được hỏi",
+      "lead": "Xem thêm trong <a href=\"{docs}\">tài liệu</a> và <a href=\"{faq}\">phần hỏi đáp</a> ở đó.",
+      "items": [
+        {
+          "q": "Nefo có miễn phí thật không?",
+          "a": "Có. Chỉ có một phiên bản với đủ mọi tính năng, theo giấy phép AGPLv3. Không phải tạo tài khoản, và không gửi dữ liệu gì về đâu cả."
+        },
+        {
+          "q": "Chạy được trên hệ điều hành nào?",
+          "a": "Ubuntu 22.04, 24.04 và 26.04, Debian 12 và 13, chip x86-64; bản nào cũng đã thử trên máy chủ cài mới. Nefo làm ra để chạy tốt trên VPS 1 GB RAM."
+        },
+        {
+          "q": "Nefo tốn bao nhiêu RAM?",
+          "a": "Khoảng {ram} RAM cho chính panel, đo trên máy chủ thật đang chạy Nefo {version}. Phần mềm bạn cài thêm như web server, PHP và cơ sở dữ liệu thì tốn RAM riêng của chúng."
+        },
+        {
+          "q": "Chuyển website từ panel khác sang được không?",
+          "a": "Được: từ bản sao lưu đầy đủ của cPanel (file, cơ sở dữ liệu kèm user và mật khẩu, chứng chỉ, cron job), hoặc từ file nén mã nguồn và file SQL xuất từ bất kỳ panel nào."
+        },
+        {
+          "q": "Có kèm mail server không?",
+          "a": "Không, có chủ ý: mail server tốn nhiều RAM và công chăm sóc. Website gửi mail qua nhà cung cấp SMTP của bạn, còn trang DNS tạo sẵn bản ghi MX, SPF và DMARC cho Google Workspace, Microsoft 365, Zoho hoặc Cloudflare Email Routing."
+        },
+        {
+          "q": "Dùng cho website thật được chưa?",
+          "a": "Nefo đang là bản beta. Panel đã chạy hằng ngày trên các máy chủ thử nhưng chưa được bên ngoài kiểm định bảo mật. Hãy giữ bản sao lưu, và thử trước trên một máy chủ mà bạn cài lại được."
+        },
+        {
+          "q": "Giao diện có những ngôn ngữ nào?",
+          "a": "Tiếng Anh, tiếng Việt, tiếng Trung, tiếng Tây Ban Nha, tiếng Bồ Đào Nha, tiếng Nga và tiếng Indonesia. Trình duyệt chỉ tải ngôn ngữ đang dùng."
+        },
+        {
+          "q": "Cập nhật Nefo thế nào?",
+          "a": "Chạy <code>nefo update</code> trên máy chủ. Bản phát hành nào cũng có chữ ký Ed25519, và chữ ký được kiểm tra trước khi cài bản mới."
+        }
+      ]
+    },
+    "help": {
+      "docs": {
+        "title": "Tài liệu",
+        "text": "Giải thích từng trang của panel, đúng theo chữ bạn thấy trên màn hình."
+      },
+      "github": {
+        "title": "Mã nguồn trên GitHub",
+        "text": "Đọc mã nguồn, báo lỗi hoặc theo dõi tiến độ."
+      },
+      "releases": {
+        "title": "Các bản phát hành",
+        "text": "Mỗi phiên bản thay đổi những gì, có cả {version}."
+      }
+    },
+    "band": {
+      "h2": "Thử trên một máy chủ mà bạn cài lại được",
+      "p": "Một lệnh cài xong panel, rồi in ra địa chỉ và mật khẩu dùng một lần.",
+      "install": "Cài Nefo",
+      "github": "Mã nguồn trên GitHub"
+    }
+  }
+}

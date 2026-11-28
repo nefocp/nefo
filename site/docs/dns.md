@@ -1,14 +1,17 @@
 ---
 title: DNS (Cloudflare)
-description: Manage the DNS records of your Cloudflare zones from the panel, point a website's names to this server, and purge Cloudflare's cache.
+description: Manage the DNS records of your Cloudflare zones from the panel, point a website's names to this server, add the MX, SPF and DMARC records of your mail provider, and purge Cloudflare's cache.
 ---
 
 # DNS (Cloudflare)
 
-Nefo doesn't run a DNS server. If your domain's DNS is hosted at Cloudflare, Nefo manages it through Cloudflare's API with the token you save in **Settings** → **Cloudflare**:
+Nefo doesn't run a DNS server. If your domain's DNS is hosted at Cloudflare, Nefo manages its records through Cloudflare's API with an API token: it adds, changes and deletes records, points a website's names at this server after a preview, adds the MX, SPF and DMARC records of your mail provider, and purges Cloudflare's cache.
+
+You save the token in **Settings** → **Cloudflare**. Then:
 
 - the **DNS** page, in the **Hosting** group of the left menu, lists your zones and their records, adds, changes and deletes records, and purges Cloudflare's cache;
 - **Point DNS here…** on a website's **Domains** tab points the website's names to this server in one step;
+- **Set up email** on the DNS page adds the MX, SPF and DMARC records of a mail provider;
 - wildcard certificates are validated through the same token: see [SSL certificates](./ssl#wildcard-certificates-through-cloudflare-dns).
 
 Nefo only talks to Cloudflare's API, and the token never appears in the panel's logs or messages.
@@ -20,7 +23,7 @@ One token serves all of this. It needs these permissions, for the zones (domains
 | Permission | What it is for |
 |---|---|
 | Zone → DNS → Edit | Listing, adding, changing and deleting records, **Point DNS here…**, and DNS validation of certificates. |
-| Zone → Zone → Read | Listing the zones with their status and plan. Add it if the zone list stays empty or Cloudflare refuses it. |
+| Zone → Zone → Read | Listing the zones with their status and plan. Without it, the zone list can stay empty, or Cloudflare refuses to list the zones. |
 | Zone → Cache Purge → Purge | **Purge cache** on the DNS page. |
 
 1. In the Cloudflare dashboard, open **My Profile → API Tokens → Create Token**.
@@ -94,6 +97,85 @@ Let's Encrypt checks a website over plain HTTP. With the proxy on, Cloudflare's 
 - tick **Validate through DNS (Cloudflare)** on the website's **SSL / HTTPS** tab, and leave Cloudflare's settings as they are.
 
 Once the website has a certificate, set Cloudflare's **SSL/TLS** encryption mode to **Full (strict)**. With **Flexible**, Cloudflare reaches the server over HTTP, and **Redirect HTTP to HTTPS** sends it back to HTTPS in a loop.
+
+## How do I set up the DNS records for my e-mail? {#set-up-email-records}
+
+Nefo doesn't host mailboxes (see [Mail and alerts](./mail-alerts)). If your mail is hosted by Google Workspace, Microsoft 365, Zoho Mail or another provider, or forwarded by Cloudflare Email Routing, Nefo can add the DNS records the provider needs:
+
+| Record | What it does |
+|---|---|
+| MX | Says which servers receive mail for the domain. |
+| SPF (a TXT record) | Says which servers may send mail for the domain. |
+| DMARC (a TXT record at `_dmarc`) | Tells receiving servers what to do with mail that fails SPF and DKIM checks, and where to send reports. |
+| DKIM (a TXT or CNAME record) | Publishes the key your provider signs mail with. |
+
+Nothing changes until you have seen the list of changes and applied it.
+
+1. Open **DNS** and choose the zone.
+2. Click **Set up email**.
+3. Under **Mail provider**, choose **Google Workspace**, **Microsoft 365**, **Zoho Mail**, **Cloudflare Email Routing** or **Other provider**.
+4. Optional: in **Mail domain**, enter a name in the zone, such as `mail` for `mail.example.com`. Leave it empty for the zone itself.
+5. Optional: enter a **DMARC report address (optional)**, and paste the DKIM record if you have it already (see below).
+6. Click **Show the changes**. The table lists each record with its **Now** and **After** value and what happens to it: new, changed, removed, no change, or other provider.
+7. Click the apply button, such as **Apply 4 changes**.
+
+If you change a field after the preview, click **Preview again** before you apply. If the records at Cloudflare changed in the meantime, Nefo refuses and shows the new preview.
+
+### What each provider gets
+
+| Provider | MX records | SPF include |
+|---|---|---|
+| **Google Workspace** | `smtp.google.com`, priority 1 | `include:_spf.google.com` |
+| **Microsoft 365** | `example-com.mail.protection.outlook.com` (your domain with dashes for dots), priority 0 | `include:spf.protection.outlook.com` |
+| **Zoho Mail** | `mx.zoho.com` (10), `mx2.zoho.com` (20), `mx3.zoho.com` (50), with the domain of the chosen **Zoho data centre**: zoho.com, zoho.eu, zoho.in or zoho.com.au | `include:zohomail.com`, or `zohomail.eu`, `zohomail.in`, `zohomail.com.au` |
+| **Cloudflare Email Routing** | `route1.mx.cloudflare.net`, `route2.mx.cloudflare.net`, `route3.mx.cloudflare.net` | `include:_spf.mx.cloudflare.net` |
+| **Other provider** | The servers you enter under **Mail servers (MX)**, up to 5, each with a priority | The domain in **SPF include (optional)** and the addresses in **Sending addresses (optional)**; with neither, `mx` |
+
+Some details:
+
+- **Google Workspace**: if the zone already has Google's older MX records (`aspmx.l.google.com` and the others), Nefo keeps them and adds nothing.
+- **Microsoft 365**: Microsoft gives each domain its own MX host. Compare the value in the preview with the one the Microsoft 365 admin center shows for the domain. If it is different, choose **Other provider** and enter it. An MX record that already points to Microsoft 365 is kept as it is.
+- **Zoho Mail**: choose the data centre whose address you sign in at. For another Zoho data centre, choose **Other provider** and enter the values Zoho shows.
+- **Cloudflare Email Routing**: mail arrives only after you turn on Email Routing for the zone in the Cloudflare dashboard and add a destination address there. Existing Cloudflare routing records keep the priorities Cloudflare gave them.
+
+### SPF: always one record
+
+A domain must have exactly one SPF record; two make the SPF check fail. Nefo never adds a second one:
+
+- If the zone has an SPF record, Nefo keeps everything in it, adds the provider's include, and keeps its ending (`-all`, `~all` or `?all`). A record without an ending gets `~all`.
+- If the zone has several SPF records, Nefo merges them into one: it changes the first and removes the others.
+- If you set up an SMTP relay in **Settings** → **E-mail**, the SPF record also allows the relay's provider (for example `include:sendgrid.net` for SendGrid, `include:mailgun.org` for Mailgun, `include:amazonses.com` for Amazon SES), so mail your websites send passes the check. The preview says so.
+- An SPF record that needs more than 10 DNS lookups (`include`, `a`, `mx`, `ptr`, `exists`, `redirect`) fails at many receivers. The preview warns you; remove the includes you no longer use.
+
+### MX records of another provider
+
+MX records that point to another provider are marked "other provider". Mail would go to both providers, so they have to go: tick **Replace the existing MX records** to remove them. Nefo refuses to apply the changes until you do, or until you remove those records yourself.
+
+::: warning
+Mail stops reaching the old provider as soon as its MX records are removed. Move your mailboxes first.
+:::
+
+### DMARC
+
+Nefo adds `v=DMARC1; p=none` at `_dmarc`, with `rua=mailto:` and your address when you enter a **DMARC report address (optional)**. With `p=none`, no mail is rejected: receiving servers only send reports. When the reports show that all your mail passes, you can make the policy stricter (`p=quarantine`, then `p=reject`) by editing the record on the DNS page.
+
+If the zone already has a DMARC record, Nefo leaves it as it is.
+
+### DKIM
+
+The mail provider makes the DKIM key, so Nefo can't create it. Under **DKIM signature**, the dialog says where to find it at your provider:
+
+- **Google Workspace**: in the Google Admin console, open Apps → Google Workspace → Gmail → Authenticate email, and generate a new record. Its name is `google._domainkey` and its type TXT.
+- **Microsoft 365**: in the Microsoft Defender portal, open the DKIM settings of the domain. Microsoft gives two CNAME records, `selector1._domainkey` and `selector2._domainkey`; the dialog has a row for each.
+- **Zoho Mail**: in the Zoho Mail Admin Console, open the domain's DKIM settings and add a selector. Enter the selector's name followed by `._domainkey` and the TXT value.
+- **Cloudflare Email Routing** needs no DKIM record here: Cloudflare adds what it needs when you turn Email Routing on.
+- **Other provider**: ask the provider for its DKIM record.
+
+Paste the **Record name** and **Value**, choose the **Type** (TXT or CNAME), and preview. A name such as `google._domainkey` is under the mail domain; a full name is also accepted. A DKIM record with the same name is replaced. Leave the value empty to add the DKIM record later: run **Set up email** again, with the same provider, when you have it. Then finish the setup at the provider (Google: **Start authentication**; Microsoft and Zoho: turn DKIM on or verify it).
+
+Running **Set up email** again is safe: records that are already right are shown as "no change".
+
+Every record Nefo adds, changes or removes is written to the activity log, like other DNS changes.
 
 ## Purge Cloudflare's cache
 

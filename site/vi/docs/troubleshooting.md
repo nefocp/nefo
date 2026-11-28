@@ -5,11 +5,13 @@ description: Cách khắc phục các sự cố thường gặp với Nefo, từ
 
 # Xử lý sự cố
 
-Trang này gom các sự cố hay gặp nhất, kèm cách khắc phục cho từng trường hợp. Phần lớn cách khắc phục cần đăng nhập SSH vào máy chủ bằng root. Nếu SSH cũng không vào được, hãy dùng web console trong trang quản lý của nhà cung cấp.
+Phần lớn sự cố với Nefo được khắc phục nhanh trên máy chủ, bằng root: `nefo info` hiện lại địa chỉ panel bị quên, `nefo reset-password` đặt mật khẩu mới (thêm `--disable-2fa` thì tắt luôn đăng nhập hai lớp), và `journalctl -u nefo` cho biết vì sao panel không khởi động. Trang này còn hướng dẫn xử lý lỗi chứng chỉ, website báo 502 hoặc 503, và khôi phục bị lỗi.
 
-## Không vào được panel
+Phần lớn cách khắc phục cần đăng nhập SSH vào máy chủ bằng root. Nếu SSH cũng không vào được, hãy dùng web console trong trang quản lý của nhà cung cấp.
 
-### Quên địa chỉ panel
+## Không vào được panel {#you-can-t-open-the-panel}
+
+### Quên địa chỉ panel {#you-forgot-the-address}
 
 Chạy lệnh sau trên máy chủ:
 
@@ -19,13 +21,13 @@ nefo info
 
 Kết quả hiện URL đầy đủ, gồm cổng và đường dẫn bí mật: với tên miền của panel nếu bạn đã đặt, và với địa chỉ IP đầu tiên của máy chủ. Nếu đó là địa chỉ nội bộ, hãy thêm `--host` và IP công khai, ví dụ `nefo info --host 203.0.113.10`.
 
-### Trang báo 404
+### Trang báo 404 {#the-page-shows-404}
 
 Panel chỉ trả lời dưới đường dẫn bí mật của nó, ví dụ `https://203.0.113.10:28443/k3x9p2qa7m1z/`. Mọi địa chỉ khác đều trả về `404`, kể cả địa chỉ không có đường dẫn. Hãy xem lại đường dẫn bằng `nefo info`.
 
 Cũng hãy chắc chắn địa chỉ bắt đầu bằng `https://`. Với `http://`, panel trả về lỗi thay vì trang đăng nhập.
 
-### Trang không tải được
+### Trang không tải được {#the-page-doesn-t-load-at-all}
 
 Khi trình duyệt không kết nối được, hoặc chờ mãi rồi bỏ cuộc, nghĩa là panel không chạy hoặc có thứ đang chặn kết nối.
 
@@ -53,7 +55,7 @@ Khi trình duyệt không kết nối được, hoặc chờ mãi rồi bỏ cu�
 
    Với SSH, dùng jail `sshd` thay cho `panel`.
 
-### "Bạn đã nhập sai quá nhiều lần"
+### "Bạn đã nhập sai quá nhiều lần" {#too-many-failed-attempts}
 
 Sau 5 lần đăng nhập sai trong 15 phút, panel từ chối đăng nhập từ địa chỉ của bạn trong 15 phút và báo "Bạn đã nhập sai quá nhiều lần. Hãy thử lại sau … giây." Nhập sai mã xác thực hai lớp cũng bị tính. Hãy chờ hết thời gian. Khóa này chỉ nằm trong bộ nhớ, nên `systemctl restart nefo` cũng xóa được nó.
 
@@ -73,7 +75,7 @@ journalctl -u nefo -n 50 --no-pager
 
 Sửa xong, chạy `systemctl restart nefo`.
 
-## Quên mật khẩu
+## Quên mật khẩu {#you-forgot-the-password}
 
 Đặt mật khẩu ngẫu nhiên mới trên máy chủ:
 
@@ -93,7 +95,7 @@ nefo reset-password --disable-2fa
 
 Đăng nhập bằng mật khẩu mới, rồi thiết lập lại xác thực hai lớp trong **Tài khoản** với điện thoại mới.
 
-### Mã lúc nào cũng "không đúng"
+### Mã lúc nào cũng "không đúng" {#codes-are-always-not-valid}
 
 Mã phụ thuộc vào thời gian. Panel chấp nhận mã hiện tại cùng mã ngay trước và ngay sau nó, và mỗi mã chỉ dùng được một lần. Nếu mã nào cũng bị từ chối, hãy kiểm tra đồng hồ của máy chủ:
 
@@ -103,14 +105,14 @@ timedatectl
 
 Dòng `System clock synchronized` phải là `yes`. Cũng hãy kiểm tra giờ trên điện thoại.
 
-## Trình duyệt cảnh báo chứng chỉ
+## Trình duyệt cảnh báo chứng chỉ {#the-browser-warns-about-the-certificate}
 
 Khi panel chưa có chứng chỉ riêng, nó dùng chứng chỉ tự ký, và trình duyệt nào cũng cảnh báo. Điều này là bình thường. Hãy đặt cho panel một tên miền và chứng chỉ miễn phí để hết cảnh báo (xem [Những việc đầu tiên](./first-steps#give-the-panel-its-own-domain)).
 
 Nếu panel đã có chứng chỉ mà trình duyệt vẫn cảnh báo:
 
 - Bạn đang vào panel bằng địa chỉ IP. Chứng chỉ được cấp cho tên miền: hãy dùng `https://panel.example.com:28443/k3x9p2qa7m1z/`.
-- Chứng chỉ đã hết hạn vì không gia hạn được. Hãy xem **Cài đặt → Chứng chỉ** và bấm **Xin chứng chỉ mới**. Nguyên nhân giống như ở mục tiếp theo.
+- Chứng chỉ đã hết hạn vì không gia hạn được. Hãy xem **Cài đặt** → **Chứng chỉ** và bấm **Xin chứng chỉ mới**. Nguyên nhân giống như ở mục tiếp theo.
 
 ## Không xin được chứng chỉ {#a-certificate-request-fails}
 
@@ -126,7 +128,7 @@ Mỗi dòng bắt đầu bằng tên miền và các địa chỉ mà nó trỏ 
 
 **Khi đứng sau proxy của Cloudflare:**
 
-- Với website: hoặc chuyển bản ghi sang "DNS only" trong lúc xin chứng chỉ, hoặc đánh dấu **Xác thực qua DNS (Cloudflare)** ở tab **SSL / HTTPS** của website. Xác thực DNS cần API token của Cloudflare, bạn thêm token ở **Cài đặt → Cloudflare**. Tên wildcard (`*.example.com`) luôn cần xác thực DNS.
+- Với website: hoặc chuyển bản ghi sang "DNS only" trong lúc xin chứng chỉ, hoặc đánh dấu **Xác thực qua DNS (Cloudflare)** ở tab **SSL / HTTPS** của website. Xác thực DNS cần API token của Cloudflare, bạn thêm token ở **Cài đặt** → **Cloudflare**. Tên wildcard (`*.example.com`) luôn cần xác thực DNS.
 - Với tên miền riêng của panel: bản ghi phải trỏ thẳng về máy chủ, không qua proxy.
 
 **Với tên miền riêng của panel,** tab **Chứng chỉ** sẽ báo "Cần cài web server trước" cho tới khi bạn cài web server, vì web server trả lời Let's Encrypt ở cổng 80. Hãy cài ở trang **Website** trước.
@@ -135,7 +137,7 @@ Nếu bước kiểm tra đã qua mà Let's Encrypt vẫn từ chối, log tác 
 
 Khi gia hạn tự động bị lỗi, panel báo "Gia hạn chứng chỉ example.com bị lỗi" và thử lại sau mỗi 12 giờ. Chứng chỉ vẫn dùng được cho tới khi hết hạn.
 
-## Website báo lỗi
+## Website báo lỗi {#a-website-shows-an-error}
 
 | Khách truy cập thấy | Nguyên nhân | Cách xử lý |
 |---|---|---|
@@ -147,7 +149,13 @@ Khi gia hạn tự động bị lỗi, panel báo "Gia hạn chứng chỉ examp
 
 Với các lỗi khác, hãy đọc log lỗi và lỗi PHP của website ở tab **Nhật ký**.
 
-## Log nằm ở đâu
+## Tải bản sao lưu lên hoặc khôi phục bị lỗi {#a-backup-upload-or-restore-fails}
+
+- **Khôi phục báo lỗi "the passphrase does not unlock it".** Bản sao được mã hóa bằng một passphrase khác với passphrase hiện tại của kho lưu trữ. Hãy khôi phục lại và nhập passphrase đó vào ô **Passphrase mã hóa (không bắt buộc)**. Xem [Mã hóa các bản sao](./backups#encrypt-the-copies).
+- **Tải lên Google Drive bị lỗi sau một tuần.** Màn hình đồng ý OAuth vẫn ở trạng thái **Testing**: hãy chuyển sang **In production** trong Google Cloud console, rồi chọn **Thay đổi** → **Kết nối lại** ở **Sao lưu** → **Kho lưu trữ từ xa**. Xem [Google Drive](./backups#google-drive).
+- **Bản sao lưu website được khôi phục thành website tĩnh.** Bản sao lưu này được tạo bằng bản cũ hơn 0.24.1, vốn chỉ ghi phiên bản PHP. Với website ứng dụng hoặc website reverse proxy, hãy tạo lại website với đúng loại của nó trước, rồi mới khôi phục. Bản sao lưu tạo bằng 0.24.1 trở lên sẽ khôi phục website đúng loại. Xem [Khôi phục website đã bị xóa](./backups#restore-a-website-that-was-deleted).
+
+## Log nằm ở đâu {#where-the-logs-are}
 
 | Log | Trên máy chủ | Trong panel |
 |---|---|---|

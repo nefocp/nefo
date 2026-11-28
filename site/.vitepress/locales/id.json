@@ -1,0 +1,477 @@
+{
+  "langLabel": "Bahasa Indonesia",
+  "description": "Panel kontrol gratis dan sumber terbuka untuk server Linux Anda. Situs web, basis data, aplikasi, cadangan, dan keamanan dalam satu biner yang ringan.",
+  "nav": {
+    "docs": "Dokumentasi",
+    "install": "Instalasi",
+    "releases": "Rilis",
+    "compare": "Perbandingan",
+    "changelog": "Catatan perubahan",
+    "roadmap": "Peta jalan",
+    "securityPolicy": "Kebijakan keamanan",
+    "about": "Tentang",
+    "more": "Lainnya"
+  },
+  "groups": {
+    "Getting started": "Memulai",
+    "Websites": "Situs web",
+    "Data": "Data",
+    "Server": "Server",
+    "Help": "Bantuan"
+  },
+  "pages": {
+    "": "Apa itu Nefo?",
+    "requirements": "Persyaratan",
+    "install": "Instalasi",
+    "first-steps": "Langkah pertama",
+    "cli": "Baris perintah",
+    "update": "Pembaruan",
+    "uninstall": "Mencopot Nefo",
+    "websites": "Situs web",
+    "import": "Mengimpor situs web",
+    "ssl": "Sertifikat SSL",
+    "dns": "DNS (Cloudflare)",
+    "git-deploy": "Deploy dari Git",
+    "wordpress": "Toolkit WordPress",
+    "apps": "Toko aplikasi",
+    "databases": "Basis data",
+    "postgresql": "PostgreSQL",
+    "files": "File",
+    "backups": "Pencadangan",
+    "restore-new-server": "Memulihkan di server baru",
+    "software": "Perangkat lunak",
+    "docker": "Docker",
+    "security": "Keamanan",
+    "security-check": "Pemeriksaan keamanan",
+    "website-protection": "Pemblokiran negara dan penguncian file",
+    "api": "Kunci API",
+    "os": "Sistem",
+    "system": "Alat sistem",
+    "mail-alerts": "Email dan peringatan",
+    "troubleshooting": "Pemecahan masalah",
+    "faq": "Pertanyaan umum"
+  },
+  "editLink": "Edit halaman ini di GitHub",
+  "footer": {
+    "message": "Perangkat lunak bebas di bawah GNU AGPLv3.",
+    "copyright": "© 2026 para kontributor Nefo",
+    "about": "Panel kontrol gratis dan sumber terbuka untuk satu server Linux.",
+    "product": "Produk",
+    "docs": "Dokumentasi",
+    "project": "Proyek",
+    "languages": "Bahasa",
+    "features": "Fitur",
+    "screens": "Tampilan",
+    "apps": "Toko aplikasi",
+    "issues": "Laporkan masalah",
+    "beta": "Nefo masih beta: simpan cadangan."
+  },
+  "outline": "Di halaman ini",
+  "docFooter": {
+    "prev": "Halaman sebelumnya",
+    "next": "Halaman berikutnya"
+  },
+  "darkModeSwitchLabel": "Tampilan",
+  "lightModeSwitchTitle": "Beralih ke tema terang",
+  "darkModeSwitchTitle": "Beralih ke tema gelap",
+  "sidebarMenuLabel": "Menu",
+  "returnToTopLabel": "Kembali ke atas",
+  "langMenuLabel": "Ganti bahasa",
+  "skipToContentLabel": "Langsung ke konten",
+  "notFound": {
+    "title": "HALAMAN TIDAK DITEMUKAN",
+    "quote": "Halaman ini tidak ada atau sudah dipindahkan.",
+    "linkLabel": "kembali ke beranda",
+    "linkText": "Bawa saya ke beranda",
+    "docsText": "Baca dokumentasi"
+  },
+  "search": {
+    "buttonText": "Cari",
+    "buttonAriaLabel": "Cari",
+    "noResultsText": "Tidak ada hasil untuk",
+    "resetButtonTitle": "Hapus",
+    "displayDetails": "Tampilkan daftar terperinci",
+    "footer": {
+      "selectText": "untuk memilih",
+      "navigateText": "untuk bernavigasi",
+      "closeText": "untuk menutup"
+    }
+  },
+  "lastUpdated": "Terakhir diperbarui",
+  "docMeta": {
+    "updated": "Diperbarui",
+    "readTime": "{n} menit membaca",
+    "release": "Rilis saat ini",
+    "notes": "Catatan rilis",
+    "released": "dirilis {date}"
+  },
+  "llms": {
+    "summary": "Nefo adalah panel kontrol gratis dan sumber terbuka (AGPLv3) untuk satu server Linux: situs web, SSL, basis data, aplikasi sekali klik, pencadangan, dan pemeriksaan keamanan dari antarmuka web. Nefo adalah satu program yang memakai sekitar {ram} RAM, dan tidak ada data yang dikirim ke luar.",
+    "facts": [
+      "Versi saat ini: {version} ({status}), dirilis {date}.",
+      "Berjalan di Ubuntu 22.04, 24.04, dan 26.04 serta Debian 12 dan 13, diuji di x86-64; dibuat untuk VPS dengan RAM 1 GB.",
+      "Instal sebagai root di server baru: `curl -fsSL https://github.com/nefocp/nefo/releases/latest/download/install.sh | sudo bash`",
+      "Panelnya sendiri memakai sekitar {ram} RAM, diukur di server yang sedang beroperasi.",
+      "{apps} aplikasi di toko aplikasi; antarmuka dalam {languages} bahasa.",
+      "Perangkat lunak bebas di bawah GNU AGPLv3. Tanpa akun, tanpa telemetri, semua fitur gratis.",
+      "Sengaja tidak disertakan: server email, server DNS, beberapa server dalam satu panel."
+    ]
+  },
+  "home": {
+    "title": "Nefo: panel kontrol gratis dan sumber terbuka untuk server Linux Anda",
+    "metaDesc": "Situs web, SSL, basis data, {apps} aplikasi sekali klik, pencadangan, dan pemeriksaan keamanan untuk satu server Linux. Sumber terbuka (AGPLv3), sekitar {ram} RAM, tidak ada data yang dikirim ke luar.",
+    "ogAlt": "Nefo, panel kontrol gratis dan sumber terbuka untuk server Linux, dengan dasbornya",
+    "releaseBar": {
+      "text": "Nefo {version} sudah rilis: antarmuka dalam {languages} bahasa, pencadangan ke Google Drive, pemulihan di server baru, pemeriksaan keamanan.",
+      "short": "Nefo {version} sudah rilis.",
+      "link": "Catatan rilis"
+    },
+    "badges": {
+      "license": "Sumber terbuka · AGPLv3",
+      "version": "v{version} · beta"
+    },
+    "h1": "Panel kontrol gratis untuk <em>server Linux</em> Anda",
+    "lead": "Situs web, SSL, basis data, {apps} aplikasi sekali klik, pencadangan, dan pemeriksaan keamanan dalam satu antarmuka web. Nefo adalah satu program yang memakai sekitar {ram} RAM. Semua fitur gratis, dan tidak ada data yang dikirim ke luar.",
+    "ctaInstall": "Instal Nefo",
+    "ctaDocs": "Baca dokumentasi",
+    "cmdTitle": "sebagai root, di server baru",
+    "copy": "Salin",
+    "copied": "Disalin",
+    "languages": "{languages} bahasa",
+    "shotAlt": "Dasbor Nefo: beban server, CPU, memori, dan disk, jumlah situs web, basis data, dan cadangan, riwayat sumber daya, dan hal yang perlu perhatian",
+    "phoneAlt": "Dasbor Nefo di ponsel",
+    "stackLabel": "Menginstal dan mengelola",
+    "tour": {
+      "eyebrow": "Panel",
+      "h2": "Tampilan dari Nefo {version}",
+      "lead": "Diambil di server uji dengan delapan situs web dan dua aplikasi Docker; riwayat beban dan lalu lintas selama seminggu adalah data contoh. Pilih halaman, lalu ganti jendela antara terang dan gelap.",
+      "light": "Terang",
+      "dark": "Gelap",
+      "docs": "Di dokumentasi",
+      "tabs": {
+        "websites": {
+          "label": "Situs web",
+          "caption": "Setiap situs dengan <b>jenis, versi PHP, sertifikat, kunjungan, dan cadangannya</b>: PHP, statis, WordPress, Node.js, aplikasi Docker, dan reverse proxy dalam satu daftar.",
+          "alt": "Halaman Situs web: delapan situs web dengan jenis, versi PHP, sertifikat, kunjungan, dan cadangannya"
+        },
+        "site": {
+          "label": "Pengaturan situs",
+          "caption": "Satu panel samping untuk setiap situs web: <b>domain, PHP, SSL, akses, Git, cadangan, log, dan keamanan</b>, tanpa meninggalkan daftar.",
+          "alt": "Panel samping pengaturan satu situs web, dengan tab domain, PHP, SSL, akses, Git, cadangan, log, dan keamanan"
+        },
+        "apps": {
+          "label": "Toko aplikasi",
+          "caption": "<b>{apps} aplikasi</b> per kategori. Aplikasi PHP dipasang di situs web dengan basis datanya sendiri; aplikasi Docker mendapat situs webnya sendiri.",
+          "alt": "Halaman Toko aplikasi: aplikasi per kategori, masing-masing dengan tombol instal sekali klik"
+        },
+        "databases": {
+          "label": "Basis data",
+          "caption": "<b>MariaDB, PostgreSQL, dan Redis di satu halaman</b>, setiap basis data tertaut ke situs webnya, dengan ukuran, akses, impor, dan ekspornya.",
+          "alt": "Halaman Basis data: basis data MariaDB dan PostgreSQL dengan situs web, ukuran, dan aksesnya, serta Redis"
+        },
+        "backups": {
+          "label": "Pencadangan",
+          "caption": "Salinan di server ini dan di <b>SFTP, S3, atau Google Drive</b>, jadwal dengan retensi, pemulihan setelah pemeriksaan checksum.",
+          "alt": "Halaman Pencadangan: cadangan situs web, basis data, folder, dan aplikasi, disimpan di server ini dan di SFTP"
+        },
+        "security": {
+          "label": "Pemeriksaan keamanan",
+          "caption": "<b>22 pemeriksaan server</b>, masing-masing dengan temuannya dan tautan ke perbaikannya.",
+          "alt": "Halaman Pemeriksaan keamanan: 22 pemeriksaan server, masing-masing dengan hasilnya dan tautan ke perbaikannya"
+        },
+        "software": {
+          "label": "Perangkat lunak",
+          "caption": "Apa yang terinstal, <b>berapa RAM dan disk yang dipakai setiap bagian</b>, dan apa yang bisa Anda tambah atau copot.",
+          "alt": "Halaman Perangkat lunak: server web dan versi PHP, dengan memori yang dibutuhkan masing-masing"
+        }
+      }
+    },
+    "features": {
+      "eyebrow": "Fitur",
+      "h2": "Apa yang dilakukan Nefo",
+      "lead": "Instal hanya yang Anda pakai. Menu menyembunyikan yang belum terinstal, dan setiap bagian bisa dicopot lagi.",
+      "more": "Baca selengkapnya",
+      "rows": {
+        "web": {
+          "kicker": "Situs web",
+          "h3": "Situs PHP, Node.js, Python, dan Java, atau proxy ke alamat mana pun",
+          "p": "Setiap situs web mendapat pengguna Linux sendiri, pengaturan PHP sendiri, dan sertifikat gratis, di Nginx, Apache, atau OpenLiteSpeed.",
+          "ticks": [
+            "PHP 5.6 sampai 8.6 berdampingan, satu versi per situs",
+            "Sertifikat Let's Encrypt yang diperpanjang otomatis, wildcard lewat DNS Cloudflare, atau sertifikat Anda sendiri",
+            "SFTP yang terkunci di folder situs, dengan kata sandi atau kunci SSH",
+            "Kloning situs, buat salinan staging WordPress, deploy dari Git di setiap push",
+            "Impor dari cadangan lengkap cPanel, atau dari arsip situs dan dump SQL"
+          ],
+          "alt": "Panel samping pengaturan situs web di Nefo",
+          "more": "Situs web di dokumentasi"
+        },
+        "db": {
+          "kicker": "Basis data",
+          "h3": "MariaDB atau MySQL, PostgreSQL, dan Redis",
+          "p": "Basis data tertaut ke situs webnya, jadi cadangan situs web ikut menyertakannya. Peningkatan versi membuat dump lebih dulu dan kembali ke keadaan semula jika ada yang gagal.",
+          "ticks": [
+            "MariaDB 11.4, 11.8, atau 12.3 LTS, atau MySQL 8.4, dan peralihan di antara keduanya beserta datanya",
+            "PostgreSQL 15 sampai 19, dengan akses jarak jauh per basis data lewat TLS",
+            "Akses jarak jauh per basis data, hanya dari alamat yang Anda izinkan",
+            "Adminer dan phpMyAdmin, yang hanya bisa dibuka setelah masuk ke panel",
+            "Penjelajah kunci Redis, dan Memcached"
+          ],
+          "alt": "Daftar basis data di Nefo, masing-masing tertaut ke situs webnya",
+          "more": "Basis data di dokumentasi"
+        },
+        "bak": {
+          "kicker": "Pencadangan",
+          "h3": "Pencadangan ke S3, SFTP, atau Google Drive, terenkripsi jika Anda mau",
+          "p": "Situs web, basis data, folder, dan aplikasi Docker, secara manual atau setiap hari atau setiap minggu, dengan jumlah salinan yang disimpan.",
+          "ticks": [
+            "Penyimpanan yang kompatibel dengan S3: AWS S3, Cloudflare R2, Backblaze B2, Wasabi, MinIO",
+            "SFTP dengan host key yang disematkan; Google Drive dengan akses hanya ke file yang dibuat Nefo",
+            "Enkripsi dengan passphrase Anda (scrypt dan AES-256-GCM) sebelum salinan meninggalkan server",
+            "Pemulihan memeriksa SHA-256 lebih dulu; server baru menemukan cadangan di penyimpanan dan membuat situs webnya lagi"
+          ],
+          "alt": "Daftar cadangan di Nefo, dengan tempat setiap salinan disimpan",
+          "more": "Pencadangan di dokumentasi"
+        },
+        "sec": {
+          "kicker": "Keamanan",
+          "h3": "Pemeriksaan keamanan seluruh server",
+          "p": "22 pemeriksaan cepat, sesuai permintaan atau sekali sehari, masing-masing dengan temuannya dan tautan ke perbaikannya. Tidak ada yang terus berjalan di antara pemeriksaan.",
+          "ticks": [
+            "SSH, firewall, pembaruan yang tertunda, basis data atau Redis yang terbuka ke internet, port Docker yang melewati ufw",
+            "File yang bisa diakses lewat HTTP, sertifikat, pengaturan PHP",
+            "Firewall aplikasi web (ModSecurity dengan aturan OWASP), batas laju, alamat yang diblokir, pemblokiran negara",
+            "Penguncian file yang membuat kode situs web hanya-baca bagi PHP; pemindai malware dengan karantina",
+            "Peringatan saat ada yang masuk lewat SSH dan saat banyak upaya masuk gagal dalam waktu singkat"
+          ],
+          "alt": "Hasil pemeriksaan keamanan di Nefo",
+          "more": "Keamanan di dokumentasi"
+        },
+        "sw": {
+          "kicker": "Perangkat lunak",
+          "h3": "Instal dan copot perangkat lunak dari satu halaman",
+          "p": "Setiap bagian menunjukkan biaya RAM dan disknya sebelum Anda menginstalnya. Pencopotan ditolak selama situs web atau basis data masih memakainya, dan data tetap disimpan kecuali Anda mengonfirmasi.",
+          "ticks": [
+            "Server web, PHP 5.6 sampai 8.6 dengan ionCube Loader, MariaDB atau MySQL, PostgreSQL",
+            "Redis, Memcached, Node.js, Python, Java (OpenJDK 17, 21, 25), Composer, WP-CLI",
+            "Docker dengan proyek Compose, diperiksa apakah ada kontainer privileged dan port publik",
+            "Firewall aplikasi web dan ClamAV, hanya jika Anda menginginkannya"
+          ],
+          "alt": "Halaman Perangkat lunak di Nefo, dengan memori yang dibutuhkan setiap bagian",
+          "more": "Perangkat lunak di dokumentasi"
+        }
+      },
+      "alsoTitle": "Juga ada di panel",
+      "also": {
+        "files": {
+          "title": "Pengelola file",
+          "text": "Editor, pencarian, unduh dari URL, tempat sampah 30 hari."
+        },
+        "terminal": {
+          "title": "Terminal",
+          "text": "Shell root di browser."
+        },
+        "cron": {
+          "title": "Cron dan program latar belakang",
+          "text": "Dijaga tetap berjalan oleh systemd sebagai pengguna situs."
+        },
+        "monitoring": {
+          "title": "Pemantauan",
+          "text": "Beban langsung, riwayat 7 hari, pemeriksaan uptime per situs web."
+        },
+        "alerts": {
+          "title": "Peringatan",
+          "text": "Telegram, email, Discord, Slack, atau webhook yang ditandatangani."
+        },
+        "dns": {
+          "title": "DNS Cloudflare",
+          "text": "Record, pengosongan cache, serta MX, SPF, dan DMARC untuk penyedia email Anda."
+        },
+        "wordpress": {
+          "title": "Toolkit WordPress",
+          "text": "Pembaruan dengan cadangan basis data lebih dulu, staging, mode pemeliharaan."
+        },
+        "docker": {
+          "title": "Docker",
+          "text": "Kontainer, image, dan proyek Compose."
+        },
+        "api": {
+          "title": "Kunci API",
+          "text": "Hanya baca atau akses penuh, daftar alamat yang diizinkan, dan tanggal kedaluwarsa."
+        }
+      }
+    },
+    "apps": {
+      "eyebrow": "Toko aplikasi",
+      "h2": "{apps} aplikasi, diinstal dengan satu klik",
+      "lead": "Aplikasi PHP dipasang di situs web dengan basis datanya sendiri. Aplikasi Docker berjalan di balik situs webnya sendiri, yang tetap tertutup sampai login bawaannya diganti.",
+      "all": "Semua",
+      "showAll": "Tampilkan semua {apps} aplikasi",
+      "showLess": "Tampilkan lebih sedikit",
+      "docs": "Toko aplikasi di dokumentasi",
+      "kinds": {
+        "php": "Aplikasi PHP",
+        "docker": "Aplikasi Docker",
+        "service": "Layanan"
+      },
+      "cats": {
+        "cms": "Situs web & konten",
+        "ecommerce": "Toko & bisnis",
+        "education": "Pendidikan",
+        "productivity": "Produktivitas",
+        "storage": "File & penyimpanan",
+        "ai": "AI",
+        "devtools": "Alat pengembang",
+        "database": "Basis data",
+        "monitoring": "Pemantauan",
+        "security": "Keamanan & jaringan",
+        "media": "Media",
+        "communication": "Komunikasi"
+      }
+    },
+    "install": {
+      "eyebrow": "Instalasi",
+      "h2": "Satu perintah di server baru",
+      "lead": "Penginstal memasang satu program dan satu layanan systemd. Setelah itu Anda memilih perangkat lunak lainnya di halaman penyiapan.",
+      "steps": [
+        {
+          "title": "Siapkan server baru",
+          "text": "Ubuntu 22.04, 24.04, atau 26.04, atau Debian 12 atau 13, di x86-64. Dibuat untuk VPS dengan RAM 1 GB."
+        },
+        {
+          "title": "Jalankan penginstal sebagai root",
+          "text": "Penginstal memeriksa tanda tangan Ed25519 dan checksum rilis, menginstal <code>/usr/local/bin/nefo</code> dan sebuah layanan systemd, lalu memilih port acak dan path rahasia."
+        },
+        {
+          "title": "Masuk dan pilih perangkat lunak Anda",
+          "text": "Buka alamat yang dicetaknya dan masuk dengan kata sandi sekali pakai. Di halaman penyiapan, pilih server web, versi PHP, dan basis data, beserta biaya RAM dan disknya."
+        }
+      ],
+      "guide": "Panduan instalasi"
+    },
+    "compare": {
+      "eyebrow": "Perbandingan",
+      "h2": "Nefo dan panel lain",
+      "lead": "Perbedaannya secara singkat. Panel lain berbeda-beda; kolom kanan adalah yang sering Anda temui.",
+      "us": "Nefo",
+      "them": "Panel lain, sering kali",
+      "rows": [
+        {
+          "label": "Memori yang dipakai panel itu sendiri",
+          "us": "Sekitar {ram}",
+          "them": "Sering ratusan MB",
+          "mark": "yes"
+        },
+        {
+          "label": "Perlu akun untuk memakainya",
+          "us": "Tidak",
+          "them": "Diwajibkan oleh banyak panel",
+          "mark": "yes"
+        },
+        {
+          "label": "Telemetri",
+          "us": "Tidak ada",
+          "them": "Berbeda-beda",
+          "mark": "yes"
+        },
+        {
+          "label": "Halaman masuk",
+          "us": "Hanya di path rahasia; setiap alamat lain menjawab 404",
+          "them": "Di port dan path yang sudah umum diketahui",
+          "mark": "yes"
+        },
+        {
+          "label": "Pembaruan",
+          "us": "Ditandatangani dengan Ed25519 dan diperiksa sebelum diinstal",
+          "them": "Berbeda-beda",
+          "mark": "yes"
+        },
+        {
+          "label": "Pengaman agar tidak terkunci untuk firewall dan SSH",
+          "us": "Ya",
+          "them": "Jarang",
+          "mark": "yes"
+        },
+        {
+          "label": "Kode sumber",
+          "us": "Seluruhnya, AGPLv3",
+          "them": "Tertutup, sebagian terbuka, atau terbuka",
+          "mark": "yes"
+        },
+        {
+          "label": "Server email dan DNS",
+          "us": "Sengaja tidak disertakan",
+          "them": "Sering disertakan",
+          "mark": "na"
+        },
+        {
+          "label": "Beberapa server dalam satu panel",
+          "us": "Tidak, satu panel per server",
+          "them": "Sebagian",
+          "mark": "na"
+        }
+      ],
+      "note": "Memori diukur di server yang sedang beroperasi dengan Nefo {version}.",
+      "more": "Perbandingan lengkap"
+    },
+    "faq": {
+      "eyebrow": "Pertanyaan umum",
+      "h2": "Pertanyaan yang sering diajukan",
+      "lead": "Selengkapnya ada di <a href=\"{docs}\">dokumentasi</a> dan halaman <a href=\"{faq}\">Pertanyaan umum</a>.",
+      "items": [
+        {
+          "q": "Apakah Nefo benar-benar gratis?",
+          "a": "Ya. Semua fitur ada dalam satu versi yang sama, di bawah AGPLv3. Tidak ada akun yang perlu dibuat dan tidak ada data yang dikirim ke luar."
+        },
+        {
+          "q": "Di sistem apa Nefo berjalan?",
+          "a": "Ubuntu 22.04, 24.04, dan 26.04, serta Debian 12 dan 13, di x86-64, masing-masing diuji di server yang baru diinstal. Nefo dibuat untuk VPS dengan RAM 1 GB."
+        },
+        {
+          "q": "Berapa banyak memori yang dipakainya?",
+          "a": "Sekitar {ram} RAM untuk panelnya sendiri, diukur di server yang sedang beroperasi dengan Nefo {version}. Perangkat lunak yang Anda instal di sampingnya, seperti server web, PHP, dan basis data, memakai memorinya sendiri."
+        },
+        {
+          "q": "Bisakah saya memindahkan situs web saya dari panel lain?",
+          "a": "Bisa: dari cadangan lengkap cPanel (file, basis data beserta pengguna dan kata sandinya, sertifikat, tugas cron), atau dari arsip situs dan dump SQL yang dibuat panel lain mana pun."
+        },
+        {
+          "q": "Apakah Nefo menyertakan server email?",
+          "a": "Tidak, dan itu disengaja: server email butuh banyak perawatan dan memori. Situs web mengirim email lewat penyedia SMTP Anda, dan halaman DNS menyiapkan MX, SPF, dan DMARC untuk Google Workspace, Microsoft 365, Zoho, atau Cloudflare Email Routing."
+        },
+        {
+          "q": "Apakah Nefo siap untuk produksi?",
+          "a": "Nefo masih beta. Nefo dipakai setiap hari di server uji, tetapi belum pernah diaudit keamanannya oleh pihak luar. Simpan cadangan, dan coba dulu di server yang bisa Anda bangun ulang."
+        },
+        {
+          "q": "Bahasa apa saja yang tersedia di antarmuka?",
+          "a": "Inggris, Vietnam, Tionghoa, Spanyol, Portugis, Rusia, dan Indonesia. Browser hanya memuat bahasa yang sedang dipakai."
+        },
+        {
+          "q": "Bagaimana cara memperbaruinya?",
+          "a": "Jalankan <code>nefo update</code> di server. Setiap rilis ditandatangani dengan Ed25519, dan tanda tangannya diperiksa sebelum pembaruan diinstal."
+        }
+      ]
+    },
+    "help": {
+      "docs": {
+        "title": "Dokumentasi",
+        "text": "Setiap halaman panel dijelaskan, dengan label yang Anda lihat di layar."
+      },
+      "github": {
+        "title": "Kode sumber di GitHub",
+        "text": "Baca kodenya, laporkan masalah, atau ikuti perkembangannya."
+      },
+      "releases": {
+        "title": "Catatan rilis",
+        "text": "Apa yang berubah di setiap versi, termasuk {version}."
+      }
+    },
+    "band": {
+      "h2": "Coba di server yang bisa Anda bangun ulang",
+      "p": "Satu perintah menginstal panel lalu mencetak alamatnya dan kata sandi sekali pakai.",
+      "install": "Instal Nefo",
+      "github": "Kode sumber di GitHub"
+    }
+  }
+}

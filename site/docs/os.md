@@ -5,7 +5,9 @@ description: Install operating system updates, turn on automatic security update
 
 # System
 
-The **System** page, in the **Server** group of the left menu, looks after the server itself. It has five tabs: **Updates**, **Swap**, **Time & name**, **Network** and **Cleanup**. Every change on this page is recorded in the activity log (**Account** → **Recent activity**).
+The **System** page installs operating system updates, with security updates marked and checked every few hours, turns on automatic security updates, creates a swap file, sets the time zone, clock synchronization and host name, turns on TCP BBR, and frees disk space. Every change on it is recorded in the activity log.
+
+The page is in the **Server** group of the left menu. It has five tabs: **Updates**, **Swap**, **Time & name**, **Network** and **Cleanup**. The activity log is in **Account** → **Recent activity**.
 
 Long changes, such as installing updates or creating a swap file, run as a background task: the page shows their progress, and only one task runs at a time.
 
@@ -15,7 +17,7 @@ The **Updates** tab lists the operating system's pending updates: each package, 
 
 ### How the panel checks for updates
 
-- The panel checks on its own: every hour it looks at its last check, and when that is older than 6 hours, it runs `apt-get update` and asks apt what an upgrade would install. It skips the check while another task runs.
+- The panel checks on its own: every hour it looks at its last check, and when that is older than 6 hours, it runs `apt-get update` and asks apt what an upgrade would install. It skips the check while another task runs, and in the first 30 minutes after the panel starts.
 - Opening the page never runs apt: it shows the last check, with its time.
 - **Check now** checks at once, as a task.
 - **Held back for now** lists updates that apt doesn't install yet: packages it keeps back because they would need other changes, and Ubuntu's phased updates, which reach servers over a few days.
@@ -104,7 +106,7 @@ The panel:
 2. points the `127.0.1.1` line of `/etc/hosts` at it (the full name and its first part), or adds that line;
 3. on a server with cloud-init, writes `/etc/cloud/cloud.cfg.d/99-panel-hostname.cfg` with `preserve_hostname: true`, so cloud-init doesn't put the provider's name back at the next boot.
 
-The host name doesn't change the panel's address or any certificate. To reboot the server from **Settings**, type the new name.
+The host name doesn't change the panel's address or any certificate. When you reboot the server from **Settings** → **Panel** → **Power**, you confirm by typing the server's name: after a change, type the new one.
 
 ## Network: TCP BBR {#network-tcp-bbr}
 
